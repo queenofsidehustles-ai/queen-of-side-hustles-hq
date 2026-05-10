@@ -209,7 +209,18 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
 
     for platform, account_id in account_map.items():
         # Use platform-specific caption, fall back to script
-        caption = captions_dict.get(platform) or content_item.get("script", "")
+        raw_caption = captions_dict.get(platform)
+
+        # Handle nested structure e.g. {"DREAMER": "...", "OPERATOR": "..."}
+        # Pick DREAMER first, then first available, then fall back to script
+        if isinstance(raw_caption, dict):
+            raw_caption = (raw_caption.get("DREAMER")
+                           or raw_caption.get("dreamer")
+                           or next(iter(raw_caption.values()), None))
+
+        caption = raw_caption or content_item.get("script", "")
+        if not caption or not isinstance(caption, str):
+            caption = content_item.get("script", "")
         if not caption:
             continue
 

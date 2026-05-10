@@ -304,9 +304,11 @@ CRITICAL LENGTH RULES — follow these exactly:
 HASHTAGS: #KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss #KidsPartyPlanner
 (Only use hashtags for Instagram, TikTok, and YouTube — not LinkedIn or Twitter.)
 
-OUTPUT FORMAT: Valid JSON only — platform names as keys, captions as values.
-Example: {{"instagram": "caption...", "tiktok": "caption..."}}
-Return ONLY the JSON. No markdown, no explanations. Keep every caption TIGHT — less is more."""
+OUTPUT FORMAT: Valid flat JSON only.
+Keys = platform names. Values = ONE caption string (not a nested object).
+Pick ONE audience (Dreamer OR Operator) per caption — do NOT split into sub-keys.
+Example: {{"instagram": "Escape the 9-to-5! 🎉...", "tiktok": "Stop overworking. Start partying. 🎊..."}}
+Return ONLY the JSON object. No markdown, no nested objects, no explanations."""
 
     emit("caption", "progress", f"Asking AI to write custom captions for {', '.join(platforms)}. Each platform gets its own version — different length, hashtags, and style.")
 
