@@ -7,7 +7,7 @@ Students learn: this is the "output" stage — where content goes live.
 
 import os
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 # ---------------------------------------------------------------------------
 # API endpoint
@@ -16,20 +16,22 @@ GETLATE_BASE_URL = "https://getlate.dev/api/v1"
 
 
 def _parse_scheduled_time(scheduled_at_str):
-    """Parse a scheduled_at string into UTC ISO 8601 format."""
+    """Parse a scheduled_at string into Zernio's expected format: YYYY-MM-DDTHH:MM:SS (no Z)."""
     formats = [
         "%Y-%m-%dT%H:%M",
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%SZ",
     ]
     for fmt in formats:
         try:
             dt = datetime.strptime(scheduled_at_str, fmt)
-            dt_utc = dt.replace(tzinfo=timezone.utc)
-            return dt_utc.isoformat()
+            return dt.strftime("%Y-%m-%dT%H:%M:%S")
         except (ValueError, TypeError):
             continue
-    # Can't parse — return as-is
+    # Already in right format or can't parse — strip Z if present
+    if isinstance(scheduled_at_str, str) and scheduled_at_str.endswith("Z"):
+        return scheduled_at_str[:-1]
     return scheduled_at_str
 
 
@@ -109,12 +111,15 @@ def publish_post(content_item, platforms=None, emit_event=None):
             payload["media"] = payload.get("media", [])
             payload["media"].append({"url": video_url, "type": "video"})
 
-        # If there's a scheduled time, parse and add it
+        # If there's a scheduled time, use scheduledFor (camelCase — required by Zernio)
         if content_item.get("scheduled_at"):
             parsed_time = _parse_scheduled_time(content_item["scheduled_at"])
             if parsed_time:
-                payload["scheduled_for"] = parsed_time
+                payload["scheduledFor"] = parsed_time
                 payload["timezone"] = "America/Los_Angeles"
+        else:
+            # Publish immediately
+            payload["publishNow"] = True
 
         response = requests.post(
             f"{GETLATE_BASE_URL}/posts",
@@ -125,7 +130,7 @@ def publish_post(content_item, platforms=None, emit_event=None):
         response.raise_for_status()
         data = response.json()
 
-        post_id = data.get("id", data.get("post_id", "unknown"))
+        post_id = data.get("post", {}).get("_id") or data.get("id", data.get("post_id", "unknown"))
 
         emit("publish", "progress",
              f"Published! Post ID: {post_id}")
@@ -231,13 +236,12 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
         if media:
             payload["media"] = media
         if scheduled_for:
-            payload["scheduled_for"] = scheduled_for
+            # scheduledFor = camelCase, required by Zernio API
+            payload["scheduledFor"] = scheduled_for
             payload["timezone"] = "America/Los_Angeles"
         else:
-            # Publish now — set to 30 seconds from now so Zernio queues it immediately
-            publish_at = (datetime.now(timezone.utc) + timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
-            payload["scheduled_for"] = publish_at
-            payload["timezone"] = "UTC"
+            # Publish immediately
+            payload["publishNow"] = True
 
         try:
             resp = requests.post(f"{GETLATE_BASE_URL}/posts", headers=headers, json=payload, timeout=30)
