@@ -32,10 +32,23 @@
                 <span class="flex items-center gap-1"><span class="spinner spinner-sm"></span> Publishing...</span>
             </template>
         </button>
+        <button class="btn btn-ghost btn-sm" @click="diagnose()" title="Check what Zernio sees">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Diagnose
+        </button>
         <button class="btn btn-danger btn-sm" @click="confirmDelete = true">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             Delete
         </button>
+    </div>
+
+    <!-- Diagnose Output Panel -->
+    <div x-show="diagnoseResult" x-transition style="margin-bottom: 20px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+        <div class="flex justify-between" style="margin-bottom: 8px;">
+            <span style="font-weight: 600; font-size: 0.875rem;">Diagnose Report</span>
+            <button @click="diagnoseResult = null" style="background: none; border: none; cursor: pointer; color: var(--text-subtle);">✕</button>
+        </div>
+        <pre x-text="diagnoseResult" style="font-family: 'SF Mono', monospace; font-size: 0.75rem; white-space: pre-wrap; color: var(--text-muted); line-height: 1.6; max-height: 300px; overflow-y: auto;"></pre>
     </div>
 
     <!-- Status Bar -->
@@ -444,6 +457,7 @@ function contentDetail() {
         uploading: false,
         uploadedUrl: '',
         publishing: false,
+        diagnoseResult: null,
 
         copyText(text) {
             navigator.clipboard.writeText(text).then(() => {
@@ -522,6 +536,16 @@ function contentDetail() {
                     }
                 })
                 .catch(() => { this.uploading = false; showToast('Upload failed — check R2 storage settings.', 'error'); });
+        },
+
+        diagnose() {
+            showToast('Running diagnostics...', 'info');
+            fetch('/content/api/{{ item.id }}/diagnose')
+                .then(r => r.json())
+                .then(data => {
+                    this.diagnoseResult = JSON.stringify(data, null, 2);
+                })
+                .catch(err => showToast('Diagnose failed: ' + err.message, 'error'));
         },
 
         deleteItem() {

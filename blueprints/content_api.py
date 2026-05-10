@@ -287,6 +287,60 @@ def publish_all(item_id):
     return jsonify(result)
 
 
+@content_api_bp.route("/<int:item_id>/diagnose", methods=["GET"])
+@login_required
+def diagnose_publish(item_id):
+    """
+    Diagnostic endpoint — shows exactly what would be sent to Zernio
+    and what Zernio's connected accounts look like. Does NOT publish.
+    """
+    item = ContentItem.query.get_or_404(item_id)
+    from services.r2_storage import is_configured as r2_ok
+    import requests as req_lib
+    import os
+
+    # What media URLs the item has
+    media_info = {
+        "image_url": item.image_url or None,
+        "r2_image_url": item.r2_image_url or None,
+        "video_url": item.video_url or None,
+        "r2_video_url": item.r2_video_url or None,
+        "r2_configured": r2_ok(),
+    }
+
+    # What captions exist
+    captions_info = {}
+    if item.captions:
+        try:
+            captions_info = json.loads(item.captions)
+            captions_info = {k: v[:80] + "..." if len(v) > 80 else v for k, v in captions_info.items()}
+        except Exception:
+            captions_info = {"error": "could not parse captions JSON"}
+
+    # Fetch Zernio connected accounts
+    zernio_key = os.getenv("ZERNIO_API_KEY") or os.getenv("GETLATE_API_KEY")
+    zernio_info = {}
+    if not zernio_key:
+        zernio_info = {"error": "No ZERNIO_API_KEY set in Railway variables"}
+    else:
+        try:
+            r = req_lib.get("https://getlate.dev/api/v1/accounts",
+                            headers={"Authorization": f"Bearer {zernio_key}", "Content-Type": "application/json"},
+                            timeout=10)
+            zernio_info = {"status_code": r.status_code, "response": r.json()}
+        except Exception as e:
+            zernio_info = {"error": str(e)}
+
+    return jsonify({
+        "item_id": item_id,
+        "platform": item.platform,
+        "status": item.status,
+        "media": media_info,
+        "captions_preview": captions_info,
+        "zernio_accounts": zernio_info,
+    })
+
+
 @content_api_bp.route("/upload", methods=["POST"])
 @login_required
 def upload_media():
