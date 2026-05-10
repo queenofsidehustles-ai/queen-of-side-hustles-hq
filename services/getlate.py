@@ -34,8 +34,8 @@ def _parse_scheduled_time(scheduled_at_str):
 
 
 def _get_headers():
-    """Build auth headers for GetLate API."""
-    api_key = os.getenv("GETLATE_API_KEY")
+    """Build auth headers for GetLate/Zernio API."""
+    api_key = os.getenv("ZERNIO_API_KEY") or os.getenv("GETLATE_API_KEY")
     if not api_key:
         return None
     return {
@@ -78,10 +78,24 @@ def publish_post(content_item, platforms=None, emit_event=None):
     emit("publish", "progress", f"Publishing to {', '.join(platforms)} via GetLate.dev...")
 
     try:
+        # Fetch connected account IDs (Zernio requires accountId, not just platform name)
+        accounts_resp = requests.get(f"{GETLATE_BASE_URL}/accounts", headers=headers, timeout=10)
+        accounts_resp.raise_for_status()
+        accounts_data = accounts_resp.json()
+        all_accounts = accounts_data if isinstance(accounts_data, list) else accounts_data.get("accounts", [])
+        account_map = {a["platform"]: a["_id"] for a in all_accounts if a.get("platform") and a.get("_id")}
+
+        platform_entries = []
+        for p in platforms:
+            if p in account_map:
+                platform_entries.append({"platform": p, "accountId": account_map[p]})
+        if not platform_entries:
+            return {"status": "error", "error": f"No connected accounts found for platforms: {platforms}. Connect them at zernio.com"}
+
         # Build the post payload
         payload = {
             "content": content_item.get("script", ""),
-            "platforms": [{"platform": p} for p in platforms],
+            "platforms": platform_entries,
         }
 
         # Attach image if available (prefer R2 URL)
