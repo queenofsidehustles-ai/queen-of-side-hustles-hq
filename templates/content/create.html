@@ -24,34 +24,65 @@
                 </h3>
             </div>
             <div class="card-body">
-                <!-- Main Textarea -->
+
+                <!-- Step 1: Idea -->
                 <div class="form-group">
-                    <label class="form-label">URL or Content Idea</label>
+                    <label class="form-label">Your Idea or Hook</label>
                     <textarea
                         x-model="input"
                         @input="detectInputType()"
-                        placeholder="Paste a URL to scrape an article, or type a content idea..."
+                        placeholder="Type your content idea... e.g. 'How I made $500 booking one kids party'"
                         :disabled="generating"
-                        style="min-height: 100px; font-size: 0.95rem; resize: vertical;"></textarea>
+                        style="min-height: 90px; font-size: 0.95rem; resize: vertical;"></textarea>
                 </div>
 
                 <!-- Auto-detect Indicator -->
                 <div x-show="input.length > 0" x-transition style="margin-bottom: 16px;">
                     <span x-show="inputType === 'url'"
                           style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; background: rgba(99,102,241,0.12); color: #6366f1;">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                        </svg>
-                        URL detected -- will scrape article
+                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        URL detected — will scrape article
                     </span>
                     <span x-show="inputType === 'idea'"
                           style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; background: var(--gold-tint); color: var(--gold);">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                        </svg>
-                        Idea mode -- will generate from scratch
+                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        Idea mode — will write caption from scratch
                     </span>
+                </div>
+
+                <!-- Step 2: Upload Your Own Video (optional) -->
+                <div style="margin-bottom: 20px;">
+                    <label class="form-label" style="margin-bottom: 8px; display: block;">
+                        Upload Your Video or Photo
+                        <span style="color: var(--text-subtle); font-weight: 400; font-size: 0.78rem; margin-left: 6px;">(optional — skip if you want AI to make one)</span>
+                    </label>
+
+                    <!-- Drop zone / file picker -->
+                    <div x-show="!uploadedFile"
+                         @click="$refs.fileInput.click()"
+                         style="border: 2px dashed var(--border); border-radius: 12px; padding: 28px 16px; text-align: center; cursor: pointer; transition: border-color 0.2s;"
+                         @dragover.prevent="$event.currentTarget.style.borderColor='var(--gold)'"
+                         @dragleave="$event.currentTarget.style.borderColor='var(--border)'"
+                         @drop.prevent="handleDrop($event)">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="margin: 0 auto 10px; display: block;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 4px;">Tap to pick a video or photo from your camera roll</div>
+                        <div style="color: var(--text-subtle); font-size: 0.75rem;">MP4, MOV, JPG, PNG accepted</div>
+                    </div>
+
+                    <!-- File selected preview -->
+                    <div x-show="uploadedFile" style="border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+                        <div style="flex: 1; min-width: 0;">
+                            <div x-text="uploadedFile ? uploadedFile.name : ''" style="font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                            <div x-text="uploadedFile ? formatFileSize(uploadedFile.size) : ''" style="font-size: 0.75rem; color: var(--text-subtle);"></div>
+                        </div>
+                        <button @click.stop="uploadedFile = null" style="background: none; border: none; cursor: pointer; color: var(--text-subtle); padding: 4px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <input type="file" x-ref="fileInput" accept="video/*,image/*" style="display: none;"
+                           @change="handleFileSelect($event)" :disabled="generating">
                 </div>
 
                 <!-- Controls Row -->
@@ -68,12 +99,12 @@
                         </select>
                     </div>
 
-                    <!-- Include Video -->
-                    <div style="padding-top: 20px;">
+                    <!-- Include Video (only show if no upload) -->
+                    <div x-show="!uploadedFile" style="padding-top: 20px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem; color: var(--text-muted);">
                             <input type="checkbox" x-model="includeVideo" :disabled="generating"
                                    style="accent-color: var(--gold); width: 16px; height: 16px;">
-                            Include Video
+                            Generate AI Video
                         </label>
                     </div>
 
@@ -88,18 +119,19 @@
                             <template x-if="!generating">
                                 <span class="flex items-center gap-2">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                                    Generate
+                                    Generate Caption
                                 </span>
                             </template>
                             <template x-if="generating">
                                 <span class="flex items-center gap-2">
                                     <span class="spinner spinner-sm"></span>
-                                    Generating...
+                                    <span x-text="statusMessage"></span>
                                 </span>
                             </template>
                         </button>
                     </div>
                 </div>
+
             </div>
         </div>
 
@@ -138,34 +170,69 @@ function createContentApp() {
         platform: 'tiktok',
         includeVideo: false,
         generating: false,
+        statusMessage: 'Working...',
         sseLog: [],
+        uploadedFile: null,
 
         detectInputType() {
             const trimmed = this.input.trim();
             this.inputType = (trimmed.startsWith('http://') || trimmed.startsWith('https://')) ? 'url' : 'idea';
         },
 
+        handleFileSelect(e) {
+            this.uploadedFile = e.target.files[0] || null;
+        },
+
+        handleDrop(e) {
+            this.uploadedFile = e.dataTransfer.files[0] || null;
+        },
+
+        formatFileSize(bytes) {
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
         async submitContent() {
             if (!this.input.trim() || this.generating) return;
-
             this.generating = true;
             this.sseLog = [];
 
             try {
-                const response = await fetch('/content/api/create', {
+                // Step 1: Create draft item (always, no pipeline yet)
+                this.statusMessage = 'Creating...';
+                const draftRes = await fetch('/content/api/create-draft', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         input_text: this.input.trim(),
                         input_type: this.inputType,
                         platform: this.platform,
-                        include_video: this.includeVideo
+                        include_video: this.includeVideo && !this.uploadedFile,
                     })
                 });
+                if (!draftRes.ok) throw new Error('Could not create draft (' + draftRes.status + ')');
+                const { id: itemId } = await draftRes.json();
 
-                if (!response.ok) {
-                    throw new Error('Server returned ' + response.status);
+                // Step 2: Upload file if user picked one
+                if (this.uploadedFile) {
+                    this.statusMessage = 'Uploading your video...';
+                    this.sseLog.push({ stage: 'upload', message: 'Uploading ' + this.uploadedFile.name + ' to storage...' });
+                    const form = new FormData();
+                    form.append('file', this.uploadedFile);
+                    form.append('item_id', itemId);
+                    const upRes = await fetch('/content/api/upload', { method: 'POST', body: form });
+                    if (!upRes.ok) {
+                        const err = await upRes.json().catch(() => ({}));
+                        throw new Error(err.error || 'Upload failed (' + upRes.status + ')');
+                    }
+                    const upData = await upRes.json();
+                    this.sseLog.push({ stage: 'upload', message: 'Uploaded! AI image/video will be skipped — using your file.' });
                 }
+
+                // Step 3: Run pipeline via SSE
+                this.statusMessage = 'Writing caption...';
+                const response = await fetch('/content/api/' + itemId + '/run-pipeline', { method: 'POST' });
+                if (!response.ok) throw new Error('Pipeline start failed (' + response.status + ')');
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -177,7 +244,7 @@ function createContentApp() {
 
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); // Keep incomplete line in buffer
+                    buffer = lines.pop();
 
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
@@ -185,29 +252,29 @@ function createContentApp() {
                                 const event = JSON.parse(line.slice(6));
                                 this.sseLog.push(event);
 
-                                if (event.status === 'done' || event.status === 'pipeline_complete') {
+                                if (event.stage && event.message) {
+                                    this.statusMessage = event.message.slice(0, 40) + (event.message.length > 40 ? '...' : '');
+                                }
+
+                                if (event.status === 'done' || event.status === 'complete' || event.status === 'pipeline_complete') {
                                     this.generating = false;
                                     if (event.content_id) {
-                                        showToast('Content generated successfully!', 'success');
+                                        showToast('Done! Your caption is ready.', 'success');
                                         setTimeout(() => {
                                             window.location.href = '/content/' + event.content_id;
                                         }, 800);
                                     }
                                 }
-                            } catch (e) {
-                                // Skip malformed JSON
-                            }
+                            } catch (e) { /* skip malformed */ }
                         }
                     }
 
-                    // Auto-scroll log
                     this.$nextTick(() => {
                         const feed = this.$refs.sseLogFeed;
                         if (feed) feed.scrollTop = feed.scrollHeight;
                     });
                 }
 
-                // Stream ended without explicit done event
                 if (this.generating) {
                     this.generating = false;
                     showToast('Pipeline finished.', 'success');
@@ -215,7 +282,7 @@ function createContentApp() {
 
             } catch (err) {
                 this.generating = false;
-                showToast('Failed to generate: ' + err.message, 'error');
+                showToast('Error: ' + err.message, 'error');
             }
         }
     };

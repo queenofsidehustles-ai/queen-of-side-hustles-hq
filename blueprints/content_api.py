@@ -79,6 +79,65 @@ def create():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@content_api_bp.route("/create-draft", methods=["POST"])
+@login_required
+def create_draft():
+    """Create a content item without running the pipeline. Returns JSON with item id."""
+    data = request.get_json() or {}
+    item = ContentItem(
+        input_text=data.get("input_text", ""),
+        input_type=data.get("input_type", "idea"),
+        platform=data.get("platform", "tiktok"),
+        include_video=data.get("include_video", False),
+        status="draft",
+    )
+    db.session.add(item)
+    db.session.commit()
+    return jsonify({"id": item.id})
+
+
+@content_api_bp.route("/<int:item_id>/run-pipeline", methods=["POST"])
+@login_required
+def run_pipeline_route(item_id):
+    """Run the pipeline on an existing draft content item. Returns SSE stream."""
+    item = ContentItem.query.get_or_404(item_id)
+    content_id = item.id
+    q = queue.Queue()
+    app = current_app._get_current_object()
+
+    def emit(stage, status, message, detail=""):
+        q.put(json.dumps({
+            "content_id": content_id,
+            "stage": stage,
+            "status": status,
+            "message": message,
+            "detail": detail,
+        }))
+
+    def run():
+        with app.app_context():
+            from pipeline import run_pipeline
+            run_pipeline(content_id, emit)
+        q.put("DONE")
+
+    threading.Thread(target=run, daemon=True).start()
+
+    def stream():
+        while True:
+            try:
+                msg = q.get(timeout=960)
+                if msg == "DONE":
+                    yield f"data: {json.dumps({'stage': 'done', 'status': 'complete', 'content_id': content_id})}\n\n"
+                    break
+                yield f"data: {msg}\n\n"
+            except queue.Empty:
+                yield f"data: {json.dumps({'stage': 'done', 'status': 'timeout'})}\n\n"
+                break
+
+    return Response(stream(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @content_api_bp.route("/items", methods=["GET"])
 @login_required
 def list_items():
