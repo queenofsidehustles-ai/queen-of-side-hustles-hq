@@ -12,6 +12,10 @@
 
 {% block page_actions %}
 <div class="flex items-center gap-2">
+    <button class="btn btn-outline btn-sm" @click="showSchedule = true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Schedule
+    </button>
     <button class="btn btn-primary btn-sm" @click="publishNow()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         Publish Now
@@ -70,27 +74,37 @@
             </div>
             {% endif %}
 
-            <!-- Image -->
+            <!-- Image / Media -->
             <div class="card" style="margin-bottom: 24px;">
                 <div class="card-header">
                     <h3 class="card-title">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                        Generated Image
+                        Media
                     </h3>
-                    <button class="btn btn-outline btn-sm">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                        Regenerate Image
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <label class="btn btn-outline btn-sm" style="cursor: pointer; margin: 0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span x-text="uploading ? 'Uploading...' : 'Upload My Media'"></span>
+                            <input type="file" accept="image/*,video/*" style="display:none" :disabled="uploading" @change="uploadMedia($event)">
+                        </label>
+                    </div>
                 </div>
                 <div class="card-body">
-                    {% if item.image_url %}
-                    <img src="{{ item.image_url }}" alt="Generated image" style="width: 100%; border-radius: var(--radius-md); max-height: 400px; object-fit: contain; background: var(--bg-secondary);">
-                    {% else %}
-                    <div style="text-align: center; padding: 40px; color: var(--text-subtle); font-size: 0.875rem;">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 8px; opacity: 0.3;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                        <p>No image generated</p>
+                    <div x-show="uploadedUrl || {{ 'true' if item.image_url or item.video_url else 'false' }}">
+                        {% if item.video_url %}
+                        <video :src="uploadedUrl || '{{ item.video_url }}'" controls style="width: 100%; max-height: 400px; border-radius: var(--radius-md); background: #000;"></video>
+                        {% elif item.image_url %}
+                        <img :src="uploadedUrl || '{{ item.image_url }}'" alt="Media" style="width: 100%; border-radius: var(--radius-md); max-height: 400px; object-fit: contain; background: var(--bg-secondary);">
+                        {% else %}
+                        <template x-if="uploadedUrl">
+                            <img :src="uploadedUrl" alt="Uploaded media" style="width: 100%; border-radius: var(--radius-md); max-height: 400px; object-fit: contain; background: var(--bg-secondary);">
+                        </template>
+                        {% endif %}
                     </div>
-                    {% endif %}
+                    <div x-show="!uploadedUrl && {{ 'false' if item.image_url or item.video_url else 'true' }}" style="text-align: center; padding: 40px; color: var(--text-subtle); font-size: 0.875rem;">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 8px; opacity: 0.3;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <p>No media yet — upload your own photo or video, or let AI generate one</p>
+                    </div>
                 </div>
             </div>
 
@@ -326,6 +340,46 @@
         </div>
     </div>
 
+    <!-- Schedule Modal -->
+    <div class="modal-overlay" x-show="showSchedule" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click.self="showSchedule = false"
+         @keydown.escape.window="showSchedule = false">
+        <div class="modal" style="max-width: 440px;" @click.stop>
+            <div class="modal-header">
+                <h3 class="modal-title">Schedule Post</h3>
+                <button class="modal-close" @click="showSchedule = false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 16px;">
+                    Pick a date and time to publish. Your post will be sent to Zernio and scheduled automatically.
+                </p>
+                <div class="form-group">
+                    <label class="form-label">Date & Time</label>
+                    <input type="datetime-local" x-model="scheduledAt"
+                           style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.9rem;">
+                </div>
+                <p style="color: var(--text-subtle); font-size: 0.75rem; margin-top: 8px;">
+                    Tip: Schedule 5 posts per day — morning (7am), mid-morning (10am), noon (12pm), afternoon (3pm), evening (7pm)
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" @click="showSchedule = false">Cancel</button>
+                <button class="btn btn-primary" :disabled="!scheduledAt" @click="schedulePost()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Schedule Post
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
     <div class="modal-overlay" x-show="confirmDelete" x-cloak
          x-transition:enter="transition ease-out duration-200"
@@ -377,6 +431,10 @@ function contentDetail() {
     return {
         script: {{ item.script|tojson if item.script else '""' }},
         confirmDelete: false,
+        showSchedule: false,
+        scheduledAt: '',
+        uploading: false,
+        uploadedUrl: '',
 
         copyText(text) {
             navigator.clipboard.writeText(text).then(() => {
@@ -385,11 +443,67 @@ function contentDetail() {
         },
 
         publishNow() {
-            showToast('Publishing... (connect social accounts in Settings)', 'warning');
+            showToast('Publishing to {{ item.platform or "your platform" }}...', 'info');
+            fetch('/content/api/{{ item.id }}/publish', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({}) })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'published' || data.status === 'draft') {
+                        showToast('Published! Check your social media account.', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else if (data.error) {
+                        showToast('Error: ' + data.error, 'error');
+                    } else {
+                        showToast('Sent to Zernio — check your social accounts shortly.', 'success');
+                    }
+                })
+                .catch(() => showToast('Failed to publish — check your Zernio connection.', 'error'));
+        },
+
+        schedulePost() {
+            if (!this.scheduledAt) return;
+            showToast('Scheduling post...', 'info');
+            fetch('/content/api/{{ item.id }}/publish', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ scheduled_at: this.scheduledAt })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    this.showSchedule = false;
+                    if (data.error) {
+                        showToast('Error: ' + data.error, 'error');
+                    } else {
+                        showToast('Scheduled! Your post will go live at the chosen time.', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                })
+                .catch(() => showToast('Failed to schedule — check connection.', 'error'));
+        },
+
+        uploadMedia(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            this.uploading = true;
+            showToast('Uploading ' + file.name + '...', 'info');
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('item_id', '{{ item.id }}');
+            fetch('/content/api/upload', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    this.uploading = false;
+                    if (data.url) {
+                        this.uploadedUrl = data.url;
+                        showToast('Media uploaded and saved!', 'success');
+                    } else {
+                        showToast('Upload failed: ' + (data.error || 'unknown error'), 'error');
+                    }
+                })
+                .catch(() => { this.uploading = false; showToast('Upload failed — check R2 storage settings.', 'error'); });
         },
 
         deleteItem() {
-            fetch('/content/api/item/{{ item.id }}', { method: 'DELETE' })
+            fetch('/content/api/{{ item.id }}', { method: 'DELETE' })
                 .then(r => r.json())
                 .then(data => {
                     showToast('Content deleted', 'success');

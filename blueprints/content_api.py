@@ -12,8 +12,11 @@ Teaching notes:
 """
 
 import json
+import mimetypes
+import os
 import queue
 import threading
+import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify, Response, current_app
 from auth import login_required
@@ -147,13 +150,71 @@ def publish(item_id):
         except (json.JSONDecodeError, AttributeError):
             pass  # fall back to item.script set above
 
+    # Accept scheduled_at from request body
+    body = request.get_json(silent=True) or {}
+    scheduled_at_str = body.get("scheduled_at")
+    if scheduled_at_str:
+        try:
+            item.scheduled_at = datetime.fromisoformat(scheduled_at_str)
+            item.status = "scheduled"
+            db.session.commit()
+            content_item["scheduled_at"] = item.scheduled_at
+        except (ValueError, TypeError):
+            pass
+
     result = publish_post(
         content_item=content_item,
         platforms=[item.platform] if item.platform else None,
     )
 
-    item.status = "published"
-    item.published_at = datetime.utcnow()
+    if not scheduled_at_str:
+        item.status = "published"
+        item.published_at = datetime.utcnow()
     db.session.commit()
 
     return jsonify(result)
+
+
+@content_api_bp.route("/upload", methods=["POST"])
+@login_required
+def upload_media():
+    """Upload a photo or video file directly to R2 storage."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    from services.r2_storage import is_configured, _get_client, _get_public_url
+
+    if not is_configured():
+        return jsonify({"error": "R2 storage not configured — add R2 keys in Railway variables"}), 500
+
+    file_data = file.read()
+    filename = file.filename
+    content_type = file.content_type or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    is_video = content_type.startswith("video/")
+    folder = "videos" if is_video else "images"
+    ext = os.path.splitext(filename)[1] or (mimetypes.guess_extension(content_type) or (".mp4" if is_video else ".jpg"))
+    key = f"{folder}/{uuid.uuid4().hex}{ext}"
+
+    client = _get_client()
+    bucket = os.environ["R2_BUCKET_NAME"]
+    client.put_object(Bucket=bucket, Key=key, Body=file_data, ContentType=content_type)
+    url = _get_public_url(key)
+
+    # Link to content item if item_id provided
+    item_id = request.form.get("item_id")
+    if item_id:
+        item = ContentItem.query.get(int(item_id))
+        if item:
+            if is_video:
+                item.r2_video_url = url
+                item.video_url = url
+            else:
+                item.r2_image_url = url
+                item.image_url = url
+            db.session.commit()
+
+    return jsonify({"url": url, "key": key, "type": "video" if is_video else "image"})

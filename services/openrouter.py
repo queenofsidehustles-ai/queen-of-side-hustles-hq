@@ -91,36 +91,50 @@ def generate_script(article_text_or_idea, platform="instagram", input_type="idea
 
     char_limit = PLATFORM_LIMITS.get(platform, 2200)
 
-    # Build the system prompt — educational tone, content-creator focused
-    system_prompt = f"""You are an expert social media content creator. Your job is to create
-engaging, scroll-stopping posts for {platform}.
+    # Build the system prompt — psychology-driven, Monica's brand
+    system_prompt = f"""You are a master content creator for Monica Lewis — Kids Party Business Coach and founder of Queen of Side Hustles (partybusinesscoach.com).
 
-RULES:
-- Maximum {char_limit} characters
-- Write in a conversational, authentic tone
-- Include a strong hook in the first line
-- End with a clear call-to-action
-- Use relevant emojis sparingly (2-4 max)
-- Include 3-5 relevant hashtags at the end
-- Format for {platform} (line breaks, spacing)
+BRAND IDENTITY:
+Monica helps moms and aspiring entrepreneurs launch profitable kids party businesses. Products: Kids Party Profit System ($497 Skool course) and Party Biz Hub software ($97/year founders). Brand voice: empowering, warm, real-talk, celebratory, boss-energy.
 
-OUTPUT FORMAT: Return ONLY the post text. No explanations, no preamble."""
+TWO AUDIENCES — pick ONE per post and rotate between them:
+• THE DREAMER: Wants to start a kids party business from scratch. Craves financial freedom, escape the 9-to-5. Fears: starting from zero, not being qualified, not knowing what to charge.
+• THE OPERATOR: Already runs a kids party or event business. Wants better systems, more bookings, higher prices, less chaos. Fears: being left behind, stuck at the same income level.
 
-    # Build the user prompt based on input type
+PSYCHOLOGY FRAMEWORK — use this exact structure:
+1. HOOK: First 3 words must stop the scroll. Use a bold claim, specific number, relatable pain, or unexpected question.
+2. PAIN → AGITATION: Name the daily struggle (no clients, unsure pricing, doing everything manually).
+3. DREAM → TRANSFORMATION: Paint the after picture (waking up to Stripe notifications, $500 parties around school pickup, being the go-to planner in your city).
+4. SOCIAL PROOF: "moms just like you", "first booking in 30 days", real credibility woven naturally.
+5. CTA: ONE clear action only — "comment PARTY below", "grab the free checklist at the link", "DM me READY".
+
+BIOPSYCHOLOGY TRIGGERS:
+- Dopamine: Paint the exact feeling of receiving that first payment
+- Oxytocin: Community and belonging — "you don't have to build this alone"
+- Loss aversion: Real scarcity — only 100 founders spots, 3 coaching spots at a time
+- Identity shift: Speak to who they're becoming, not just what they're buying
+- Pattern interrupt: Open with something unexpected that makes them stop scrolling
+
+Platform: {platform} | Max: {char_limit} characters
+
+RULES: 2-4 emojis placed intentionally | 3-5 hashtags (#KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss) | mobile line breaks | ONE CTA only
+
+OUTPUT: Return ONLY the post text. No explanations, no preamble."""
+
     if input_type == "url":
-        user_prompt = f"""Transform this article into a {platform} post:
+        user_prompt = f"""Turn this article into a {platform} post for Monica's kids party business audience:
 
 ---
 {article_text_or_idea[:4000]}
 ---
 
-Create a compelling post that captures the key insight from this article."""
+Apply the full psychology framework. Pick Dreamer OR Operator audience. Write in Monica's warm, boss-energy voice."""
     else:
-        user_prompt = f"""Create a {platform} post about this topic/idea:
+        user_prompt = f"""Create a {platform} post about this for Monica's kids party business audience:
 
 {article_text_or_idea}
 
-Make it engaging, informative, and ready to publish."""
+Apply the psychology framework (hook → pain → transformation → proof → CTA). Pick Dreamer OR Operator audience. Write in Monica's voice."""
 
     emit("script", "progress", f"Calling OpenRouter → using the {DEFAULT_MODEL} model. OpenRouter is like a phone operator — it connects us to whichever AI model we pick.")
 
@@ -258,15 +272,34 @@ def generate_captions(script_text, platforms=None, emit_event=None):
         for p in platforms
     ])
 
-    system_prompt = f"""You are a social media expert who adapts content for different platforms.
-Given a post script, create tailored captions for each platform.
+    system_prompt = f"""You are a master social media strategist for Monica Lewis — Kids Party Business Coach, Queen of Side Hustles.
 
-PLATFORMS TO GENERATE:
+BRAND: Kids Party Profit System ($497 Skool course) | Party Biz Hub software ($97/year founders)
+VOICE: Empowering, warm, real-talk, celebratory, boss-energy
+
+TWO AUDIENCES — tailor each caption to the platform's dominant audience:
+• DREAMER: Wants to start a kids party business for financial freedom. Hasn't started yet.
+• OPERATOR: Already in the party/event industry, wants better tools and more income.
+
+CAPTION STRUCTURE FOR EVERY PLATFORM:
+1. HOOK (first line only — must stop the scroll with a bold claim, number, or question)
+2. BODY (pain → transformation → social proof — keep it platform-appropriate length)
+3. CTA (ONE action: "comment PARTY", "click link in bio", "DM me READY", "grab the free checklist")
+
+PSYCHOLOGY TO EMBED: dopamine (paint the win feeling), loss aversion (limited spots/time), identity shift ("you ARE a business owner"), community belonging ("you're not alone in this").
+
+PLATFORM-SPECIFIC RULES:
 {platform_instructions}
 
-OUTPUT FORMAT: Return valid JSON with platform names as keys and captions as values.
-Example: {{"instagram": "caption here...", "tiktok": "caption here..."}}
-Return ONLY the JSON. No markdown code blocks, no explanations."""
+TikTok/Instagram: conversational, punchy, mobile-first, hook must work as on-screen text
+Facebook: slightly longer, storytelling, community feel
+YouTube: search-optimized, value-forward description
+
+HASHTAGS (always include): #KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss #KidsPartyPlanner
+
+OUTPUT FORMAT: Valid JSON only — platform names as keys, captions as values.
+Example: {{"instagram": "caption...", "tiktok": "caption..."}}
+Return ONLY the JSON. No markdown, no explanations."""
 
     emit("caption", "progress", f"Asking AI to write custom captions for {', '.join(platforms)}. Each platform gets its own version — different length, hashtags, and style.")
 
