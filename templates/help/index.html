@@ -1,0 +1,602 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Help & Resources{% endblock %}
+
+{% block content %}
+<style>
+    .help-tabs-container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 1rem 4rem;
+    }
+
+    /* Tab Navigation */
+    .tab-nav {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 2rem;
+    }
+    .tab-btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-tertiary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        position: relative;
+        transition: color 0.2s;
+    }
+    .tab-btn:hover {
+        color: var(--text-secondary);
+    }
+    .tab-btn.active {
+        color: var(--gold);
+    }
+    .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--gold);
+    }
+
+    /* Quick Start Checklist */
+    .checklist {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 2rem;
+    }
+    .checklist li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+    .checklist li:last-child {
+        border-bottom: none;
+    }
+    .check-icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: rgba(199, 163, 90, 0.12);
+        border: 1px solid rgba(199, 163, 90, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+    .check-icon svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    /* Feature Cards Grid */
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .feature-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.25rem;
+        transition: border-color 0.2s;
+    }
+    .feature-card:hover {
+        border-color: rgba(199, 163, 90, 0.35);
+    }
+    .feature-card-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: rgba(199, 163, 90, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.75rem;
+    }
+    .feature-card h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 0.35rem;
+    }
+    .feature-card p {
+        font-size: 0.82rem;
+        color: var(--text-tertiary);
+        line-height: 1.55;
+        margin: 0;
+    }
+
+    /* Sales Tab Sections */
+    .sales-section {
+        margin-bottom: 2.5rem;
+    }
+    .sales-section h2 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 1.2rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* Pricing Cards */
+    .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+    }
+    .pricing-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        position: relative;
+        transition: border-color 0.2s;
+    }
+    .pricing-card:hover {
+        border-color: rgba(199, 163, 90, 0.4);
+    }
+    .pricing-card.featured {
+        border-color: var(--gold);
+    }
+    .pricing-card.featured::before {
+        content: 'Most Popular';
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--gold);
+        color: #0B0B0D;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.2rem 0.75rem;
+        border-radius: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .pricing-tier {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--gold);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.5rem;
+    }
+    .pricing-amount {
+        margin-bottom: 0.75rem;
+    }
+    .pricing-setup {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .pricing-monthly {
+        font-size: 0.85rem;
+        color: var(--text-tertiary);
+        margin-left: 0.25rem;
+    }
+    .pricing-features {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .pricing-features li {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        padding: 0.35rem 0;
+        padding-left: 1.2rem;
+        position: relative;
+        line-height: 1.4;
+    }
+    .pricing-features li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0.6rem;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--gold);
+    }
+
+    /* Bullet Lists */
+    .sales-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .sales-list li {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        padding: 0.5rem 0;
+        padding-left: 1.5rem;
+        position: relative;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .sales-list li:last-child {
+        border-bottom: none;
+    }
+    .sales-list li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0.85rem;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: rgba(199, 163, 90, 0.5);
+    }
+
+    /* Numbered List */
+    .numbered-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        counter-reset: onboard;
+    }
+    .numbered-list li {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        padding: 0.6rem 0 0.6rem 2.2rem;
+        position: relative;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        counter-increment: onboard;
+    }
+    .numbered-list li:last-child {
+        border-bottom: none;
+    }
+    .numbered-list li::before {
+        content: counter(onboard);
+        position: absolute;
+        left: 0;
+        top: 0.55rem;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: rgba(199, 163, 90, 0.12);
+        border: 1px solid rgba(199, 163, 90, 0.3);
+        color: var(--gold);
+        font-size: 0.7rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Resources Links */
+    .resource-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.85rem 1rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        text-decoration: none;
+        transition: border-color 0.2s;
+        margin-bottom: 0.75rem;
+    }
+    .resource-link:hover {
+        border-color: rgba(199, 163, 90, 0.4);
+    }
+    .resource-link h4 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 0.15rem;
+    }
+    .resource-link p {
+        font-size: 0.8rem;
+        color: var(--text-tertiary);
+        margin: 0;
+    }
+
+    /* Upsell Grid */
+    .upsell-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+    .upsell-item {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+    }
+    .upsell-item h4 {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 0.25rem;
+    }
+    .upsell-item p {
+        font-size: 0.8rem;
+        color: var(--text-tertiary);
+        margin: 0;
+        line-height: 1.45;
+    }
+
+    @media (max-width: 640px) {
+        .feature-grid { grid-template-columns: 1fr; }
+        .pricing-grid { grid-template-columns: 1fr; }
+        .upsell-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="help-tabs-container" x-data="{ activeTab: 'use' }">
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+        <button class="tab-btn" :class="{ active: activeTab === 'use' }" @click="activeTab = 'use'">How to Use This</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'sell' }" @click="activeTab = 'sell'">How to Sell This</button>
+    </div>
+
+    <!-- ============================================================
+         TAB 1: HOW TO USE THIS
+    ============================================================ -->
+    <div x-show="activeTab === 'use'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+
+        <!-- Quick Start Checklist -->
+        <div style="margin-bottom: 2.5rem;">
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem;">Quick Start Checklist</h2>
+            <ul class="checklist">
+                <li>
+                    <div class="check-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span><strong style="color: var(--text-primary);">Set up your API keys</strong> in <a href="/admin/settings" style="color: var(--gold); text-decoration: none;">Settings</a> to unlock AI features, content generation, and payments.</span>
+                </li>
+                <li>
+                    <div class="check-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span><strong style="color: var(--text-primary);">Add your first contact</strong> in the CRM. Track leads, customers, and clients all in one place.</span>
+                </li>
+                <li>
+                    <div class="check-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span><strong style="color: var(--text-primary);">Create your first content piece</strong> using the Content Studio. Paste a URL or type an idea and watch AI do the rest.</span>
+                </li>
+                <li>
+                    <div class="check-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span><strong style="color: var(--text-primary);">Set up your booking calendar</strong> so clients can schedule time with you directly.</span>
+                </li>
+                <li>
+                    <div class="check-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span><strong style="color: var(--text-primary);">Send your first email campaign</strong> to nurture leads and stay top-of-mind with your audience.</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Feature Overview -->
+        <div>
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem;">Feature Overview</h2>
+            <div class="feature-grid">
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <h3>Dashboard</h3>
+                    <p>See your business at a glance -- contacts, deals, revenue, and recent activity all in one view.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <h3>Contacts</h3>
+                    <p>Manage leads, customers, and clients. Track status, add notes, and see full relationship history.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <h3>Deals</h3>
+                    <p>Visual sales pipeline. Move deals through stages from New Lead to Won. Track revenue at every step.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </div>
+                    <h3>Content Studio</h3>
+                    <p>AI-powered content creation. Generate scripts, images, videos, and captions from a URL or idea.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </div>
+                    <h3>Bookings</h3>
+                    <p>Let clients schedule meetings and consultations directly through your booking page.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </div>
+                    <h3>Jackie AI</h3>
+                    <p>Your AI assistant. Add contacts, move deals, and get answers using natural language chat.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </div>
+                    <h3>Email</h3>
+                    <p>Send email campaigns and automated follow-ups. Templates, tracking, and delivery all built in.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                    </div>
+                    <h3>Store</h3>
+                    <p>Sell digital products with Stripe checkout. Create products, generate links, and track purchases.</p>
+                </div>
+
+            </div>
+
+            <a href="/admin/settings" style="display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; padding: 0.6rem 1.1rem; background: rgba(199, 163, 90, 0.1); border: 1px solid rgba(199, 163, 90, 0.4); color: var(--gold); text-decoration: none; border-radius: 8px; font-size: 0.88rem; font-weight: 600; transition: background 0.2s, border-color 0.2s;" onmouseover="this.style.background='rgba(199,163,90,0.2)'; this.style.borderColor='rgba(199,163,90,0.7)'" onmouseout="this.style.background='rgba(199,163,90,0.1)'; this.style.borderColor='rgba(199,163,90,0.4)'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Set Up API Keys
+            </a>
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+         TAB 2: HOW TO SELL THIS
+    ============================================================ -->
+    <div x-show="activeTab === 'sell'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" style="display: none;">
+
+        <!-- Pricing Packages -->
+        <div class="sales-section">
+            <h2>Pricing Packages</h2>
+            <div class="pricing-grid">
+
+                <div class="pricing-card">
+                    <div class="pricing-tier">Starter</div>
+                    <div class="pricing-amount">
+                        <span class="pricing-setup">$2,000</span>
+                        <span class="pricing-monthly">setup + $97/mo</span>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>Custom website design</li>
+                        <li>CRM with contact management</li>
+                        <li>Calendar booking system</li>
+                        <li>Basic email support</li>
+                    </ul>
+                </div>
+
+                <div class="pricing-card featured">
+                    <div class="pricing-tier">Professional</div>
+                    <div class="pricing-amount">
+                        <span class="pricing-setup">$3,500</span>
+                        <span class="pricing-monthly">setup + $197/mo</span>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>Everything in Starter</li>
+                        <li>Content automation pipeline</li>
+                        <li>Email marketing campaigns</li>
+                        <li>Social media publishing</li>
+                        <li>Priority support</li>
+                    </ul>
+                </div>
+
+                <div class="pricing-card">
+                    <div class="pricing-tier">Enterprise</div>
+                    <div class="pricing-amount">
+                        <span class="pricing-setup">$5,000</span>
+                        <span class="pricing-monthly">setup + $297/mo</span>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>Everything in Professional</li>
+                        <li>AI assistant (Jackie)</li>
+                        <li>Advanced analytics</li>
+                        <li>Custom development hours</li>
+                        <li>Dedicated account manager</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Sales Script Outline -->
+        <div class="sales-section">
+            <h2>Sales Script Outline</h2>
+            <ul class="sales-list">
+                <li><strong style="color: var(--text-primary);">Open with the problem:</strong> "Most small businesses are juggling 5-10 different tools for their website, CRM, email, content, and payments. That costs time and money."</li>
+                <li><strong style="color: var(--text-primary);">Show the solution:</strong> Demo the dashboard -- contacts, deals, content creation, and store all in one place. Let them see it working live.</li>
+                <li><strong style="color: var(--text-primary);">Highlight the AI:</strong> Show the content pipeline creating a real post in under 60 seconds. Show Jackie AI adding a contact with natural language.</li>
+                <li><strong style="color: var(--text-primary);">Talk about ROI:</strong> "One new client per month from better content and follow-up pays for the entire system. Most businesses see that in week one."</li>
+                <li><strong style="color: var(--text-primary);">Close with next steps:</strong> "Let's get your onboarding survey filled out today. We can have your system live within 48 hours."</li>
+            </ul>
+        </div>
+
+        <!-- Client Onboarding Checklist -->
+        <div class="sales-section">
+            <h2>Client Onboarding Checklist</h2>
+            <ol class="numbered-list">
+                <li><strong style="color: var(--text-primary);">Business license / legal name</strong> -- needed for domain registration and payment processing setup.</li>
+                <li><strong style="color: var(--text-primary);">Domain name</strong> -- purchase or transfer their domain. Recommend Cloudflare Registrar for best pricing.</li>
+                <li><strong style="color: var(--text-primary);">Social media accounts</strong> -- get login access or admin roles for Facebook, Instagram, TikTok, LinkedIn.</li>
+                <li><strong style="color: var(--text-primary);">Google Workspace</strong> -- set up professional email (name@business.com) and Google Business Profile.</li>
+                <li><strong style="color: var(--text-primary);">Stripe account</strong> -- create or connect their Stripe account for payment processing.</li>
+                <li><strong style="color: var(--text-primary);">1Password vault</strong> -- shared vault for all credentials. Never store passwords in email or text.</li>
+            </ol>
+        </div>
+
+        <!-- Upsell Opportunities -->
+        <div class="sales-section">
+            <h2>Upsell Opportunities</h2>
+            <div class="upsell-grid">
+                <div class="upsell-item">
+                    <h4>Facebook / Instagram Ads</h4>
+                    <p>Managed ad campaigns to drive traffic to their landing page and booking calendar.</p>
+                </div>
+                <div class="upsell-item">
+                    <h4>SEO / AEO Optimization</h4>
+                    <p>Search engine and AI engine optimization so they show up in Google and AI answers.</p>
+                </div>
+                <div class="upsell-item">
+                    <h4>Content Analytics</h4>
+                    <p>Detailed reporting on content performance, engagement rates, and audience growth.</p>
+                </div>
+                <div class="upsell-item">
+                    <h4>Advanced Automations</h4>
+                    <p>Custom workflows -- auto-follow-ups, lead scoring, drip campaigns, and integrations.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resources -->
+        <div class="sales-section">
+            <h2>Resources</h2>
+            <a href="https://simpletechskills.com/coaching" target="_blank" rel="noopener" class="resource-link">
+                <div class="feature-card-icon" style="flex-shrink: 0;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 10.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h12.5"/><path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10"/><circle cx="19" cy="19" r="3"/></svg>
+                </div>
+                <div>
+                    <h4>Coaching</h4>
+                    <p>1-on-1 coaching starting at $500/mo -- simpletechskills.com/coaching</p>
+                </div>
+            </a>
+            <a href="https://simpletechskills.com/academy" target="_blank" rel="noopener" class="resource-link">
+                <div class="feature-card-icon" style="flex-shrink: 0;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <div>
+                    <h4>Academy</h4>
+                    <p>Community + courses for $7/mo -- simpletechskills.com/academy</p>
+                </div>
+            </a>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

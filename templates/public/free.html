@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Checklist — Kids Party Business Starter Guide</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #F8F0FF;
+            min-height: 100vh;
+        }
+
+        /* Top banner */
+        .top-banner {
+            background: linear-gradient(135deg, #9B59D0, #EC4899);
+            color: white;
+            text-align: center;
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        /* Main layout */
+        .page {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 48px 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        /* Left — Monica's photo + social proof */
+        .left-col { text-align: center; }
+
+        .photo-wrap {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .photo-wrap img {
+            width: 280px;
+            height: 340px;
+            object-fit: cover;
+            border-radius: 20px;
+            box-shadow: 0 8px 40px rgba(155,89,208,0.25);
+            border: 4px solid #fff;
+        }
+
+        .photo-placeholder {
+            width: 280px;
+            height: 340px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #E9D5FF, #FCE7F3);
+            border: 4px solid #fff;
+            box-shadow: 0 8px 40px rgba(155,89,208,0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #9B59D0;
+            font-size: 0.85rem;
+            gap: 8px;
+        }
+        .photo-placeholder .icon { font-size: 3rem; }
+
+        .ribbon {
+            display: inline-block;
+            background: linear-gradient(135deg, #EC4899, #9B59D0);
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 8px 20px;
+            border-radius: 999px;
+            box-shadow: 0 4px 16px rgba(236,72,153,0.35);
+            margin-bottom: 14px;
+        }
+
+        .coach-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #3B0764;
+            margin-bottom: 4px;
+        }
+
+        .coach-title {
+            font-size: 0.85rem;
+            color: #7C3DB0;
+        }
+
+        /* Social proof badges */
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .badge-item {
+            background: #fff;
+            border: 1px solid #E9D5FF;
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-size: 0.75rem;
+            color: #6B21A8;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(155,89,208,0.1);
+        }
+
+        /* Right — form */
+        .right-col {}
+
+        .eyebrow {
+            display: inline-block;
+            background: #F3E8FF;
+            color: #7C3DB0;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border-radius: 999px;
+            border: 1px solid #E9D5FF;
+            margin-bottom: 18px;
+        }
+
+        h1 {
+            font-size: 2.1rem;
+            font-weight: 800;
+            color: #2E1065;
+            line-height: 1.25;
+            margin-bottom: 14px;
+        }
+
+        h1 em {
+            font-style: normal;
+            background: linear-gradient(135deg, #EC4899, #9B59D0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subhead {
+            color: #6B21A8;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .checklist {
+            list-style: none;
+            margin-bottom: 28px;
+        }
+        .checklist li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: #4C1D95;
+            font-size: 0.92rem;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .check { color: #EC4899; font-size: 1rem; flex-shrink: 0; }
+
+        /* Form card */
+        .form-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 30px rgba(155,89,208,0.12);
+            border: 1px solid #E9D5FF;
+        }
+
+        .form-card h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #3B0764;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            width: 100%;
+            padding: 13px 16px;
+            border: 1.5px solid #E9D5FF;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            color: #2E1065;
+            background: #FAFAFA;
+            outline: none;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        input:focus { border-color: #9B59D0; background: #fff; }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 15px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #EC4899, #9B59D0);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(236,72,153,0.35);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        button[type="submit"]:hover { opacity: 0.92; transform: translateY(-1px); }
+
+        .privacy {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #A78BCA;
+            margin-top: 10px;
+        }
+
+        /* Mobile */
+        @media (max-width: 700px) {
+            .page { grid-template-columns: 1fr; gap: 32px; }
+            .left-col { order: 2; }
+            .right-col { order: 1; }
+            h1 { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-banner">
+        👑 Free Resource for Aspiring Kids Party Planners
+    </div>
+
+    <div class="page">
+
+        <!-- LEFT: Monica's photo -->
+        <div class="left-col">
+            <div class="ribbon">Meet Your Coach</div>
+
+            <div class="photo-wrap">
+                <img src="https://storage.mlcdn.com/account_image/1904004/gnLIfbktzyZmmtvitenkeAkTLZasOYXPSeq4sXYC.jpg" alt="Monica Lewis — Kids Party Business Coach">
+            </div>
+
+            <div class="coach-name">Monica Lewis</div>
+            <div class="coach-title">Kids Party Business Coach & Founder</div>
+
+            <div class="badges">
+                <div class="badge-item">🎉 Party Business Coach</div>
+                <div class="badge-item">💼 Party Biz Hub</div>
+                <div class="badge-item">👑 Queen of Side Hustles</div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Headline + form -->
+        <div class="right-col">
+            <div class="eyebrow">✨ Free Download</div>
+
+            <h1>How Beginners Are Booking Their First <em>$250–$500 Party</em> Without Experience</h1>
+
+            <p class="subhead">
+                Grab the exact checklist that's helped hundreds of moms launch their kids party business — even starting from zero.
+            </p>
+
+            <ul class="checklist">
+                <li><span class="check">✦</span> How to pick your niche and stand out immediately</li>
+                <li><span class="check">✦</span> What to charge from day one — no more guessing</li>
+                <li><span class="check">✦</span> How to get your first client in 30 days</li>
+                <li><span class="check">✦</span> The tools you need to look professional immediately</li>
+                <li><span class="check">✦</span> Your 30-day action plan — step by step</li>
+            </ul>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <p style="color:#ef4444; margin-bottom:12px; font-size:0.9rem;">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <div class="form-card">
+                <h3>Send me the free checklist →</h3>
+                <form method="POST" action="/free/submit">
+                    <input type="text"  name="name"  placeholder="Your first name" required>
+                    <input type="email" name="email" placeholder="Your best email address" required>
+                    <button type="submit">Yes! Send Me the Free Checklist 🎉</button>
+                </form>
+                <p class="privacy">🔒 No spam. Unsubscribe anytime. Your info is safe with us.</p>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

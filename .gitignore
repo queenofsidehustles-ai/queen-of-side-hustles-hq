@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+instance/
+*.db
+.pytest_cache/
+venv/
+.venv/
+.DS_Store
+CRM Demo For Claude Workshop/
+Content Automation Demo For Claude Workshop/
