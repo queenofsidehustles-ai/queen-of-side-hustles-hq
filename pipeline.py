@@ -122,17 +122,39 @@ def run_pipeline(content_id, emit_event):
         item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
-        # STAGE 3: IMAGE — Generate image with Kie.ai
+        # STAGE 3: IMAGE — Skip if user already uploaded their own media
         # ==================================================================
-        cost = stage_image(content_id, item, emit_event)
-        total_cost += cost
+        item = db.session.get(ContentItem, content_id)
+        has_own_media = bool(item.r2_image_url or item.r2_video_url or item.video_url)
+        if has_own_media:
+            emit_event("image", "skipped", "You uploaded your own media — skipping AI image generation and using yours instead.")
+            _add_log(content_id, "image", "skipped", "User media uploaded — AI image skipped")
+        else:
+            try:
+                cost = stage_image(content_id, item, emit_event)
+                total_cost += cost
+            except Exception as img_err:
+                emit_event("image", "skipped", f"Image generation skipped ({str(img_err)[:80]}) — continuing to captions.")
+                _add_log(content_id, "image", "skipped", f"Image error (skipped): {str(img_err)[:120]}")
         item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
-        # STAGE 4: VIDEO — Generate video (optional)
+        # STAGE 4: VIDEO — Generate video (optional, skip if user has media)
         # ==================================================================
-        cost = stage_video(content_id, item, emit_event)
-        total_cost += cost
+        if has_own_media or not item.include_video:
+            if item.include_video and not has_own_media:
+                pass  # will fall through to normal video stage below
+            else:
+                if item.include_video:
+                    emit_event("video", "skipped", "Using your uploaded video — skipping AI video generation.")
+                    _add_log(content_id, "video", "skipped", "User media uploaded — AI video skipped")
+        if not has_own_media and item.include_video:
+            try:
+                cost = stage_video(content_id, item, emit_event)
+                total_cost += cost
+            except Exception as vid_err:
+                emit_event("video", "skipped", f"Video generation skipped ({str(vid_err)[:80]}) — continuing.")
+                _add_log(content_id, "video", "skipped", f"Video error (skipped): {str(vid_err)[:120]}")
         item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
