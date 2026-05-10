@@ -332,10 +332,12 @@ def stage_image(content_id, item, emit_event):
 
     duration = round(time.time() - start, 1)
 
-    # Save image URL and task ID
+    # Save image URL and task ID — skip demo/placeholder URLs (placehold.co)
     row = db.session.get(ContentItem, content_id)
     row.status = "imaged"
-    row.image_url = image_result.get("image_url", "")
+    generated_url = image_result.get("image_url", "")
+    if not image_result.get("demo") and "placehold" not in generated_url:
+        row.image_url = generated_url
     row.image_task_id = image_result.get("task_id", "")
     db.session.commit()
 
@@ -516,18 +518,18 @@ def stage_r2_upload(content_id, item, emit_event):
     r2_image_url = None
     r2_video_url = None
 
-    # Upload image if it exists and is not a placeholder
+    # Upload image if it exists and is not a demo placeholder
     image_url = item.image_url or ""
-    if image_url and "placeholder" not in image_url:
+    if image_url and "placehold" not in image_url:
         try:
             img_result = r2_upload_image(image_url, emit_event=emit_event)
             r2_image_url = img_result.get("url")
         except Exception as e:
             emit_event(stage, "warning", f"Image upload to R2 failed: {e}")
 
-    # Upload video if it exists and is not a placeholder
+    # Upload video if it exists and is not a demo placeholder
     video_url = item.video_url or ""
-    if video_url and "placeholder" not in video_url:
+    if video_url and "placehold" not in video_url:
         try:
             vid_result = r2_upload_video(video_url, emit_event=emit_event)
             r2_video_url = vid_result.get("url")
@@ -639,7 +641,9 @@ def regenerate_image(content_id, new_prompt, emit_event):
 
     row = db.session.get(ContentItem, content_id)
     if row:
-        row.image_url = result.get("image_url", "")
+        regen_url = result.get("image_url", "")
+        if not result.get("demo") and "placehold" not in regen_url:
+            row.image_url = regen_url
         row.image_task_id = result.get("task_id", "")
         db.session.commit()
 

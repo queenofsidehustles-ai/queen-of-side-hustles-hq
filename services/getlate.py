@@ -101,12 +101,13 @@ def publish_post(content_item, platforms=None, emit_event=None):
         }
 
         # Zernio uses 'mediaItems' (not 'media') for attaching files
+        # Filter out demo placeholder URLs (placehold.co) — never publish those
         media_items = []
         image_url = content_item.get("r2_image_url") or content_item.get("image_url")
-        if image_url:
-            media_items.append({"url": image_url, "type": "image"})
         video_url = content_item.get("r2_video_url") or content_item.get("video_url")
-        if video_url:
+        if image_url and "placehold" not in image_url:
+            media_items.append({"url": image_url, "type": "image"})
+        if video_url and "placehold" not in video_url:
             media_items.append({"url": video_url, "type": "video"})
         if media_items:
             payload["mediaItems"] = media_items
@@ -195,8 +196,13 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
     emit("publish", "progress", f"Found {len(account_map)} connected accounts: {', '.join(account_map.keys())}")
 
     # Build shared mediaItems payload (Zernio uses 'mediaItems', not 'media')
+    # Filter out demo placeholder URLs (placehold.co) — never publish those
     image_url = content_item.get("r2_image_url") or content_item.get("image_url")
     video_url = content_item.get("r2_video_url") or content_item.get("video_url")
+    if image_url and "placehold" in image_url:
+        image_url = None
+    if video_url and "placehold" in video_url:
+        video_url = None
     media = []
     if image_url:
         media.append({"url": image_url, "type": "image"})
