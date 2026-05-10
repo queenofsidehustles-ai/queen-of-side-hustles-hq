@@ -12,8 +12,7 @@ import json
 from openai import OpenAI
 
 # ---------------------------------------------------------------------------
-# Platform-specific character limits
-# Students learn: each platform has different constraints
+# Platform-specific character limits (technical max) and ideal lengths
 # ---------------------------------------------------------------------------
 PLATFORM_LIMITS = {
     "twitter":   280,
@@ -22,6 +21,17 @@ PLATFORM_LIMITS = {
     "tiktok":    4000,
     "youtube":   5000,
     "facebook":  63206,
+}
+
+# Ideal caption lengths — what actually performs well on each platform
+PLATFORM_IDEAL = {
+    "tiktok":    "100-200 characters. Ultra short. Just the hook + one CTA. Nothing else.",
+    "instagram": "300-500 characters. Hook on line 1, 2-3 short lines of body, one CTA, 5 hashtags on a new line.",
+    "linkedin":  "600-900 characters. Storytelling format. Hook → personal story → lesson → CTA. No hashtag overload.",
+    "youtube":   "400-700 characters. Describe the value + include keywords for search. One CTA at the end.",
+    "twitter":   "200-260 characters. One punchy line + link space. No hashtags unless trending.",
+    "facebook":  "200-400 characters. Conversational, warm, community feel. One question or CTA.",
+    "x":         "200-260 characters. One punchy line. Maximum 2 hashtags.",
 }
 
 # Default model — fast and cheap for teaching
@@ -266,9 +276,9 @@ def generate_captions(script_text, platforms=None, emit_event=None):
             "demo": True
         }
 
-    # Build platform instructions
+    # Build platform instructions with ideal lengths (not just technical max)
     platform_instructions = "\n".join([
-        f"- {p.upper()}: max {PLATFORM_LIMITS.get(p, 2200)} chars, tailored to {p}'s audience"
+        f"- {p.upper()}: {PLATFORM_IDEAL.get(p, 'Keep it concise and punchy.')}"
         for p in platforms
     ])
 
@@ -277,29 +287,26 @@ def generate_captions(script_text, platforms=None, emit_event=None):
 BRAND: Kids Party Profit System ($497 Skool course) | Party Biz Hub software ($97/year founders)
 VOICE: Empowering, warm, real-talk, celebratory, boss-energy
 
-TWO AUDIENCES — tailor each caption to the platform's dominant audience:
+TWO AUDIENCES — pick ONE per caption and rotate:
 • DREAMER: Wants to start a kids party business for financial freedom. Hasn't started yet.
 • OPERATOR: Already in the party/event industry, wants better tools and more income.
 
 CAPTION STRUCTURE FOR EVERY PLATFORM:
-1. HOOK (first line only — must stop the scroll with a bold claim, number, or question)
-2. BODY (pain → transformation → social proof — keep it platform-appropriate length)
-3. CTA (ONE action: "comment PARTY", "click link in bio", "DM me READY", "grab the free checklist")
+1. HOOK (first line — bold claim, specific number, or relatable pain. Must stop the scroll.)
+2. BODY (pain → transformation — keep SHORT and platform-appropriate)
+3. CTA (ONE action only: "comment PARTY", "click link in bio", "DM me READY")
 
-PSYCHOLOGY TO EMBED: dopamine (paint the win feeling), loss aversion (limited spots/time), identity shift ("you ARE a business owner"), community belonging ("you're not alone in this").
+PSYCHOLOGY: dopamine (paint the win), loss aversion (limited spots), identity shift ("you ARE a business owner").
 
-PLATFORM-SPECIFIC RULES:
+CRITICAL LENGTH RULES — follow these exactly:
 {platform_instructions}
 
-TikTok/Instagram: conversational, punchy, mobile-first, hook must work as on-screen text
-Facebook: slightly longer, storytelling, community feel
-YouTube: search-optimized, value-forward description
-
-HASHTAGS (always include): #KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss #KidsPartyPlanner
+HASHTAGS: #KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss #KidsPartyPlanner
+(Only use hashtags for Instagram, TikTok, and YouTube — not LinkedIn or Twitter.)
 
 OUTPUT FORMAT: Valid JSON only — platform names as keys, captions as values.
 Example: {{"instagram": "caption...", "tiktok": "caption..."}}
-Return ONLY the JSON. No markdown, no explanations."""
+Return ONLY the JSON. No markdown, no explanations. Keep every caption TIGHT — less is more."""
 
     emit("caption", "progress", f"Asking AI to write custom captions for {', '.join(platforms)}. Each platform gets its own version — different length, hashtags, and style.")
 
@@ -310,7 +317,7 @@ Return ONLY the JSON. No markdown, no explanations."""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Adapt this script for each platform:\n\n{script_text}"}
             ],
-            max_tokens=2000,
+            max_tokens=800,
             temperature=0.7,
         )
 

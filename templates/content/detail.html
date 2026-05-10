@@ -10,25 +10,33 @@
 </div>
 {% endblock %}
 
-{% block page_actions %}
-<div class="flex items-center gap-2">
-    <button class="btn btn-outline btn-sm" @click="showSchedule = true">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Schedule
-    </button>
-    <button class="btn btn-primary btn-sm" @click="publishNow()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        Publish Now
-    </button>
-    <button class="btn btn-danger btn-sm" @click="confirmDelete = true">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        Delete
-    </button>
-</div>
-{% endblock %}
+{% block page_actions %}{% endblock %}
 
 {% block content %}
 <div x-data="contentDetail()">
+
+    <!-- Action Buttons (inside Alpine scope so publishNow / showSchedule work) -->
+    <div class="flex items-center gap-2" style="margin-bottom: 20px; flex-wrap: wrap;">
+        <button class="btn btn-outline btn-sm" @click="showSchedule = true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Schedule
+        </button>
+        <button class="btn btn-primary btn-sm" @click="publishNow()" :disabled="publishing">
+            <template x-if="!publishing">
+                <span class="flex items-center gap-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Publish Now
+                </span>
+            </template>
+            <template x-if="publishing">
+                <span class="flex items-center gap-1"><span class="spinner spinner-sm"></span> Publishing...</span>
+            </template>
+        </button>
+        <button class="btn btn-danger btn-sm" @click="confirmDelete = true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete
+        </button>
+    </div>
 
     <!-- Status Bar -->
     <div class="flex items-center gap-3" style="margin-bottom: 24px;">
@@ -435,6 +443,7 @@ function contentDetail() {
         scheduledAt: '',
         uploading: false,
         uploadedUrl: '',
+        publishing: false,
 
         copyText(text) {
             navigator.clipboard.writeText(text).then(() => {
@@ -443,20 +452,22 @@ function contentDetail() {
         },
 
         publishNow() {
+            this.publishing = true;
             showToast('Publishing to {{ item.platform or "your platform" }}...', 'info');
             fetch('/content/api/{{ item.id }}/publish', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({}) })
                 .then(r => r.json())
                 .then(data => {
-                    if (data.status === 'published' || data.status === 'draft') {
+                    this.publishing = false;
+                    if (data.error) {
+                        showToast('Publish error: ' + data.error, 'error');
+                    } else if (data.status === 'demo') {
+                        showToast('Demo mode — add your Zernio API key in Settings to publish for real.', 'info');
+                    } else {
                         showToast('Published! Check your social media account.', 'success');
                         setTimeout(() => window.location.reload(), 1500);
-                    } else if (data.error) {
-                        showToast('Error: ' + data.error, 'error');
-                    } else {
-                        showToast('Sent to Zernio — check your social accounts shortly.', 'success');
                     }
                 })
-                .catch(() => showToast('Failed to publish — check your Zernio connection.', 'error'));
+                .catch(err => { this.publishing = false; showToast('Failed to publish: ' + err.message, 'error'); });
         },
 
         schedulePost() {
