@@ -100,16 +100,16 @@ def publish_post(content_item, platforms=None, emit_event=None):
             "platforms": platform_entries,
         }
 
-        # Attach image if available (prefer R2 URL)
+        # Zernio uses 'mediaItems' (not 'media') for attaching files
+        media_items = []
         image_url = content_item.get("r2_image_url") or content_item.get("image_url")
         if image_url:
-            payload["media"] = [{"url": image_url, "type": "image"}]
-
-        # Attach video if available (prefer R2 URL)
+            media_items.append({"url": image_url, "type": "image"})
         video_url = content_item.get("r2_video_url") or content_item.get("video_url")
         if video_url:
-            payload["media"] = payload.get("media", [])
-            payload["media"].append({"url": video_url, "type": "video"})
+            media_items.append({"url": video_url, "type": "video"})
+        if media_items:
+            payload["mediaItems"] = media_items
 
         # If there's a scheduled time, use scheduledFor (camelCase — required by Zernio)
         if content_item.get("scheduled_at"):
@@ -125,7 +125,7 @@ def publish_post(content_item, platforms=None, emit_event=None):
             f"{GETLATE_BASE_URL}/posts",
             headers=headers,
             json=payload,
-            timeout=30
+            timeout=90  # Video processing can take 60-90s
         )
         response.raise_for_status()
         data = response.json()
@@ -194,7 +194,7 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
 
     emit("publish", "progress", f"Found {len(account_map)} connected accounts: {', '.join(account_map.keys())}")
 
-    # Build shared media payload
+    # Build shared mediaItems payload (Zernio uses 'mediaItems', not 'media')
     image_url = content_item.get("r2_image_url") or content_item.get("image_url")
     video_url = content_item.get("r2_video_url") or content_item.get("video_url")
     media = []
@@ -234,7 +234,7 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
             "platforms": [{"platform": platform, "accountId": account_id}],
         }
         if media:
-            payload["media"] = media
+            payload["mediaItems"] = media
         if scheduled_for:
             # scheduledFor = camelCase, required by Zernio API
             payload["scheduledFor"] = scheduled_for
@@ -244,7 +244,7 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
             payload["publishNow"] = True
 
         try:
-            resp = requests.post(f"{GETLATE_BASE_URL}/posts", headers=headers, json=payload, timeout=30)
+            resp = requests.post(f"{GETLATE_BASE_URL}/posts", headers=headers, json=payload, timeout=90)
             # Log raw response for debugging before raising
             raw_body = resp.text[:300]
             if not resp.ok:
