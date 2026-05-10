@@ -7,7 +7,7 @@ Students learn: this is the "output" stage — where content goes live.
 
 import os
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # ---------------------------------------------------------------------------
 # API endpoint
@@ -233,6 +233,11 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
         if scheduled_for:
             payload["scheduled_for"] = scheduled_for
             payload["timezone"] = "America/Los_Angeles"
+        else:
+            # Publish now — set to 30 seconds from now so Zernio queues it immediately
+            publish_at = (datetime.now(timezone.utc) + timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            payload["scheduled_for"] = publish_at
+            payload["timezone"] = "UTC"
 
         try:
             resp = requests.post(f"{GETLATE_BASE_URL}/posts", headers=headers, json=payload, timeout=30)
