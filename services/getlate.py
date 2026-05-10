@@ -145,6 +145,111 @@ def publish_post(content_item, platforms=None, emit_event=None):
 
 
 # ---------------------------------------------------------------------------
+# publish_to_all_platforms() — One click → every connected platform
+# ---------------------------------------------------------------------------
+def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None, emit_event=None):
+    """
+    Publish to ALL connected social accounts in one shot.
+    Makes a separate Zernio call per platform so each gets its own caption.
+
+    Args:
+        content_item:  dict with script, image_url, r2_image_url, video_url, r2_video_url
+        captions_dict: dict of {platform: caption_text} — uses platform-specific copy
+        scheduled_at:  ISO datetime string or None for immediate publish
+        emit_event:    SSE callback
+
+    Returns:
+        dict with: results (list), platforms_published, platforms_failed, status
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+    headers = _get_headers()
+    captions_dict = captions_dict or {}
+
+    if not headers:
+        emit("publish", "progress", "Demo mode — add your Zernio API key in Settings to publish for real.")
+        return {
+            "status": "demo",
+            "platforms_published": ["tiktok", "instagram", "youtube", "facebook"],
+            "platforms_failed": [],
+            "demo": True,
+        }
+
+    # Fetch all connected accounts once
+    try:
+        accounts_resp = requests.get(f"{GETLATE_BASE_URL}/accounts", headers=headers, timeout=10)
+        accounts_resp.raise_for_status()
+        accounts_data = accounts_resp.json()
+        all_accounts = accounts_data if isinstance(accounts_data, list) else accounts_data.get("accounts", [])
+        account_map = {a["platform"]: a["_id"] for a in all_accounts if a.get("platform") and a.get("_id")}
+    except requests.exceptions.RequestException as e:
+        return {"status": "error", "error": f"Could not fetch connected accounts: {str(e)}"}
+
+    if not account_map:
+        return {"status": "error", "error": "No connected social accounts found. Connect them at zernio.com"}
+
+    emit("publish", "progress", f"Found {len(account_map)} connected accounts: {', '.join(account_map.keys())}")
+
+    # Build shared media payload
+    image_url = content_item.get("r2_image_url") or content_item.get("image_url")
+    video_url = content_item.get("r2_video_url") or content_item.get("video_url")
+    media = []
+    if image_url:
+        media.append({"url": image_url, "type": "image"})
+    if video_url:
+        media.append({"url": video_url, "type": "video"})
+
+    # Parse scheduled time once
+    scheduled_for = None
+    if scheduled_at:
+        scheduled_for = _parse_scheduled_time(scheduled_at)
+
+    results = []
+    platforms_published = []
+    platforms_failed = []
+
+    for platform, account_id in account_map.items():
+        # Use platform-specific caption, fall back to script
+        caption = captions_dict.get(platform) or content_item.get("script", "")
+        if not caption:
+            continue
+
+        payload = {
+            "content": caption,
+            "platforms": [{"platform": platform, "accountId": account_id}],
+        }
+        if media:
+            payload["media"] = media
+        if scheduled_for:
+            payload["scheduled_for"] = scheduled_for
+            payload["timezone"] = "America/Los_Angeles"
+
+        try:
+            resp = requests.post(f"{GETLATE_BASE_URL}/posts", headers=headers, json=payload, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            post_id = data.get("id", data.get("post_id", "ok"))
+            emit("publish", "progress", f"{platform.capitalize()} — sent! Post ID: {post_id}")
+            platforms_published.append(platform)
+            results.append({"platform": platform, "post_id": post_id, "status": "published"})
+        except requests.exceptions.RequestException as e:
+            emit("publish", "progress", f"{platform.capitalize()} — failed: {str(e)[:80]}")
+            platforms_failed.append(platform)
+            results.append({"platform": platform, "status": "error", "error": str(e)[:120]})
+
+    overall = "published" if platforms_published else "error"
+    emit("publish", "progress",
+         f"Done! Published to: {', '.join(platforms_published) or 'none'}."
+         + (f" Failed: {', '.join(platforms_failed)}" if platforms_failed else ""))
+
+    return {
+        "status": overall,
+        "platforms_published": platforms_published,
+        "platforms_failed": platforms_failed,
+        "results": results,
+    }
+
+
+# ---------------------------------------------------------------------------
 # get_connected_accounts() — List connected social accounts
 # ---------------------------------------------------------------------------
 def get_connected_accounts(emit_event=None):

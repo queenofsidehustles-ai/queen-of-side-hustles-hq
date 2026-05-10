@@ -15,17 +15,17 @@
 {% block content %}
 <div x-data="contentDetail()">
 
-    <!-- Action Buttons (inside Alpine scope so publishNow / showSchedule work) -->
+    <!-- Action Buttons (inside Alpine scope so functions work) -->
     <div class="flex items-center gap-2" style="margin-bottom: 20px; flex-wrap: wrap;">
         <button class="btn btn-outline btn-sm" @click="showSchedule = true">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Schedule
+            Schedule to All
         </button>
-        <button class="btn btn-primary btn-sm" @click="publishNow()" :disabled="publishing">
+        <button class="btn btn-primary btn-sm" @click="publishAll()" :disabled="publishing">
             <template x-if="!publishing">
                 <span class="flex items-center gap-1">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    Publish Now
+                    Publish to All
                 </span>
             </template>
             <template x-if="publishing">
@@ -367,7 +367,7 @@
             </div>
             <div class="modal-body">
                 <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 16px;">
-                    Pick a date and time to publish. Your post will be sent to Zernio and scheduled automatically.
+                    Pick a date and time. Your post will be scheduled to <strong>all connected platforms</strong> (TikTok, Instagram, YouTube, Facebook) at once.
                 </p>
                 <div class="form-group">
                     <label class="form-label">Date & Time</label>
@@ -382,7 +382,7 @@
                 <button class="btn btn-outline" @click="showSchedule = false">Cancel</button>
                 <button class="btn btn-primary" :disabled="!scheduledAt" @click="schedulePost()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Schedule Post
+                    Schedule to All Platforms
                 </button>
             </div>
         </div>
@@ -451,29 +451,37 @@ function contentDetail() {
             });
         },
 
-        publishNow() {
+        publishAll() {
             this.publishing = true;
-            showToast('Publishing to {{ item.platform or "your platform" }}...', 'info');
-            fetch('/content/api/{{ item.id }}/publish', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({}) })
+            showToast('Sending to all platforms...', 'info');
+            fetch('/content/api/{{ item.id }}/publish-all', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({})
+            })
                 .then(r => r.json())
                 .then(data => {
                     this.publishing = false;
-                    if (data.error) {
-                        showToast('Publish error: ' + data.error, 'error');
-                    } else if (data.status === 'demo') {
+                    if (data.status === 'demo') {
                         showToast('Demo mode — add your Zernio API key in Settings to publish for real.', 'info');
+                    } else if (data.error) {
+                        showToast('Error: ' + data.error, 'error');
+                    } else if (data.platforms_published && data.platforms_published.length > 0) {
+                        const sent = data.platforms_published.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ');
+                        const failed = data.platforms_failed && data.platforms_failed.length ? ' (failed: ' + data.platforms_failed.join(', ') + ')' : '';
+                        showToast('Published to ' + sent + '!' + failed, 'success');
+                        setTimeout(() => window.location.reload(), 2000);
                     } else {
-                        showToast('Published! Check your social media account.', 'success');
-                        setTimeout(() => window.location.reload(), 1500);
+                        showToast('No platforms published — check your Zernio connections.', 'error');
                     }
                 })
-                .catch(err => { this.publishing = false; showToast('Failed to publish: ' + err.message, 'error'); });
+                .catch(err => { this.publishing = false; showToast('Failed: ' + err.message, 'error'); });
         },
 
         schedulePost() {
             if (!this.scheduledAt) return;
-            showToast('Scheduling post...', 'info');
-            fetch('/content/api/{{ item.id }}/publish', {
+            showToast('Scheduling to all platforms...', 'info');
+            fetch('/content/api/{{ item.id }}/publish-all', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ scheduled_at: this.scheduledAt })
@@ -483,8 +491,11 @@ function contentDetail() {
                     this.showSchedule = false;
                     if (data.error) {
                         showToast('Error: ' + data.error, 'error');
+                    } else if (data.status === 'demo') {
+                        showToast('Demo mode — add Zernio key in Settings to schedule for real.', 'info');
                     } else {
-                        showToast('Scheduled! Your post will go live at the chosen time.', 'success');
+                        const sent = (data.platforms_published || []).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ');
+                        showToast('Scheduled to ' + (sent || 'all platforms') + '!', 'success');
                         setTimeout(() => window.location.reload(), 1500);
                     }
                 })

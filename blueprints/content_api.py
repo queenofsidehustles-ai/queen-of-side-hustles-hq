@@ -234,6 +234,59 @@ def publish(item_id):
     return jsonify(result)
 
 
+@content_api_bp.route("/<int:item_id>/publish-all", methods=["POST"])
+@login_required
+def publish_all(item_id):
+    """
+    Publish (or schedule) this content item to ALL connected social platforms.
+    Each platform gets its own platform-specific caption from the captions JSON.
+    Accepts optional { "scheduled_at": "2026-05-10T07:00" } in request body.
+    """
+    item = ContentItem.query.get_or_404(item_id)
+    from services.getlate import publish_to_all_platforms
+
+    body = request.get_json(silent=True) or {}
+    scheduled_at_str = body.get("scheduled_at")
+
+    # Persist scheduled_at if provided
+    if scheduled_at_str:
+        try:
+            item.scheduled_at = datetime.fromisoformat(scheduled_at_str)
+            item.status = "scheduled"
+            db.session.commit()
+        except (ValueError, TypeError):
+            scheduled_at_str = None
+
+    # Parse captions dict for platform-specific copy
+    captions_dict = {}
+    if item.captions:
+        try:
+            captions_dict = json.loads(item.captions)
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+    content_item = {
+        "script": item.script or "",
+        "image_url": item.image_url or "",
+        "r2_image_url": item.r2_image_url or "",
+        "video_url": item.video_url or "",
+        "r2_video_url": item.r2_video_url or "",
+    }
+
+    result = publish_to_all_platforms(
+        content_item=content_item,
+        captions_dict=captions_dict,
+        scheduled_at=scheduled_at_str,
+    )
+
+    if not scheduled_at_str and result.get("platforms_published"):
+        item.status = "published"
+        item.published_at = datetime.utcnow()
+        db.session.commit()
+
+    return jsonify(result)
+
+
 @content_api_bp.route("/upload", methods=["POST"])
 @login_required
 def upload_media():
