@@ -2219,7 +2219,23 @@ textarea.error {
   }
 }
 
+.sidebar-mobile-header {
+  display: none;
+}
+
 @media (max-width: 768px) {
+  .sidebar-mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-light);
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+
   :root {
     --sidebar-width: 0px;
   }
