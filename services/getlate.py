@@ -236,14 +236,26 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
 
         try:
             resp = requests.post(f"{GETLATE_BASE_URL}/posts", headers=headers, json=payload, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
+            # Log raw response for debugging before raising
+            raw_body = resp.text[:300]
+            if not resp.ok:
+                emit("publish", "progress",
+                     f"{platform.capitalize()} — HTTP {resp.status_code}: {raw_body}")
+                platforms_failed.append(platform)
+                results.append({"platform": platform, "status": "error",
+                                 "error": f"HTTP {resp.status_code}: {raw_body}"})
+                continue
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
             post_id = data.get("id", data.get("post_id", "ok"))
             emit("publish", "progress", f"{platform.capitalize()} — sent! Post ID: {post_id}")
             platforms_published.append(platform)
-            results.append({"platform": platform, "post_id": post_id, "status": "published"})
-        except requests.exceptions.RequestException as e:
-            emit("publish", "progress", f"{platform.capitalize()} — failed: {str(e)[:80]}")
+            results.append({"platform": platform, "post_id": post_id, "status": "published",
+                             "raw": raw_body})
+        except Exception as e:
+            emit("publish", "progress", f"{platform.capitalize()} — error: {str(e)[:80]}")
             platforms_failed.append(platform)
             results.append({"platform": platform, "status": "error", "error": str(e)[:120]})
 

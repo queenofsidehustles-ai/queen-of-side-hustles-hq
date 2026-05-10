@@ -273,11 +273,15 @@ def publish_all(item_id):
         "r2_video_url": item.r2_video_url or "",
     }
 
-    result = publish_to_all_platforms(
-        content_item=content_item,
-        captions_dict=captions_dict,
-        scheduled_at=scheduled_at_str,
-    )
+    try:
+        result = publish_to_all_platforms(
+            content_item=content_item,
+            captions_dict=captions_dict,
+            scheduled_at=scheduled_at_str,
+        )
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e), "platforms_published": [],
+                        "platforms_failed": []}), 500
 
     if not scheduled_at_str and result.get("platforms_published"):
         item.status = "published"
