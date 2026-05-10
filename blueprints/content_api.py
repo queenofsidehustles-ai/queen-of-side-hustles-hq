@@ -170,6 +170,21 @@ def delete_item(item_id):
     return jsonify({"success": True})
 
 
+@content_api_bp.route("/<int:item_id>/set-video-url", methods=["POST"])
+@login_required
+def set_video_url(item_id):
+    """Update video URL for a content item (used to fix MOV → MP4 migrations)."""
+    item = ContentItem.query.get_or_404(item_id)
+    body = request.get_json(silent=True) or {}
+    url = body.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "url required"}), 400
+    item.r2_video_url = url
+    item.video_url = url
+    db.session.commit()
+    return jsonify({"success": True, "video_url": url})
+
+
 @content_api_bp.route("/<int:item_id>/publish", methods=["POST"])
 @login_required
 def publish(item_id):
@@ -367,6 +382,14 @@ def upload_media():
     is_video = content_type.startswith("video/")
     folder = "videos" if is_video else "images"
     ext = os.path.splitext(filename)[1] or (mimetypes.guess_extension(content_type) or (".mp4" if is_video else ".jpg"))
+
+    # MOV files (video/quicktime) are rejected by TikTok/Instagram/YouTube.
+    # iPhone MOV uses H.264/AAC — same codec as MP4 — so we store it as .mp4
+    # so social media platforms accept it.
+    if is_video and (content_type == "video/quicktime" or ext.lower() == ".mov"):
+        content_type = "video/mp4"
+        ext = ".mp4"
+
     key = f"{folder}/{uuid.uuid4().hex}{ext}"
 
     client = _get_client()
