@@ -30,6 +30,8 @@ from services.openrouter import generate_script, generate_image_prompt, generate
 from services.kie_ai import generate_image, generate_video, generate_video_with_reference
 from services.getlate import publish_post
 from services.r2_storage import upload_image as r2_upload_image, upload_video as r2_upload_video, is_configured as r2_is_configured
+from services.transcribe import transcribe_video
+from services.video_processor import process_video
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +172,25 @@ def run_pipeline(content_id, emit_event):
         cost = stage_r2_upload(content_id, item, emit_event)
         total_cost += cost
         item = db.session.get(ContentItem, content_id)
+
+        # ==================================================================
+        # STAGE 7: TRANSCRIBE — speech-to-text via Groq Whisper
+        # (only runs when the item has an uploaded video)
+        # ==================================================================
+        video_source = item.r2_video_url or item.video_url
+        if video_source:
+            cost = stage_transcribe(content_id, item, emit_event)
+            total_cost += cost
+            item = db.session.get(ContentItem, content_id)
+
+            # ==============================================================
+            # STAGE 8: OVERLAY — burn AI-generated text onto video via FFmpeg
+            # (only runs when transcription succeeded)
+            # ==============================================================
+            if item.transcript:
+                cost = stage_overlay(content_id, item, emit_event)
+                total_cost += cost
+                item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
         # PIPELINE COMPLETE
@@ -561,7 +582,7 @@ def stage_r2_upload(content_id, item, emit_event):
 
 
 # ---------------------------------------------------------------------------
-# STAGE 7: PUBLISH (triggered separately)
+# PUBLISH — triggered separately via /api/publish/<id>, NOT part of run_pipeline()
 # ---------------------------------------------------------------------------
 def stage_publish(content_id, emit_event):
     """
@@ -613,6 +634,166 @@ def stage_publish(content_id, emit_event):
             db.session.commit()
         emit_event(stage, "error", f"Publishing failed: {str(e)}")
         _add_log(content_id, stage, "error", str(e))
+
+
+# ---------------------------------------------------------------------------
+# STAGE 7: TRANSCRIBE (Groq Whisper speech-to-text)
+# ---------------------------------------------------------------------------
+def stage_transcribe(content_id, item, emit_event):
+    """
+    Download the uploaded video, extract audio, and transcribe with Groq Whisper.
+    Saves the full transcript text to item.transcript.
+    """
+    stage = "transcribe"
+    start = time.time()
+
+    video_url = item.r2_video_url or item.video_url
+    if not video_url:
+        emit_event(stage, "skipped", "No video found — skipping transcription.")
+        _add_log(content_id, stage, "skipped", "No video URL")
+        return 0.0
+
+    emit_event(stage, "started",
+               "Downloading your video and sending the audio to Groq Whisper — it will turn your spoken words into text so AI knows what you said.")
+    _add_log(content_id, stage, "started", f"Transcribing: {video_url[:80]}")
+
+    row = db.session.get(ContentItem, content_id)
+    row.status = "transcribing"
+    db.session.commit()
+
+    import tempfile
+    import requests as _requests
+
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        video_path = tmp.name
+
+    try:
+        resp = _requests.get(video_url, stream=True, timeout=120)
+        resp.raise_for_status()
+        with open(video_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                f.write(chunk)
+
+        result = transcribe_video(video_path, emit_event=emit_event)
+    finally:
+        import os as _os
+        try:
+            _os.unlink(video_path)
+        except OSError:
+            pass
+
+    duration = round(time.time() - start, 1)
+
+    transcript_text = result.get("text", "")
+    video_duration_secs = result.get("duration", 0.0)
+
+    row = db.session.get(ContentItem, content_id)
+    row.status = "transcribed"
+    row.transcript = transcript_text
+    # Store video duration so the overlay stage can use it for text timing
+    try:
+        existing_durations = json.loads(row.stage_durations or "{}")
+    except Exception:
+        existing_durations = {}
+    existing_durations["video_seconds"] = video_duration_secs
+    row.stage_durations = json.dumps(existing_durations)
+    db.session.commit()
+
+    detail = {
+        "duration": duration,
+        "transcript_length": len(transcript_text),
+        "segments": len(result.get("segments", [])),
+        "video_duration": video_duration_secs,
+        "demo": result.get("demo", False),
+        "error": result.get("error", ""),
+    }
+
+    if result.get("error") and not transcript_text:
+        emit_event(stage, "warning",
+                   f"Transcription ran into an issue: {result['error'][:100]}. Skipping overlay stage.")
+        _add_log(content_id, stage, "warning", result["error"][:200])
+    else:
+        emit_event(stage, "complete",
+                   f"Transcribed {len(result.get('segments', []))} spoken segments in {duration}s. Now AI will plan the on-screen text.",
+                   detail)
+        _add_log(content_id, stage, "complete",
+                 f"{len(transcript_text)} chars transcribed", json.dumps(detail))
+
+    _record_stage_metric(content_id, stage, duration=duration, cost=0.0)
+    return 0.0   # Groq free tier
+
+
+# ---------------------------------------------------------------------------
+# STAGE 8: OVERLAY (FFmpeg text overlay burning)
+# ---------------------------------------------------------------------------
+def stage_overlay(content_id, item, emit_event):
+    """
+    Use AI to plan on-screen text overlays based on the transcript,
+    then burn them onto the video with FFmpeg and upload to R2.
+    """
+    stage = "overlay"
+    start = time.time()
+
+    video_url = item.r2_video_url or item.video_url
+    if not video_url:
+        emit_event(stage, "skipped", "No video to overlay — skipping.")
+        return 0.0
+
+    emit_event(stage, "started",
+               "AI is designing your on-screen text (hook + key points + CTA) and FFmpeg is going to burn it right onto the video — white text, hot-pink outline, centered in the bottom third.")
+    _add_log(content_id, stage, "started", "Generating overlay plan + FFmpeg burn")
+
+    row = db.session.get(ContentItem, content_id)
+    row.status = "overlaying"
+    db.session.commit()
+
+    # Read video duration stored by stage_transcribe
+    try:
+        seg_data = json.loads(item.stage_durations or "{}")
+        vid_dur = float(seg_data.get("video_seconds", 0.0))
+    except Exception:
+        vid_dur = 0.0
+    if not vid_dur:
+        vid_dur = 60.0   # safe default for overlay timing
+
+    result = process_video(
+        raw_video_url=video_url,
+        transcript=item.transcript or "",
+        duration=vid_dur,
+        script=item.script or "",
+        emit_event=emit_event,
+    )
+
+    duration = round(time.time() - start, 1)
+
+    processed_url = result.get("processed_url")
+    row = db.session.get(ContentItem, content_id)
+    row.status = "overlaid"
+    if processed_url and processed_url != video_url:
+        row.r2_video_url = processed_url
+    db.session.commit()
+
+    detail = {
+        "duration": duration,
+        "overlays": len(result.get("overlays", [])),
+        "processed_url": processed_url,
+        "demo": result.get("demo", False),
+        "error": result.get("error", ""),
+    }
+
+    if result.get("error") and not result.get("overlays"):
+        emit_event(stage, "warning",
+                   f"Overlay processing hit a snag ({result['error'][:80]}) — your video will publish without on-screen text. You can retry later.")
+        _add_log(content_id, stage, "warning", result["error"][:200])
+    else:
+        emit_event(stage, "complete",
+                   f"Done! {len(result.get('overlays', []))} text overlays burned onto your video in {duration}s. It is now ready to publish.",
+                   detail)
+        _add_log(content_id, stage, "complete",
+                 f"{len(result.get('overlays', []))} overlays applied", json.dumps(detail))
+
+    _record_stage_metric(content_id, stage, duration=duration, cost=0.0)
+    return 0.0
 
 
 # ---------------------------------------------------------------------------

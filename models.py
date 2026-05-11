@@ -303,6 +303,7 @@ class ContentItem(db.Model):
     video_url       = db.Column(db.Text)
     video_task_id   = db.Column(db.String(100))
     captions        = db.Column(db.Text)          # JSON string
+    transcript      = db.Column(db.Text)          # Groq Whisper transcript
     include_video   = db.Column(db.Boolean, default=False)
     status          = db.Column(db.String(30),  default="draft")
     cost_total      = db.Column(db.Float,       default=0.0)
@@ -334,6 +335,7 @@ class ContentItem(db.Model):
             "video_url":       self.video_url,
             "video_task_id":   self.video_task_id,
             "captions":        self.captions,
+            "transcript":      self.transcript,
             "include_video":   self.include_video,
             "status":          self.status,
             "cost_total":      self.cost_total,

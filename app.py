@@ -136,11 +136,28 @@ def create_app():
             },
         }
 
-    # --- Create tables ---
+    # --- Create tables + safe migrations ---
     with app.app_context():
         db.create_all()
+        _migrate_columns()
 
     return app
+
+
+def _migrate_columns():
+    """Safely add new columns to existing tables without dropping data."""
+    from sqlalchemy import inspect as sa_inspect, text as sa_text
+
+    try:
+        inspector = sa_inspect(db.engine)
+        existing = {c["name"] for c in inspector.get_columns("content_items")}
+        new_cols = {"transcript": "TEXT"}
+        for col, col_type in new_cols.items():
+            if col not in existing:
+                db.session.execute(sa_text(f"ALTER TABLE content_items ADD COLUMN {col} {col_type}"))
+                db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 # Module-level app instance for gunicorn
