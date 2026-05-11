@@ -90,6 +90,9 @@ def create_app():
     app.register_blueprint(content_api_bp, url_prefix="/content/api")
     app.register_blueprint(help_bp,       url_prefix="/help")
 
+    from blueprints.webhooks import webhooks_bp
+    app.register_blueprint(webhooks_bp,  url_prefix="/webhooks")
+
     from blueprints.jackie import jackie_bp
     app.register_blueprint(jackie_bp,    url_prefix="/jackie")
 

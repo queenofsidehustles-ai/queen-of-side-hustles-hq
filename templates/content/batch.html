@@ -1,0 +1,414 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Batch Upload{% endblock %}
+{% block page_subtitle %}
+<div class="page-header breadcrumb" style="margin-bottom: 0;">
+    <a href="/content" style="color: var(--text-subtle); font-size: 0.875rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 4px;"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Content Library
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="batchUploadApp()">
+
+    <!-- Step 1: Drop Zone (shown until files are picked) -->
+    <div x-show="step === 'pick'" x-transition>
+        <div class="card" style="max-width: 700px;">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Drop Your Videos
+                </h3>
+                <span style="color:var(--text-subtle);font-size:0.75rem;">Up to 7 at once</span>
+            </div>
+            <div class="card-body">
+
+                <!-- Drop zone -->
+                <div
+                    @click="$refs.fileInput.click()"
+                    @dragover.prevent="dragging = true"
+                    @dragleave="dragging = false"
+                    @drop.prevent="handleDrop($event)"
+                    :style="dragging ? 'border-color: var(--gold); background: var(--gold-tint);' : ''"
+                    style="border: 2px dashed var(--border); border-radius: 16px; padding: 48px 24px; text-align: center; cursor: pointer; transition: all 0.2s;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.2" style="margin: 0 auto 16px; display: block;"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+                    <div style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Tap to pick your videos</div>
+                    <div style="color: var(--text-subtle); font-size: 0.85rem; margin-bottom: 4px;">or drag and drop them here</div>
+                    <div style="color: var(--text-subtle); font-size: 0.75rem;">MP4 or MOV · Up to 7 files</div>
+                </div>
+                <input type="file" x-ref="fileInput" accept="video/*" multiple style="display:none;" @change="handleFileSelect($event)">
+
+                <!-- Default idea for captions -->
+                <div class="form-group" style="margin-top: 20px; margin-bottom: 0;">
+                    <label class="form-label">Caption idea for all videos <span style="font-weight:400;color:var(--text-subtle);">(optional — AI writes one per video if blank)</span></label>
+                    <input type="text" x-model="sharedIdea" placeholder="e.g. How I made $500 booking one kids party" style="font-size:0.9rem;">
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: File list + platform pick + Start button -->
+    <div x-show="step === 'confirm'" x-transition style="max-width: 800px;">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:6px;"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Ready to process
+                </h3>
+                <span x-text="files.length + ' video' + (files.length !== 1 ? 's' : '')" style="color:var(--gold);font-size:0.85rem;font-weight:600;"></span>
+            </div>
+            <div class="card-body" style="padding-bottom: 8px;">
+
+                <!-- File list -->
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                    <template x-for="(f, i) in files" :key="i">
+                        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface-raised);border-radius:10px;border:1px solid var(--border);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" style="flex-shrink:0;"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+                            <div style="flex:1;min-width:0;">
+                                <div x-text="f.name" style="font-size:0.85rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                                <div x-text="formatSize(f.size)" style="font-size:0.72rem;color:var(--text-subtle);"></div>
+                            </div>
+                            <button @click="removeFile(i)" style="background:none;border:none;cursor:pointer;color:var(--text-subtle);padding:4px;" title="Remove">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Platform + controls row -->
+                <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding-bottom:16px;">
+                    <div class="form-group" style="margin-bottom:0;min-width:140px;">
+                        <label class="form-label">Primary Platform</label>
+                        <select x-model="platform">
+                            <option value="tiktok">TikTok</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="youtube">YouTube</option>
+                            <option value="linkedin">LinkedIn</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;"></div>
+                    <button class="btn" style="background:var(--surface-raised);color:var(--text-muted);border:1px solid var(--border);" @click="step='pick'">
+                        Add more
+                    </button>
+                    <button class="btn btn-primary" @click="startBatch()" style="padding:10px 28px;font-weight:600;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:5px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        Generate Captions for All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Processing grid -->
+    <div x-show="step === 'processing' || step === 'done'" x-transition>
+
+        <!-- Progress summary bar -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+            <div style="flex:1;">
+                <div style="font-size:0.8rem;color:var(--text-subtle);margin-bottom:6px;" x-text="doneCount + ' of ' + items.length + ' complete'"></div>
+                <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
+                    <div :style="'width:' + (items.length ? Math.round(doneCount/items.length*100) : 0) + '%;height:100%;background:var(--gold);border-radius:4px;transition:width 0.4s;'"></div>
+                </div>
+            </div>
+            <template x-if="step === 'done'">
+                <button class="btn btn-primary" @click="scheduleAll()" style="padding:10px 24px;font-weight:600;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:5px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Schedule All
+                </button>
+            </template>
+            <template x-if="step === 'done'">
+                <button class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);padding:10px 20px;" @click="publishAllNow()">
+                    Publish All Now
+                </button>
+            </template>
+        </div>
+
+        <!-- Cards grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+            <template x-for="(item, i) in items" :key="i">
+                <div class="card" style="margin:0;">
+                    <div class="card-body" style="padding:16px;">
+
+                        <!-- File name + status badge -->
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                            <div style="flex:1;font-size:0.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);" x-text="item.filename"></div>
+                            <span x-show="item.status==='uploading'" style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:rgba(99,102,241,0.12);color:#6366f1;">Uploading</span>
+                            <span x-show="item.status==='processing'" style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:var(--gold-tint);color:var(--gold);">Processing</span>
+                            <span x-show="item.status==='done'" style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:rgba(16,185,129,0.12);color:#10b981;">Done</span>
+                            <span x-show="item.status==='error'" style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,0.1);color:#ef4444;">Error</span>
+                            <span x-show="item.status==='waiting'" style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:var(--surface-raised);color:var(--text-subtle);">Waiting</span>
+                        </div>
+
+                        <!-- Progress message -->
+                        <div x-show="item.status !== 'done'" style="font-size:0.78rem;color:var(--text-subtle);margin-bottom:10px;min-height:18px;" x-text="item.lastMessage || 'Waiting to start...'"></div>
+
+                        <!-- Caption preview (when done) -->
+                        <div x-show="item.status === 'done' && item.caption" style="margin-bottom:12px;">
+                            <div style="font-size:0.72rem;color:var(--text-subtle);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Caption preview</div>
+                            <div x-text="item.caption" style="font-size:0.82rem;color:var(--text-muted);line-height:1.5;background:var(--surface-raised);border-radius:8px;padding:10px;max-height:100px;overflow:hidden;"></div>
+                        </div>
+
+                        <!-- Schedule date (when done) -->
+                        <div x-show="item.status === 'done'" style="display:flex;align-items:center;gap:8px;">
+                            <input type="datetime-local" x-model="item.scheduleAt"
+                                   style="flex:1;font-size:0.8rem;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-raised);color:var(--text-primary);">
+                            <a :href="'/content/' + item.contentId" target="_blank"
+                               style="font-size:0.75rem;color:var(--gold);text-decoration:none;white-space:nowrap;">
+                               View →
+                            </a>
+                        </div>
+
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Schedule All modal -->
+        <div x-show="showScheduleModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;" @click.self="showScheduleModal=false">
+            <div class="card" style="max-width:420px;width:100%;margin:20px;">
+                <div class="card-header">
+                    <h3 class="card-title">Schedule All</h3>
+                </div>
+                <div class="card-body">
+                    <p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:16px;">
+                        Pick your start date and time. Posts will be spaced 6 hours apart automatically.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">First post at</label>
+                        <input type="datetime-local" x-model="scheduleStart" style="font-size:0.9rem;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:8px;">
+                        <button class="btn btn-primary" style="flex:1;" @click="applySchedule()">Apply Schedule</button>
+                        <button class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);" @click="showScheduleModal=false">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function batchUploadApp() {
+    return {
+        step: 'pick',
+        files: [],
+        platform: 'tiktok',
+        sharedIdea: '',
+        dragging: false,
+        items: [],
+        showScheduleModal: false,
+        scheduleStart: '',
+
+        get doneCount() {
+            return this.items.filter(i => i.status === 'done' || i.status === 'error').length;
+        },
+
+        handleFileSelect(e) {
+            this.addFiles(Array.from(e.target.files));
+            e.target.value = '';
+        },
+
+        handleDrop(e) {
+            this.dragging = false;
+            const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'));
+            this.addFiles(dropped);
+        },
+
+        addFiles(newFiles) {
+            const combined = [...this.files, ...newFiles];
+            this.files = combined.slice(0, 7);
+            if (this.files.length > 0) this.step = 'confirm';
+        },
+
+        removeFile(i) {
+            this.files.splice(i, 1);
+            if (this.files.length === 0) this.step = 'pick';
+        },
+
+        formatSize(bytes) {
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
+        async startBatch() {
+            this.step = 'processing';
+            this.items = this.files.map(f => ({
+                filename: f.name,
+                file: f,
+                status: 'waiting',
+                lastMessage: '',
+                caption: '',
+                contentId: null,
+                scheduleAt: '',
+            }));
+
+            // Process sequentially so we don't slam the server
+            for (let i = 0; i < this.items.length; i++) {
+                await this.processItem(i);
+            }
+            this.step = 'done';
+        },
+
+        async processItem(i) {
+            const item = this.items[i];
+            item.status = 'uploading';
+            item.lastMessage = 'Creating draft...';
+
+            try {
+                // Step 1: create draft
+                const draftRes = await fetch('/content/api/create-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        input_text: this.sharedIdea || item.filename.replace(/\.[^.]+$/, ''),
+                        input_type: 'idea',
+                        platform: this.platform,
+                        include_video: false,
+                    })
+                });
+                if (!draftRes.ok) throw new Error('Draft failed');
+                const { id: contentId } = await draftRes.json();
+                item.contentId = contentId;
+
+                // Step 2: upload video
+                item.lastMessage = 'Uploading video...';
+                const form = new FormData();
+                form.append('file', item.file);
+                form.append('item_id', contentId);
+                const upRes = await fetch('/content/api/upload', { method: 'POST', body: form });
+                if (!upRes.ok) {
+                    const err = await upRes.json().catch(() => ({}));
+                    throw new Error(err.error || 'Upload failed');
+                }
+
+                // Step 3: run pipeline via SSE
+                item.status = 'processing';
+                item.lastMessage = 'Writing caption...';
+                await this.runPipeline(item, contentId);
+
+            } catch (err) {
+                item.status = 'error';
+                item.lastMessage = err.message || 'Something went wrong';
+            }
+        },
+
+        async runPipeline(item, contentId) {
+            const response = await fetch('/content/api/' + contentId + '/run-pipeline', { method: 'POST' });
+            if (!response.ok) throw new Error('Pipeline failed to start');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const event = JSON.parse(line.slice(6));
+                        if (event.message) {
+                            item.lastMessage = event.message.slice(0, 60) + (event.message.length > 60 ? '...' : '');
+                        }
+                        if (event.status === 'complete' || event.stage === 'done') {
+                            item.status = 'done';
+                            item.lastMessage = 'Done!';
+                            await this.loadCaption(item, contentId);
+                        }
+                    } catch(e) { /* skip */ }
+                }
+            }
+
+            if (item.status !== 'done') {
+                item.status = 'done';
+                await this.loadCaption(item, contentId);
+            }
+        },
+
+        async loadCaption(item, contentId) {
+            try {
+                const r = await fetch('/content/api/' + contentId);
+                const data = await r.json();
+                // Try to get platform caption or fall back to script
+                let caption = data.script || '';
+                if (data.captions) {
+                    try {
+                        const caps = typeof data.captions === 'string' ? JSON.parse(data.captions) : data.captions;
+                        const platformCap = caps[this.platform];
+                        if (typeof platformCap === 'string') caption = platformCap;
+                        else if (typeof platformCap === 'object') {
+                            caption = platformCap.DREAMER || platformCap.dreamer || Object.values(platformCap)[0] || caption;
+                        }
+                    } catch(e) {}
+                }
+                item.caption = caption.slice(0, 200) + (caption.length > 200 ? '...' : '');
+            } catch(e) {}
+        },
+
+        scheduleAll() {
+            // Default to tomorrow 9am
+            const d = new Date();
+            d.setDate(d.getDate() + 1);
+            d.setHours(9, 0, 0, 0);
+            this.scheduleStart = d.toISOString().slice(0, 16);
+            this.showScheduleModal = true;
+        },
+
+        applySchedule() {
+            if (!this.scheduleStart) return;
+            const start = new Date(this.scheduleStart);
+            const doneItems = this.items.filter(i => i.status === 'done');
+            doneItems.forEach((item, idx) => {
+                const t = new Date(start.getTime() + idx * 6 * 60 * 60 * 1000); // 6h apart
+                item.scheduleAt = t.toISOString().slice(0, 16);
+            });
+            this.showScheduleModal = false;
+        },
+
+        async publishAllNow() {
+            const doneItems = this.items.filter(i => i.status === 'done' && i.contentId);
+            for (const item of doneItems) {
+                try {
+                    await fetch('/content/api/' + item.contentId + '/publish-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
+                } catch(e) {}
+            }
+            showToast('Published ' + doneItems.length + ' posts!', 'success');
+        },
+
+        // Schedule each item individually when they have a scheduleAt set
+        // (Called from a "confirm schedule" button on each card or from applySchedule)
+        async confirmSchedules() {
+            const toSchedule = this.items.filter(i => i.status === 'done' && i.contentId && i.scheduleAt);
+            let count = 0;
+            for (const item of toSchedule) {
+                try {
+                    const r = await fetch('/content/api/' + item.contentId + '/publish-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scheduled_at: item.scheduleAt })
+                    });
+                    if (r.ok) count++;
+                } catch(e) {}
+            }
+            showToast('Scheduled ' + count + ' posts!', 'success');
+        },
+    };
+}
+</script>
+{% endblock %}

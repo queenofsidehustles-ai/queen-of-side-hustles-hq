@@ -32,6 +32,13 @@ def create():
     return render_template("content/create.html")
 
 
+@content_bp.route("/batch")
+@login_required
+def batch():
+    """Batch upload multiple videos at once."""
+    return render_template("content/batch.html")
+
+
 @content_bp.route("/<int:item_id>")
 @login_required
 def detail(item_id):
