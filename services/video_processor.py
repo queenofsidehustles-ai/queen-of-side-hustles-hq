@@ -136,6 +136,21 @@ def _get_video_size(input_path: str) -> tuple:
     return 1080, 1920
 
 
+def _get_video_duration(input_path: str) -> float:
+    """Return video duration in seconds via ffprobe. Defaults to 300s."""
+    try:
+        r = subprocess.run(
+            ["ffprobe", "-v", "quiet",
+             "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", input_path],
+            capture_output=True, text=True, timeout=10,
+        )
+        return float(r.stdout.strip())
+    except Exception:
+        pass
+    return 300.0
+
+
 def _make_text_png(text: str, vid_w: int, vid_h: int,
                    fontsize: int, position: str, font_path: str) -> str:
     """
@@ -196,11 +211,13 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         return False, "No font file found — cannot render text"
 
     vid_w, vid_h = _get_video_size(input_path)
+    vid_dur = _get_video_duration(input_path)
     # Round to even dimensions BEFORE creating PNGs — yuv420p requires this,
     # and the PNG size must exactly match the scaled video size or overlay crashes.
     vid_w = (vid_w // 2) * 2
     vid_h = (vid_h // 2) * 2
-    logger.info("Video %dx%d (even) | font: %s | %d overlays", vid_w, vid_h, font_path, len(overlays))
+    logger.info("Video %dx%d (even) %.1fs | font: %s | %d overlays",
+                vid_w, vid_h, vid_dur, font_path, len(overlays))
 
     png_files = []   # (path, start_sec, end_sec)
     try:
@@ -231,9 +248,12 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         # IMPORTANT: each PNG input needs -loop 1 so FFmpeg loops the
         # single frame for the full video duration instead of stalling
         # waiting for more frames from the ended image stream.
+        # Give each PNG input an explicit duration matching the video.
+        # -loop 1 alone loops forever; without -shortest (unreliable on FFmpeg 7.x)
+        # FFmpeg never stops. Explicit -t is version-agnostic.
         cmd = ["ffmpeg", "-y", "-i", input_path]
         for png_path, _, _ in png_files:
-            cmd += ["-loop", "1", "-i", png_path]
+            cmd += ["-loop", "1", "-t", str(vid_dur), "-i", png_path]
 
         # Build filter_complex:
         # Scale base to exact even dimensions (PNG was created at the same size).
@@ -263,7 +283,6 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
             "-crf", "23",
             "-c:a", "aac",
             "-b:a", "128k",
-            "-shortest",   # stop when the video (not the infinite PNG loop) ends
             output_path,
         ]
 
