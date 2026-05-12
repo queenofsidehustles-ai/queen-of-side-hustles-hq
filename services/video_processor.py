@@ -232,16 +232,16 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
             cmd += ["-loop", "1", "-i", png_path]
 
         # Build filter_complex:
-        # 1) Convert base video to RGBA so it matches the PNG overlay format.
-        #    This avoids pixel format incompatibility (yuv420p video vs RGBA PNG).
-        # 2) Chain overlay filters — all streams are now RGBA, alpha compositing works.
-        # 3) Convert the final composite back to yuv420p for libx264 encoding.
-        parts = ["[0:v]format=rgba[base]"]
+        # scale ensures even dimensions (required by yuv420p/libx264).
+        # Each PNG overlay is explicitly converted to rgba before compositing.
+        parts = ["[0:v]scale=trunc(iw/2)*2:trunc(ih/2)*2,format=rgba[base]"]
         prev = "[base]"
         for i, (_, start, end) in enumerate(png_files):
+            ovr = f"[ovr{i}]"
             out = f"[v{i}]"
+            parts.append(f"[{i+1}:v]format=rgba{ovr}")
             parts.append(
-                f"{prev}[{i+1}:v]overlay=enable='between(t,{start},{end})'{out}"
+                f"{prev}{ovr}overlay=enable='between(t,{start},{end})'{out}"
             )
             prev = out
         parts.append(f"{prev}format=yuv420p[final]")
@@ -266,20 +266,15 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
         if result.returncode != 0:
-            # Skip FFmpeg's version header (~first 1500 chars) to get the actual error
             full_err = result.stderr
             logger.error("FFmpeg FULL stderr (rc=%d):\n%s", result.returncode, full_err)
-            # Find actual error lines (skip version/config header)
-            err_lines = [l for l in full_err.splitlines()
-                         if any(kw in l for kw in
-                                ["Error", "error", "Invalid", "invalid",
-                                 "No such", "not found", "failed", "Failed",
-                                 "Cannot", "cannot", "not exist", "unable",
-                                 "Unrecognized", "Unknown", "Conversion",
-                                 "Could not", "moov", "divisible", "codec",
-                                 "match", "Impossible", "unsupported"])]
-            err = "\n".join(err_lines[:8]) if err_lines else full_err[-1500:].strip()
-            logger.error("FFmpeg key errors:\n%s", err)
+            # FFmpeg stderr: version banner first (~2000 chars), real error after.
+            # Skip the banner by finding where the banner ends (first blank line after
+            # the configuration line), then take the tail of what remains.
+            banner_end = full_err.find("\n\n", 500)
+            after_banner = full_err[banner_end:].strip() if banner_end > 0 else full_err
+            err = after_banner[-1200:].strip() if after_banner else full_err[-1200:].strip()
+            logger.error("FFmpeg error (after banner):\n%s", err)
             return False, err
 
         out_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
@@ -498,11 +493,9 @@ def process_video(raw_video_url: str, transcript: str, duration: float,
         # 3. Burn overlays (PIL text → FFmpeg overlay filter)
         success, burn_err = burn_overlays(input_path, output_path, overlays)
         if not success:
-            # Take the LAST 400 chars — actual FFmpeg error is at the end, not the start
-            short = burn_err[-400:] if burn_err else "unknown error"
-            emit("overlay", "warning", f"Overlay burn failed: {short[-120:]}")
+            emit("overlay", "warning", f"Overlay burn failed: {burn_err[-300:]}")
             return {"processed_url": raw_video_url, "overlays": overlays, "demo": False,
-                    "error": f"ffmpeg burn failed: {short}"}
+                    "error": f"ffmpeg burn failed: {burn_err}"}
 
         # 4. Upload processed video to R2
         processed_url = upload_processed_video(output_path, emit_event=emit_event)
