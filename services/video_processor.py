@@ -263,6 +263,7 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
             "-crf", "23",
             "-c:a", "aac",
             "-b:a", "128k",
+            "-shortest",   # stop when the video (not the infinite PNG loop) ends
             output_path,
         ]
 
