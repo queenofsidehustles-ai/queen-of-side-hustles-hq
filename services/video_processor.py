@@ -231,12 +231,17 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         for png_path, _, _ in png_files:
             cmd += ["-loop", "1", "-i", png_path]
 
-        # Chain overlay filters
+        # Chain overlay filters.
+        # format=auto: tells FFmpeg to handle RGBA alpha channel properly
+        # gte(t,s)*lte(t,e): comma-free alternative to between(t,s,e)
         filters = []
         prev = "[0:v]"
         for i, (_, start, end) in enumerate(png_files):
             out = f"[v{i}]"
-            filters.append(f"{prev}[{i+1}:v]overlay=enable='between(t,{start},{end})'{out}")
+            enable = f"gte(t\\,{start})*lte(t\\,{end})"
+            filters.append(
+                f"{prev}[{i+1}:v]overlay=enable='{enable}':format=auto{out}"
+            )
             prev = out
         filter_complex = ";".join(filters)
         final_label = f"[v{len(png_files)-1}]"
@@ -244,7 +249,7 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         cmd += [
             "-filter_complex", filter_complex,
             "-map", final_label,
-            "-map", "0:a?",        # copy audio if present; skip if none
+            "-map", "0:a?",
             "-c:v", "libx264",
             "-preset", "fast",
             "-crf", "23",
@@ -257,8 +262,17 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
         if result.returncode != 0:
-            err = result.stderr[:1500].strip()
-            logger.error("FFmpeg overlay error (rc=%d):\n%s", result.returncode, err)
+            # Skip FFmpeg's version header (~first 1500 chars) to get the actual error
+            full_err = result.stderr
+            logger.error("FFmpeg FULL stderr (rc=%d):\n%s", result.returncode, full_err)
+            # Find actual error lines (skip version/config header)
+            err_lines = [l for l in full_err.splitlines()
+                         if any(kw in l for kw in
+                                ["Error", "Invalid", "No such", "not found",
+                                 "failed", "Cannot", "not exist", "unable",
+                                 "Unrecognized", "Unknown"])]
+            err = "\n".join(err_lines[:6]) if err_lines else full_err[1500:2500].strip()
+            logger.error("FFmpeg key errors:\n%s", err)
             return False, err
 
         out_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
