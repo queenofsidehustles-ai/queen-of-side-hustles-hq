@@ -148,39 +148,43 @@ def _build_filter(overlays: list) -> str:
     return ",".join(parts) if parts else "null"
 
 
-def burn_overlays(input_path: str, output_path: str, overlays: list) -> bool:
+def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
     """
     Burn text overlays onto a video using FFmpeg drawtext.
-    Returns True on success.
+    Returns (success: bool, error_msg: str).
     """
     if not overlays:
         import shutil
         shutil.copy2(input_path, output_path)
-        return True
+        return True, ""
 
     vf = _build_filter(overlays)
+    logger.info("FFmpeg filter: %s", vf[:400])
 
     cmd = [
         "ffmpeg", "-y",
         "-i", input_path,
         "-vf", vf,
         "-c:v", "libx264",
-        "-preset", "slow",
-        "-crf", "18",
-        "-c:a", "aac",
-        "-b:a", "128k",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "copy",   # copy audio as-is — avoids encoding failure if no audio track
         output_path,
     ]
+    logger.info("FFmpeg cmd: %s", " ".join(cmd))
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
-            logger.error("FFmpeg overlay error:\n%s", result.stderr[-3000:])
-            return False
-        return True
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        logger.error("FFmpeg burn_overlays failed: %s", e)
-        return False
+            # Return the last 800 chars of stderr as the error message
+            err = result.stderr[-800:].strip()
+            logger.error("FFmpeg overlay error (rc=%d):\n%s", result.returncode, err)
+            return False, err
+        return True, ""
+    except subprocess.TimeoutExpired:
+        return False, "FFmpeg timed out after 300s"
+    except FileNotFoundError:
+        return False, "ffmpeg binary not found"
 
 
 # ---------------------------------------------------------------------------
@@ -400,12 +404,12 @@ def process_video(raw_video_url: str, transcript: str, duration: float,
         # 3. Burn overlays
         font_used = _resolve_font()
         logger.info("Overlay burn starting — font: %s | overlays: %d", font_used or "NONE", len(overlays))
-        success = burn_overlays(input_path, output_path, overlays)
+        success, ffmpeg_err = burn_overlays(input_path, output_path, overlays)
         if not success:
-            logger.error("burn_overlays returned False — FFmpeg exited non-zero")
-            emit("overlay", "warning", "FFmpeg overlay failed — video will publish without overlays.")
+            short_err = ffmpeg_err[-300:] if ffmpeg_err else "unknown FFmpeg error"
+            emit("overlay", "warning", f"FFmpeg failed: {short_err[:120]}")
             return {"processed_url": raw_video_url, "overlays": overlays, "demo": False,
-                    "error": "ffmpeg burn failed"}
+                    "error": f"ffmpeg burn failed: {short_err}"}
 
         out_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
         logger.info("burn_overlays succeeded — output size: %d bytes", out_size)

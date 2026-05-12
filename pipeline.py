@@ -790,9 +790,10 @@ def stage_overlay(content_id, item, emit_event):
     if err == "ffmpeg not found":
         emit_event(stage, "warning", "FFmpeg is not installed on this server — no overlay possible.")
         _add_log(content_id, stage, "warning", "FFmpeg not found on server")
-    elif err == "ffmpeg burn failed":
-        emit_event(stage, "warning", "FFmpeg ran but could not burn the text — check Railway logs for details.")
-        _add_log(content_id, stage, "warning", "FFmpeg burn failed (exit non-zero)")
+    elif err.startswith("ffmpeg burn failed"):
+        short = err[len("ffmpeg burn failed: "):].strip()[-200:]
+        emit_event(stage, "warning", f"FFmpeg error: {short[:120]}")
+        _add_log(content_id, stage, "warning", f"FFmpeg error: {short}")
     elif err == "r2 upload failed":
         emit_event(stage, "warning", "Text was burned onto video but could NOT be saved to R2 — check R2 credentials in Railway Variables.")
         _add_log(content_id, stage, "warning", "Overlays burned but R2 upload failed — processed video lost")
