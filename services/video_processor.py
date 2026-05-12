@@ -30,6 +30,27 @@ _TEXT_Y_TOP = "h*0.08"       # hook position — top of frame (like her TikTok s
 _TEXT_Y_BOTTOM = "h*0.72"    # key points + CTA — bottom third
 _MAX_CHARS = 26              # max chars per overlay line (short = readable)
 
+_RESOLVED_FONT = ""          # cached font path, resolved once at first use
+
+
+def _resolve_font() -> str:
+    """Find a bold sans-serif font file via fontconfig (fc-match)."""
+    global _RESOLVED_FONT
+    if _RESOLVED_FONT:
+        return _RESOLVED_FONT
+    try:
+        result = subprocess.run(
+            ["fc-match", "--format=%{file}", "sans-serif:bold"],
+            capture_output=True, text=True, timeout=5,
+        )
+        path = result.stdout.strip()
+        if path and os.path.isfile(path):
+            _RESOLVED_FONT = path
+            logger.info("FFmpeg font resolved: %s", path)
+    except Exception:
+        pass
+    return _RESOLVED_FONT
+
 
 # ---------------------------------------------------------------------------
 # FFmpeg helpers
@@ -51,6 +72,11 @@ def _sanitize(text: str) -> str:
     text = text.replace("]", ")")
     text = text.replace(",", " ")
     text = text.replace("=", " ")
+    text = text.replace("%", "")
+    text = text.replace("{", "(")
+    text = text.replace("}", ")")
+    text = text.replace("\n", " ")
+    text = text.replace("\r", " ")
     return text.strip()[:_MAX_CHARS * 2]   # hard cap
 
 
@@ -60,6 +86,9 @@ def _build_filter(overlays: list) -> str:
     Each overlay dict: {text, start, end, fontsize, position (optional: "top"|"bottom")}
     Hook overlays use "top" position; key points and CTA use "bottom".
     """
+    font = _resolve_font()
+    fontfile_clause = f"fontfile='{font}':" if font else ""
+
     parts = []
     for ov in overlays:
         text = _sanitize(ov.get("text", ""))
@@ -72,6 +101,7 @@ def _build_filter(overlays: list) -> str:
 
         f = (
             f"drawtext="
+            f"{fontfile_clause}"
             f"text='{text}':"
             f"fontsize={fontsize}:"
             f"fontcolor={_FONT_COLOR}:"
@@ -113,7 +143,7 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> bool:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
-            logger.error("FFmpeg overlay error:\n%s", result.stderr[-600:])
+            logger.error("FFmpeg overlay error:\n%s", result.stderr[-3000:])
             return False
         return True
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
