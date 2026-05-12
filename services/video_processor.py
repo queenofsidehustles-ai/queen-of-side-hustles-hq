@@ -231,20 +231,23 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         for png_path, _, _ in png_files:
             cmd += ["-loop", "1", "-i", png_path]
 
-        # Chain overlay filters — PNGs used directly so RGBA alpha is preserved.
-        # (Converting PNG to yuv420p first strips alpha, making bg solid black.)
-        # After each overlay we apply format=yuv420p to normalize for chaining.
-        overlay_parts = []
-        prev = "[0:v]"
+        # Build filter_complex:
+        # 1) Convert base video to RGBA so it matches the PNG overlay format.
+        #    This avoids pixel format incompatibility (yuv420p video vs RGBA PNG).
+        # 2) Chain overlay filters — all streams are now RGBA, alpha compositing works.
+        # 3) Convert the final composite back to yuv420p for libx264 encoding.
+        parts = ["[0:v]format=rgba[base]"]
+        prev = "[base]"
         for i, (_, start, end) in enumerate(png_files):
             out = f"[v{i}]"
-            overlay_parts.append(
-                f"{prev}[{i+1}:v]overlay=enable='between(t,{start},{end})',format=yuv420p{out}"
+            parts.append(
+                f"{prev}[{i+1}:v]overlay=enable='between(t,{start},{end})'{out}"
             )
             prev = out
+        parts.append(f"{prev}format=yuv420p[final]")
 
-        filter_complex = ";".join(overlay_parts)
-        final_label = f"[v{len(png_files)-1}]"
+        filter_complex = ";".join(parts)
+        final_label = "[final]"
         logger.info("filter_complex: %s", filter_complex)
 
         cmd += [
