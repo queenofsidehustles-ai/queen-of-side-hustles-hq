@@ -32,24 +32,56 @@ _MAX_CHARS = 26              # max chars per overlay line (short = readable)
 
 _RESOLVED_FONT = ""          # cached font path, resolved once at first use
 
+# Bundled font committed to the repo — most reliable option
+_BUNDLED_FONT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "static", "fonts", "Arial-Bold.ttf"
+)
+
 
 def _resolve_font() -> str:
-    """Find a bold sans-serif font file via fontconfig (fc-match)."""
+    """Return an absolute path to a usable TTF font for FFmpeg drawtext."""
     global _RESOLVED_FONT
     if _RESOLVED_FONT:
         return _RESOLVED_FONT
+
+    # 1. Bundled font (most reliable — committed to repo)
+    if os.path.isfile(_BUNDLED_FONT):
+        _RESOLVED_FONT = _BUNDLED_FONT
+        logger.info("FFmpeg font (bundled): %s", _RESOLVED_FONT)
+        return _RESOLVED_FONT
+
+    # 2. fc-match fallback (works when fontconfig + liberation_ttf are installed)
     try:
         result = subprocess.run(
-            ["fc-match", "--format=%{file}", "sans-serif:bold"],
+            ["fc-match", "--format=%{file}", "sans:bold"],
             capture_output=True, text=True, timeout=5,
         )
         path = result.stdout.strip()
         if path and os.path.isfile(path):
             _RESOLVED_FONT = path
-            logger.info("FFmpeg font resolved: %s", path)
+            logger.info("FFmpeg font (fc-match): %s", _RESOLVED_FONT)
+            return _RESOLVED_FONT
     except Exception:
         pass
-    return _RESOLVED_FONT
+
+    # 3. Search nix store directly
+    try:
+        result = subprocess.run(
+            ["find", "/nix/store", "-name", "LiberationSans-Bold.ttf", "-type", "f"],
+            capture_output=True, text=True, timeout=10,
+        )
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if line and os.path.isfile(line):
+                _RESOLVED_FONT = line
+                logger.info("FFmpeg font (nix store): %s", _RESOLVED_FONT)
+                return _RESOLVED_FONT
+    except Exception:
+        pass
+
+    logger.warning("No font file found — FFmpeg drawtext text may not render")
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -366,18 +398,27 @@ def process_video(raw_video_url: str, transcript: str, duration: float,
         emit("overlay", "progress", "Burning text overlays onto video with FFmpeg...")
 
         # 3. Burn overlays
+        font_used = _resolve_font()
+        logger.info("Overlay burn starting — font: %s | overlays: %d", font_used or "NONE", len(overlays))
         success = burn_overlays(input_path, output_path, overlays)
         if not success:
+            logger.error("burn_overlays returned False — FFmpeg exited non-zero")
             emit("overlay", "warning", "FFmpeg overlay failed — video will publish without overlays.")
             return {"processed_url": raw_video_url, "overlays": overlays, "demo": False,
                     "error": "ffmpeg burn failed"}
 
+        out_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
+        logger.info("burn_overlays succeeded — output size: %d bytes", out_size)
+
         # 4. Upload processed video to R2
         processed_url = upload_processed_video(output_path, emit_event=emit_event)
         if not processed_url:
-            # R2 not set up — fall back to the raw URL
-            processed_url = raw_video_url
+            logger.error("upload_processed_video returned None — falling back to raw URL")
+            emit("overlay", "warning", "Overlays burned but R2 upload failed — video will publish as original.")
+            return {"processed_url": raw_video_url, "overlays": overlays, "demo": False,
+                    "error": "r2 upload failed"}
 
+        logger.info("Processed video uploaded: %s", processed_url)
         emit("overlay", "progress",
              f"Video processing complete! {len(overlays)} overlays burned in.")
 

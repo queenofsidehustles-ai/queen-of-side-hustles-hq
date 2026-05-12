@@ -786,16 +786,27 @@ def stage_overlay(content_id, item, emit_event):
         "error": result.get("error", ""),
     }
 
-    if result.get("error") and not result.get("overlays"):
-        emit_event(stage, "warning",
-                   f"Overlay processing hit a snag ({result['error'][:80]}) — your video will publish without on-screen text. You can retry later.")
-        _add_log(content_id, stage, "warning", result["error"][:200])
+    err = result.get("error", "")
+    if err == "ffmpeg not found":
+        emit_event(stage, "warning", "FFmpeg is not installed on this server — no overlay possible.")
+        _add_log(content_id, stage, "warning", "FFmpeg not found on server")
+    elif err == "ffmpeg burn failed":
+        emit_event(stage, "warning", "FFmpeg ran but could not burn the text — check Railway logs for details.")
+        _add_log(content_id, stage, "warning", "FFmpeg burn failed (exit non-zero)")
+    elif err == "r2 upload failed":
+        emit_event(stage, "warning", "Text was burned onto video but could NOT be saved to R2 — check R2 credentials in Railway Variables.")
+        _add_log(content_id, stage, "warning", "Overlays burned but R2 upload failed — processed video lost")
+    elif not result.get("overlays"):
+        emit_event(stage, "warning", f"No overlays generated — video unchanged. {err or 'AI returned empty plan.'}")
+        _add_log(content_id, stage, "warning", err or "Empty overlay plan")
     else:
+        final_url = result.get("processed_url", "")
         emit_event(stage, "complete",
-                   f"Done! {len(result.get('overlays', []))} text overlays burned onto your video in {duration}s. It is now ready to publish.",
+                   f"Done! {len(result.get('overlays', []))} text overlays burned onto your video in {duration}s.",
                    detail)
         _add_log(content_id, stage, "complete",
                  f"{len(result.get('overlays', []))} overlays applied", json.dumps(detail))
+        _add_log(content_id, stage, "info", f"Processed video: {final_url[:120]}")
 
     _record_stage_metric(content_id, stage, duration=duration, cost=0.0)
     return 0.0
