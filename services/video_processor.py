@@ -196,7 +196,11 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         return False, "No font file found — cannot render text"
 
     vid_w, vid_h = _get_video_size(input_path)
-    logger.info("Video %dx%d | font: %s | %d overlays", vid_w, vid_h, font_path, len(overlays))
+    # Round to even dimensions BEFORE creating PNGs — yuv420p requires this,
+    # and the PNG size must exactly match the scaled video size or overlay crashes.
+    vid_w = (vid_w // 2) * 2
+    vid_h = (vid_h // 2) * 2
+    logger.info("Video %dx%d (even) | font: %s | %d overlays", vid_w, vid_h, font_path, len(overlays))
 
     png_files = []   # (path, start_sec, end_sec)
     try:
@@ -232,14 +236,14 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
             cmd += ["-loop", "1", "-i", png_path]
 
         # Build filter_complex:
-        # scale ensures even dimensions (required by yuv420p/libx264).
-        # Each PNG overlay is explicitly converted to rgba before compositing.
-        parts = ["[0:v]scale=trunc(iw/2)*2:trunc(ih/2)*2,format=rgba[base]"]
+        # Scale base to exact even dimensions (PNG was created at the same size).
+        # Explicit rgba conversion on every stream — FFmpeg 7.x requires this.
+        parts = [f"[0:v]scale={vid_w}:{vid_h},format=rgba[base]"]
         prev = "[base]"
         for i, (_, start, end) in enumerate(png_files):
             ovr = f"[ovr{i}]"
             out = f"[v{i}]"
-            parts.append(f"[{i+1}:v]format=rgba{ovr}")
+            parts.append(f"[{i+1}:v]scale={vid_w}:{vid_h},format=rgba{ovr}")
             parts.append(
                 f"{prev}{ovr}overlay=enable='between(t,{start},{end})'{out}"
             )
