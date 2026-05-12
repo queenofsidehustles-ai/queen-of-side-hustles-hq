@@ -231,20 +231,21 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         for png_path, _, _ in png_files:
             cmd += ["-loop", "1", "-i", png_path]
 
-        # Chain overlay filters.
-        # format=auto: tells FFmpeg to handle RGBA alpha channel properly
-        # gte(t,s)*lte(t,e): comma-free alternative to between(t,s,e)
-        filters = []
+        # Chain overlay filters — PNGs used directly so RGBA alpha is preserved.
+        # (Converting PNG to yuv420p first strips alpha, making bg solid black.)
+        # After each overlay we apply format=yuv420p to normalize for chaining.
+        overlay_parts = []
         prev = "[0:v]"
         for i, (_, start, end) in enumerate(png_files):
             out = f"[v{i}]"
-            enable = f"gte(t\\,{start})*lte(t\\,{end})"
-            filters.append(
-                f"{prev}[{i+1}:v]overlay=enable='{enable}':format=auto{out}"
+            overlay_parts.append(
+                f"{prev}[{i+1}:v]overlay=enable='between(t,{start},{end})',format=yuv420p{out}"
             )
             prev = out
-        filter_complex = ";".join(filters)
+
+        filter_complex = ";".join(overlay_parts)
         final_label = f"[v{len(png_files)-1}]"
+        logger.info("filter_complex: %s", filter_complex)
 
         cmd += [
             "-filter_complex", filter_complex,
@@ -271,7 +272,7 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
                                 ["Error", "Invalid", "No such", "not found",
                                  "failed", "Cannot", "not exist", "unable",
                                  "Unrecognized", "Unknown"])]
-            err = "\n".join(err_lines[:6]) if err_lines else full_err[1500:2500].strip()
+            err = "\n".join(err_lines[:6]) if err_lines else full_err[-2000:].strip()
             logger.error("FFmpeg key errors:\n%s", err)
             return False, err
 
