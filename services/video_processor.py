@@ -106,12 +106,20 @@ def _ffmpeg_available() -> bool:
         return False
 
 
+def _drawtext_available() -> bool:
+    try:
+        r = subprocess.run(["ffmpeg", "-filters"], capture_output=True, text=True, timeout=5)
+        return "drawtext" in r.stdout
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Text sanitization (keep text clean for display)
 # ---------------------------------------------------------------------------
 def _sanitize(text: str) -> str:
-    """Remove characters that could cause display issues."""
-    for ch in ("\\", "'", "\"", "\n", "\r", "\t"):
+    """Remove characters that break FFmpeg's drawtext filter option parser."""
+    for ch in ("\\", "'", "\"", "\n", "\r", "\t", ":", ";", "%", "{", "}"):
         text = text.replace(ch, " ")
     return " ".join(text.split())[:_MAX_CHARS]
 
@@ -193,12 +201,12 @@ def _make_text_png(text: str, vid_w: int, vid_h: int,
 
 
 # ---------------------------------------------------------------------------
-# Core overlay burn: PIL renders text, FFmpeg composites images onto video
+# Core overlay burn: FFmpeg drawtext filter (single input, no PNG files)
 # ---------------------------------------------------------------------------
 def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
     """
-    Burn text overlays onto video.
-    Uses PIL to create transparent text PNGs, then FFmpeg overlay filter.
+    Burn text overlays onto video using FFmpeg drawtext in filter_complex.
+    Single input, no PNG files, no overlay filter — works on all FFmpeg versions.
     Returns (success: bool, error_msg: str).
     """
     if not overlays:
@@ -210,110 +218,83 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
     if not font_path:
         return False, "No font file found — cannot render text"
 
+    if not _drawtext_available():
+        return False, "FFmpeg drawtext filter not available (needs libfreetype)"
+
     vid_w, vid_h = _get_video_size(input_path)
-    vid_dur = _get_video_duration(input_path)
-    # Round to even dimensions BEFORE creating PNGs — yuv420p requires this,
-    # and the PNG size must exactly match the scaled video size or overlay crashes.
     vid_w = (vid_w // 2) * 2
     vid_h = (vid_h // 2) * 2
-    logger.info("Video %dx%d (even) %.1fs | font: %s | %d overlays",
-                vid_w, vid_h, vid_dur, font_path, len(overlays))
+    logger.info("Video %dx%d | font: %s | %d overlays", vid_w, vid_h, font_path, len(overlays))
 
-    png_files = []   # (path, start_sec, end_sec)
+    # Build filter_complex: scale once, then chain drawtext nodes.
+    # Using filter_complex (';' separator) so commas inside between(t,s,e) are safe.
+    nodes = [f"[0:v]scale={vid_w}:{vid_h}[s0]"]
+    prev = "[s0]"
+    drawn = 0
+    for ov in overlays:
+        text = _sanitize(ov.get("text", ""))
+        if not text:
+            continue
+        fontsize   = int(ov.get("fontsize", 50))
+        start      = float(ov.get("start", 0))
+        end        = float(ov.get("end", 3))
+        y_frac     = _Y_TOP_FRAC if ov.get("position") == "top" else _Y_BOTTOM_FRAC
+        out        = f"[t{drawn}]"
+        nodes.append(
+            f"{prev}drawtext="
+            f"fontfile={font_path}"
+            f":text='{text}'"
+            f":fontsize={fontsize}"
+            f":fontcolor=white"
+            f":x=(w-text_w)/2"
+            f":y=h*{y_frac}"
+            f":enable='between(t,{start},{end})'"
+            f":borderw={_STROKE_WIDTH}"
+            f":bordercolor=0xEC4899"
+            f"{out}"
+        )
+        prev = out
+        drawn += 1
+        logger.info("drawtext: %s | t=%s-%s", text, start, end)
+
+    if drawn == 0:
+        import shutil
+        shutil.copy2(input_path, output_path)
+        return True, ""
+
+    filter_complex = ";".join(nodes)
+    logger.info("filter_complex: %s", filter_complex[:300])
+
+    cmd = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-filter_complex", filter_complex,
+        "-map", prev,
+        "-map", "0:a?",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        output_path,
+    ]
+
     try:
-        for ov in overlays:
-            text = _sanitize(ov.get("text", ""))
-            if not text:
-                continue
-            png_path = _make_text_png(
-                text=text,
-                vid_w=vid_w, vid_h=vid_h,
-                fontsize=int(ov.get("fontsize", 50)),
-                position=ov.get("position", "bottom"),
-                font_path=font_path,
-            )
-            png_files.append((
-                png_path,
-                float(ov.get("start", 0)),
-                float(ov.get("end", 3)),
-            ))
-            logger.info("Overlay PNG: %s | t=%s-%s", text, ov.get("start"), ov.get("end"))
-
-        if not png_files:
-            import shutil
-            shutil.copy2(input_path, output_path)
-            return True, ""
-
-        # Build FFmpeg command.
-        # IMPORTANT: each PNG input needs -loop 1 so FFmpeg loops the
-        # single frame for the full video duration instead of stalling
-        # waiting for more frames from the ended image stream.
-        # Give each PNG input an explicit duration matching the video.
-        # -loop 1 alone loops forever; without -shortest (unreliable on FFmpeg 7.x)
-        # FFmpeg never stops. Explicit -t is version-agnostic.
-        cmd = ["ffmpeg", "-y", "-i", input_path]
-        for png_path, _, _ in png_files:
-            cmd += ["-loop", "1", "-t", str(vid_dur), "-i", png_path]
-
-        # Build filter_complex:
-        # Scale base to exact even dimensions (PNG was created at the same size).
-        # Explicit rgba conversion on every stream — FFmpeg 7.x requires this.
-        parts = [f"[0:v]scale={vid_w}:{vid_h},format=rgba[base]"]
-        prev = "[base]"
-        for i, (_, start, end) in enumerate(png_files):
-            ovr = f"[ovr{i}]"
-            out = f"[v{i}]"
-            parts.append(f"[{i+1}:v]scale={vid_w}:{vid_h},format=rgba{ovr}")
-            parts.append(
-                f"{prev}{ovr}overlay=enable='between(t,{start},{end})'{out}"
-            )
-            prev = out
-        parts.append(f"{prev}format=yuv420p[final]")
-
-        filter_complex = ";".join(parts)
-        final_label = "[final]"
-        logger.info("filter_complex: %s", filter_complex)
-
-        cmd += [
-            "-filter_complex", filter_complex,
-            "-map", final_label,
-            "-map", "0:a?",
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "23",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            output_path,
-        ]
-
-        logger.info("FFmpeg cmd: %s", " ".join(cmd[:8]))
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             full_err = result.stderr
             logger.error("FFmpeg FULL stderr (rc=%d):\n%s", result.returncode, full_err)
-            # FFmpeg stderr: version banner first (~2000 chars), real error after.
-            # Skip the banner by finding where the banner ends (first blank line after
-            # the configuration line), then take the tail of what remains.
             banner_end = full_err.find("\n\n", 500)
             after_banner = full_err[banner_end:].strip() if banner_end > 0 else full_err
-            err = after_banner[-1200:].strip() if after_banner else full_err[-1200:].strip()
-            logger.error("FFmpeg error (after banner):\n%s", err)
+            err = after_banner[-1200:].strip() or full_err[-1200:].strip()
             return False, err
-
         out_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
         logger.info("Overlay complete — output %d bytes", out_size)
         return True, ""
-
+    except subprocess.TimeoutExpired:
+        return False, "FFmpeg timed out after 300s"
     except Exception as e:
         logger.exception("burn_overlays failed")
         return False, str(e)
-    finally:
-        for png_path, _, _ in png_files:
-            try:
-                os.unlink(png_path)
-            except OSError:
-                pass
 
 
 # ---------------------------------------------------------------------------
