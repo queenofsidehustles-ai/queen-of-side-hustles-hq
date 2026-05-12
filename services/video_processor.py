@@ -272,10 +272,13 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
             # Find actual error lines (skip version/config header)
             err_lines = [l for l in full_err.splitlines()
                          if any(kw in l for kw in
-                                ["Error", "Invalid", "No such", "not found",
-                                 "failed", "Cannot", "not exist", "unable",
-                                 "Unrecognized", "Unknown"])]
-            err = "\n".join(err_lines[:6]) if err_lines else full_err[-2000:].strip()
+                                ["Error", "error", "Invalid", "invalid",
+                                 "No such", "not found", "failed", "Failed",
+                                 "Cannot", "cannot", "not exist", "unable",
+                                 "Unrecognized", "Unknown", "Conversion",
+                                 "Could not", "moov", "divisible", "codec",
+                                 "match", "Impossible", "unsupported"])]
+            err = "\n".join(err_lines[:8]) if err_lines else full_err[-1500:].strip()
             logger.error("FFmpeg key errors:\n%s", err)
             return False, err
 
@@ -495,8 +498,9 @@ def process_video(raw_video_url: str, transcript: str, duration: float,
         # 3. Burn overlays (PIL text → FFmpeg overlay filter)
         success, burn_err = burn_overlays(input_path, output_path, overlays)
         if not success:
-            short = burn_err[:200] if burn_err else "unknown error"
-            emit("overlay", "warning", f"Overlay burn failed: {short[:120]}")
+            # Take the LAST 400 chars — actual FFmpeg error is at the end, not the start
+            short = burn_err[-400:] if burn_err else "unknown error"
+            emit("overlay", "warning", f"Overlay burn failed: {short[-120:]}")
             return {"processed_url": raw_video_url, "overlays": overlays, "demo": False,
                     "error": f"ffmpeg burn failed: {short}"}
 
