@@ -217,6 +217,11 @@ def run_pipeline(content_id, emit_event):
             friendly = f"Pipeline stopped: {error_msg}"
         else:
             friendly = f"Something went wrong: {error_msg}. Check your API keys in Settings, or try again in a few minutes."
+        # Log the error to the database so it shows in Pipeline Log
+        try:
+            _add_log(content_id, "pipeline", "error", error_msg[:500])
+        except Exception:
+            pass
         emit_event("pipeline", "error", friendly, {"error": error_msg})
 
 

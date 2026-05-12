@@ -148,7 +148,7 @@ Platform: {platform} | Max: {char_limit} characters
 FORMATTING: 2-4 intentional emojis | mobile line breaks after every 1-2 sentences | ONE CTA only
 HASHTAGS (Instagram/TikTok only): #KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss #KidsPartyPlanner
 
-OUTPUT: Return ONLY the post text. No explanations, no labels, no preamble."""
+OUTPUT: Return ONLY the post text, starting directly with the hook. No labels like "AUDIENCE:" or "HOOK:". No explanations. No preamble. Just the post."""
 
     if input_type == "url":
         user_prompt = f"""Turn this article into a {platform} post for Monica's kids party business audience:
@@ -355,25 +355,26 @@ Return ONLY the JSON object. No markdown, no nested keys, no explanations."""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Adapt this script for each platform:\n\n{script_text}"}
             ],
-            max_tokens=800,
+            max_tokens=1200,
             temperature=0.7,
+            timeout=45,
         )
+
+        if not response.choices:
+            raise ValueError("OpenRouter returned empty choices — model may be overloaded, try again.")
 
         raw_text = response.choices[0].message.content.strip()
         usage = response.usage
 
-        # Parse the JSON response
         # Strip markdown code fences if present
-        if raw_text.startswith("```"):
-            raw_text = raw_text.split("\n", 1)[1]  # Remove first line
-            if raw_text.endswith("```"):
-                raw_text = raw_text[:-3]
-            raw_text = raw_text.strip()
+        import re as _re
+        raw_text = _re.sub(r"^```(?:json)?\s*", "", raw_text, flags=_re.MULTILINE)
+        raw_text = _re.sub(r"\s*```\s*$", "", raw_text, flags=_re.MULTILINE)
+        raw_text = raw_text.strip()
 
         try:
             captions = json.loads(raw_text)
         except json.JSONDecodeError:
-            # If JSON parsing fails, create a simple dict with the raw text
             captions = {p: raw_text for p in platforms}
 
         result = {
