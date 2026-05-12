@@ -223,13 +223,13 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
             shutil.copy2(input_path, output_path)
             return True, ""
 
-        # Build FFmpeg command:
-        #   -i video -i png0 -i png1 ...
-        #   -filter_complex "[0:v][1:v]overlay=enable=...[v0];[v0][2:v]overlay=..."
-        #   -map [vN] -map 0:a? -c:v libx264 -c:a aac output.mp4
+        # Build FFmpeg command.
+        # IMPORTANT: each PNG input needs -loop 1 so FFmpeg loops the
+        # single frame for the full video duration instead of stalling
+        # waiting for more frames from the ended image stream.
         cmd = ["ffmpeg", "-y", "-i", input_path]
         for png_path, _, _ in png_files:
-            cmd += ["-i", png_path]
+            cmd += ["-loop", "1", "-i", png_path]
 
         # Chain overlay filters
         filters = []
@@ -254,7 +254,7 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         ]
 
         logger.info("FFmpeg cmd: %s", " ".join(cmd[:8]))
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
         if result.returncode != 0:
             err = result.stderr[:1500].strip()
