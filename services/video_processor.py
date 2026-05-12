@@ -176,8 +176,8 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
-            # Return the last 800 chars of stderr as the error message
-            err = result.stderr[-800:].strip()
+            # First 1200 chars has the actual error; end is just progress noise
+            err = result.stderr[:1200].strip()
             logger.error("FFmpeg overlay error (rc=%d):\n%s", result.returncode, err)
             return False, err
         return True, ""
