@@ -228,7 +228,9 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
 
     # Build filter_complex: scale once, then chain drawtext nodes.
     # Using filter_complex (';' separator) so commas inside between(t,s,e) are safe.
-    nodes = [f"[0:v]scale={vid_w}:{vid_h}[s0]"]
+    # format=yuv420p first: phone cameras record yuvj420p (full-range, deprecated).
+    # Converting early avoids filter chain failures on FFmpeg 7.x.
+    nodes = [f"[0:v]format=yuv420p,scale={vid_w}:{vid_h}[s0]"]
     prev = "[s0]"
     drawn = 0
     for ov in overlays:
@@ -283,16 +285,20 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         if result.returncode != 0:
             full_err = result.stderr
             logger.error("FFmpeg FULL stderr (rc=%d):\n%s", result.returncode, full_err)
-            # Banner lines never start with '['; actual FFmpeg log messages always do.
-            # On Railway nix builds the banner can be 5000+ chars (long nix store paths).
             lines = full_err.splitlines()
-            for i, line in enumerate(lines):
-                if line.startswith("["):
-                    after_banner = "\n".join(lines[i:])
-                    break
+            # Find first '[' line to skip the banner
+            proc_start = next((i for i, l in enumerate(lines) if l.startswith("[")), 0)
+            proc_lines = lines[proc_start:]
+            # Extract lines containing actual error keywords
+            error_kws = ["Error", "error", "Invalid", "invalid", "No such", "not found",
+                         "failed", "Failed", "cannot", "Cannot", "Could not", "Permission",
+                         "Conversion failed", "does not exist", "Unrecognized", "Unknown",
+                         "unsupported", "wrong type", "not open", "corrupt"]
+            err_lines = [l for l in proc_lines if any(kw in l for kw in error_kws)]
+            if err_lines:
+                err = "\n".join(err_lines[:10])
             else:
-                after_banner = full_err
-            err = after_banner[:1200].strip() or full_err[-800:].strip()
+                err = "\n".join(proc_lines[:40])
             return False, err
         out_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
         logger.info("Overlay complete — output %d bytes", out_size)
