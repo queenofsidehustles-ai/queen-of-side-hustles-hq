@@ -250,8 +250,15 @@ def analytics():
 def quick_add_lead():
     from models import log_activity
     data = request.get_json()
-    if not data or not data.get("name"):
-        return jsonify({"error": "Name is required"}), 400
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    name = (data.get("name") or "").strip()
+    handle = (data.get("tiktok_handle") or "").strip().lstrip("@")
+    if not name and not handle:
+        return jsonify({"error": "Please provide a name or TikTok handle"}), 400
+    if not name:
+        name = f"@{handle}"
 
     follow_up = data.get("follow_up_date")
     if follow_up and isinstance(follow_up, str):
@@ -262,8 +269,8 @@ def quick_add_lead():
             follow_up = None
 
     contact = Contact(
-        name=data["name"],
-        tiktok_handle=data.get("tiktok_handle", "").strip() or None,
+        name=name,
+        tiktok_handle=handle or None,
         phone=data.get("phone", "").strip() or None,
         status=data.get("status", "Warming Up"),
         lead_source="TikTok DM",
