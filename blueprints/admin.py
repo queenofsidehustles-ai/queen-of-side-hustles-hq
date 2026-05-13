@@ -64,6 +64,70 @@ def dashboard():
     content_ready = ContentItem.query.filter_by(status="ReadyToPost").count()
     content_published = ContentItem.query.filter_by(status="published").count()
 
+    from datetime import datetime
+    import json
+
+    # Platform / lead source breakdown (real data)
+    platform_rows = db.session.query(
+        Contact.lead_source, func.count(Contact.id)
+    ).group_by(Contact.lead_source).order_by(func.count(Contact.id).desc()).all()
+    platform_breakdown_json = json.dumps([
+        {"source": (row[0] or "Other"), "count": row[1]} for row in platform_rows
+    ])
+
+    # Real conversion funnel (all time)
+    all_count = stats["total_contacts"]
+    leads_count = Contact.query.filter(
+        Contact.status.in_(["Checklist Downloaded", "Warming Up", "Lead"])
+    ).count()
+    converted_count = Contact.query.filter(
+        Contact.status.in_(["Course Purchased", "Hub Activated", "Active Subscriber", "VIP Client"])
+    ).count()
+    funnel = {
+        "all_contacts": all_count,
+        "active_leads": leads_count,
+        "converted": converted_count,
+        "lead_rate": round(leads_count / all_count * 100) if all_count > 0 else 0,
+        "convert_rate": round(converted_count / leads_count * 100) if leads_count > 0 else 0,
+    }
+
+    # Revenue by week — real Won deal data, last 13 weeks
+    now_dt = datetime.utcnow()
+    revenue_weeks_data = []
+    for i in range(13):
+        wk_start = now_dt - timedelta(weeks=12 - i)
+        wk_end = wk_start + timedelta(weeks=1)
+        total = db.session.query(func.coalesce(func.sum(Deal.value), 0)).filter(
+            Deal.stage == "Won",
+            Deal.created_at >= wk_start,
+            Deal.created_at < wk_end,
+        ).scalar()
+        revenue_weeks_data.append({
+            "label": f"{wk_start.month}/{wk_start.day}",
+            "value": float(total or 0),
+        })
+    revenue_weeks_json = json.dumps(revenue_weeks_data)
+
+    # Real Won deals for transactions panel
+    won_rows = (
+        db.session.query(Deal, Contact)
+        .outerjoin(Contact, Deal.contact_id == Contact.id)
+        .filter(Deal.stage == "Won")
+        .order_by(Deal.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    won_deals = []
+    for deal, contact in won_rows:
+        nm = (contact.name if contact else deal.title or "Unknown")
+        won_deals.append({
+            "name": nm,
+            "initials": "".join(w[0].upper() for w in nm.split()[:2]) if nm else "?",
+            "amount": f"{float(deal.value):,.2f}" if deal.value else "0.00",
+            "date": deal.created_at.strftime("%b %d, %Y") if deal.created_at else "",
+        })
+    won_deals_json = json.dumps(won_deals)
+
     return render_template(
         "admin/dashboard.html",
         stats=stats,
@@ -73,6 +137,10 @@ def dashboard():
         content_total=content_total,
         content_ready=content_ready,
         content_published=content_published,
+        funnel=funnel,
+        platform_breakdown_json=platform_breakdown_json,
+        revenue_weeks_json=revenue_weeks_json,
+        won_deals_json=won_deals_json,
     )
 
 
@@ -249,59 +317,66 @@ def analytics():
 @login_required
 def quick_add_lead():
     from models import log_activity
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+    import logging
+    try:
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    name = (data.get("name") or "").strip()
-    handle = (data.get("tiktok_handle") or "").strip().lstrip("@")
-    if not name and not handle:
-        return jsonify({"error": "Please provide a name or TikTok handle"}), 400
-    if not name:
-        name = f"@{handle}"
+        name = (data.get("name") or "").strip()
+        handle = (data.get("tiktok_handle") or "").strip().lstrip("@")
+        if not name and not handle:
+            return jsonify({"error": "Please provide a name or social handle"}), 400
+        if not name:
+            name = f"@{handle}"
 
-    follow_up = data.get("follow_up_date")
-    if follow_up and isinstance(follow_up, str):
-        try:
-            from datetime import date as _date
-            follow_up = _date.fromisoformat(follow_up)
-        except ValueError:
-            follow_up = None
+        follow_up = data.get("follow_up_date")
+        if follow_up and isinstance(follow_up, str):
+            try:
+                from datetime import date as _date
+                follow_up = _date.fromisoformat(follow_up)
+            except ValueError:
+                follow_up = None
 
-    platform = (data.get("platform") or "TikTok").strip()
-    lead_source = f"{platform} DM" if platform not in ("Website", "Referral", "Event", "Other") else platform
+        platform = (data.get("platform") or "TikTok").strip()
+        lead_source = f"{platform} DM" if platform not in ("Website", "Referral", "Event", "Other") else platform
 
-    contact = Contact(
-        name=name,
-        tiktok_handle=handle or None,
-        phone=data.get("phone", "").strip() or None,
-        status=data.get("status", "Warming Up"),
-        lead_source=lead_source,
-        follow_up_date=follow_up,
-        notes_quick=data.get("notes", "").strip() or None,
-    )
-    db.session.add(contact)
-    db.session.flush()
-    log_activity("contact_created", f"Quick-added TikTok lead: {contact.name}", contact_id=contact.id)
-
-    deal_value = data.get("deal_value")
-    if deal_value:
-        try:
-            deal_value = float(deal_value)
-        except (ValueError, TypeError):
-            deal_value = None
-    if deal_value and deal_value > 0:
-        deal = Deal(
-            title=f"TikTok Interest — {contact.name}",
-            contact_id=contact.id,
-            value=deal_value,
-            stage="Warming Up",
+        contact = Contact(
+            name=name,
+            tiktok_handle=handle or None,
+            phone=data.get("phone", "").strip() or None,
+            status=data.get("status", "Warming Up"),
+            lead_source=lead_source,
+            follow_up_date=follow_up,
+            notes_quick=data.get("notes", "").strip() or None,
         )
-        db.session.add(deal)
-        log_activity("deal_created", f"Deal created for {contact.name}: ${deal_value:.0f}", contact_id=contact.id)
+        db.session.add(contact)
+        db.session.flush()
+        log_activity("contact_created", f"Quick-added {platform} lead: {contact.name}", contact_id=contact.id)
 
-    db.session.commit()
-    return jsonify({"ok": True, "contact_id": contact.id})
+        deal_value = data.get("deal_value")
+        if deal_value:
+            try:
+                deal_value = float(deal_value)
+            except (ValueError, TypeError):
+                deal_value = None
+        if deal_value and deal_value > 0:
+            deal = Deal(
+                title=f"{platform} Interest — {contact.name}",
+                contact_id=contact.id,
+                value=deal_value,
+                stage="Warming Up",
+            )
+            db.session.add(deal)
+            log_activity("deal_created", f"Deal created for {contact.name}: ${deal_value:.0f}", contact_id=contact.id)
+
+        db.session.commit()
+        return jsonify({"ok": True, "contact_id": contact.id})
+
+    except Exception as e:
+        db.session.rollback()
+        logging.exception("quick_add_lead error")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
 @admin_bp.route("/extract-contact-image", methods=["POST"])

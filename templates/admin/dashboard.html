@@ -110,21 +110,76 @@
     <div style="padding: 20px 24px 0 24px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             <h3 style="color: var(--text-primary); font-weight: 600; font-size: 0.95rem; margin: 0;">Revenue</h3>
-            <p style="color: var(--text-subtle); font-size: 0.75rem; margin: 4px 0 0 0;">Rolling 90-day performance</p>
+            <p style="color: var(--text-subtle); font-size: 0.75rem; margin: 4px 0 0 0;">Won deals — last 13 weeks</p>
         </div>
-        <div style="display: flex; align-items: center; gap: 16px; font-size: 0.75rem;">
-            <span style="display: flex; align-items: center; gap: 6px; color: var(--text-subtle);">
-                <span style="width: 12px; height: 3px; background: var(--gold); border-radius: 2px; display: inline-block;"></span>
-                Current
-            </span>
-            <span style="display: flex; align-items: center; gap: 6px; color: var(--text-subtle);">
-                <span style="width: 12px; height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; display: inline-block; border-top: 2px dashed rgba(255,255,255,0.3);"></span>
-                Previous
-            </span>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-subtle);">
+            <span style="width: 12px; height: 3px; background: var(--gold); border-radius: 2px; display: inline-block;"></span>
+            Revenue
         </div>
     </div>
     <div style="padding: 12px 16px 16px 16px;">
         <canvas id="revenueChart" style="width: 100%; height: 260px;"></canvas>
+    </div>
+</div>
+
+<!-- Platform Sources + Conversion Funnel -->
+<div class="grid-2" style="margin-bottom: 20px; align-items: start;">
+
+    <!-- Lead Sources donut -->
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
+            <h3 style="color: var(--text-primary); font-weight: 600; font-size: 0.875rem; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Lead Sources
+            </h3>
+        </div>
+        <div style="padding: 20px; display: flex; gap: 16px; align-items: center; min-height: 170px;">
+            <div style="flex-shrink: 0;">
+                <canvas id="platformChart" width="140" height="140"></canvas>
+            </div>
+            <div id="platformLegend" style="flex: 1; display: flex; flex-direction: column; gap: 7px;"></div>
+        </div>
+    </div>
+
+    <!-- Conversion Funnel (real data) -->
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="color: var(--text-primary); font-weight: 600; font-size: 0.875rem; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                Conversion Funnel
+            </h3>
+            <span style="font-size: 0.7rem; color: var(--text-subtle);">All time</span>
+        </div>
+        <div style="padding: 20px;">
+            <div style="display: flex; gap: 8px; align-items: flex-end;">
+                <div style="flex: 1; text-align: center;">
+                    <div style="background: var(--gold-tint); border-radius: 10px; padding: 14px 6px; margin-bottom: 8px;">
+                        <div style="font-size: 1.6rem; font-weight: 700; color: var(--gold);">{{ funnel.all_contacts }}</div>
+                        <div style="font-size: 0.65rem; color: var(--text-subtle); margin-top: 2px; line-height: 1.3;">All<br>Contacts</div>
+                    </div>
+                </div>
+                <div style="padding-bottom: 40px; color: var(--text-subtle); display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div style="font-size: 0.6rem; white-space: nowrap;">{{ funnel.lead_rate }}%</div>
+                </div>
+                <div style="flex: 1; text-align: center;">
+                    <div style="background: rgba(34,197,94,0.08); border-radius: 10px; padding: 14px 6px; margin-bottom: 8px;">
+                        <div style="font-size: 1.6rem; font-weight: 700; color: var(--success);">{{ funnel.active_leads }}</div>
+                        <div style="font-size: 0.65rem; color: var(--text-subtle); margin-top: 2px; line-height: 1.3;">Active<br>Leads</div>
+                    </div>
+                </div>
+                <div style="padding-bottom: 40px; color: var(--text-subtle); display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div style="font-size: 0.6rem; white-space: nowrap;">{{ funnel.convert_rate }}%</div>
+                </div>
+                <div style="flex: 1; text-align: center;">
+                    <div style="background: rgba(245,158,11,0.08); border-radius: 10px; padding: 14px 6px; margin-bottom: 8px;">
+                        <div style="font-size: 1.6rem; font-weight: 700; color: var(--warning);">{{ funnel.converted }}</div>
+                        <div style="font-size: 0.65rem; color: var(--text-subtle); margin-top: 2px; line-height: 1.3;">Converted</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -212,49 +267,6 @@
         </div>
     </div>
 </div>
-
-{% if funnel %}
-<!-- Conversion Funnel -->
-<div class="card" style="margin-bottom: 20px;">
-    <div class="card-header">
-        <h3 class="card-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-            Conversion Funnel
-        </h3>
-        <span style="color: var(--text-subtle); font-size: 0.75rem;">Last 30 days</span>
-    </div>
-    <div class="card-body">
-        <div style="display: flex; gap: 24px; align-items: flex-end;">
-            <div style="flex: 1; text-align: center;">
-                <div style="background: var(--gold-tint); border-radius: var(--radius-md); padding: 20px 12px; margin-bottom: 8px;">
-                    <div style="font-size: 2rem; font-weight: 700; color: var(--gold);">{{ funnel.page_views }}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 4px;">Page Views</div>
-                </div>
-            </div>
-            <div style="padding-bottom: 40px; color: var(--text-subtle);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                <div style="font-size: 0.65rem; text-align: center;">{{ funnel.signup_rate }}%</div>
-            </div>
-            <div style="flex: 1; text-align: center;">
-                <div style="background: rgba(34, 197, 94, 0.08); border-radius: var(--radius-md); padding: 20px 12px; margin-bottom: 8px;">
-                    <div style="font-size: 2rem; font-weight: 700; color: var(--success);">{{ funnel.signups }}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 4px;">Signups</div>
-                </div>
-            </div>
-            <div style="padding-bottom: 40px; color: var(--text-subtle);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                <div style="font-size: 0.65rem; text-align: center;">{{ funnel.purchase_rate }}%</div>
-            </div>
-            <div style="flex: 1; text-align: center;">
-                <div style="background: rgba(245, 158, 11, 0.08); border-radius: var(--radius-md); padding: 20px 12px; margin-bottom: 8px;">
-                    <div style="font-size: 2rem; font-weight: 700; color: var(--warning);">{{ funnel.purchases }}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 4px;">Purchases</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 <!-- Quick Add TikTok Lead Modal -->
 <div class="modal-overlay" x-show="showQuickAdd" x-cloak
@@ -437,144 +449,163 @@ function dashboardData() {
                 if (resp.ok) {
                     window.location.reload();
                 } else {
-                    const d = await resp.json();
-                    alert(d.error || 'Failed to save');
+                    let msg = 'Failed to save. Please try again.';
+                    try { const d = await resp.json(); msg = d.error || msg; } catch {}
+                    alert(msg);
                     this.qaSubmitting = false;
                 }
-            } catch {
-                alert('Network error. Please try again.');
+            } catch (err) {
+                alert('Connection error. Please check your internet and try again.');
                 this.qaSubmitting = false;
             }
         },
-        transactions: [
-            { name: 'Sarah Mitchell', initials: 'SM', amount: '2,450.00', status: 'Paid', date: 'May 7, 2026', avatarBg: 'rgba(199,163,90,0.15)', avatarColor: 'var(--gold)' },
-            { name: 'James Rodriguez', initials: 'JR', amount: '1,890.00', status: 'Paid', date: 'May 6, 2026', avatarBg: 'rgba(34,197,94,0.12)', avatarColor: '#22c55e' },
-            { name: 'Emily Chen', initials: 'EC', amount: '475.00', status: 'Refunded', date: 'May 5, 2026', avatarBg: 'rgba(245,158,11,0.12)', avatarColor: '#f59e0b' },
-            { name: 'Marcus Johnson', initials: 'MJ', amount: '3,200.00', status: 'Paid', date: 'May 4, 2026', avatarBg: 'rgba(99,102,241,0.12)', avatarColor: '#6366f1' },
-            { name: 'Lisa Park', initials: 'LP', amount: '950.00', status: 'Paid', date: 'May 3, 2026', avatarBg: 'rgba(199,163,90,0.15)', avatarColor: 'var(--gold)' },
-            { name: 'David Kim', initials: 'DK', amount: '1,100.00', status: 'Failed', date: 'May 2, 2026', avatarBg: 'rgba(239,68,68,0.12)', avatarColor: '#ef4444' },
-            { name: 'Rachel Foster', initials: 'RF', amount: '4,750.00', status: 'Paid', date: 'May 1, 2026', avatarBg: 'rgba(34,197,94,0.12)', avatarColor: '#22c55e' },
-            { name: 'Tom Bradley', initials: 'TB', amount: '680.00', status: 'Paid', date: 'Apr 30, 2026', avatarBg: 'rgba(99,102,241,0.12)', avatarColor: '#6366f1' },
-            { name: 'Nina Patel', initials: 'NP', amount: '2,100.00', status: 'Paid', date: 'Apr 29, 2026', avatarBg: 'rgba(245,158,11,0.12)', avatarColor: '#f59e0b' },
-            { name: 'Alex Turner', initials: 'AT', amount: '325.00', status: 'Refunded', date: 'Apr 28, 2026', avatarBg: 'rgba(199,163,90,0.15)', avatarColor: 'var(--gold)' }
-        ],
+        transactions: ({{ won_deals_json | safe }}).map(t => ({
+            ...t,
+            status: 'Paid',
+            avatarBg: 'rgba(199,163,90,0.15)',
+            avatarColor: 'var(--gold)',
+        })),
         init() {
-            this.$nextTick(() => { this.renderChart(); });
+            this.$nextTick(() => {
+                this.renderChart();
+                this.renderPlatformChart();
+            });
         },
         renderChart() {
             const ctx = document.getElementById('revenueChart');
             if (!ctx) return;
 
-            // Generate demo revenue data (13 weeks)
-            const seed = (n) => {
-                let x = Math.sin(n) * 10000;
-                return x - Math.floor(x);
-            };
-            const currentData = [];
-            const previousData = [];
-            const labels = [];
-            for (let i = 0; i < 13; i++) {
-                labels.push('W' + (i + 1));
-                currentData.push(Math.round(500 + seed(i * 7 + 3) * 4500));
-                previousData.push(Math.round(400 + seed(i * 7 + 19) * 3800));
-            }
-
+            const weekData = {{ revenue_weeks_json | safe }};
+            const labels = weekData.map(w => w.label);
+            const currentData = weekData.map(w => w.value);
             const goldColor = getComputedStyle(document.documentElement).getPropertyValue('--gold').trim() || '#c7a35a';
 
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Current Period',
-                            data: currentData,
-                            borderColor: goldColor,
-                            backgroundColor: 'transparent',
-                            borderWidth: 2.5,
-                            tension: 0.4,
-                            pointBackgroundColor: goldColor,
-                            pointBorderColor: goldColor,
-                            pointRadius: 3,
-                            pointHoverRadius: 6,
-                            fill: true,
-                            backgroundColor: (context) => {
-                                const chart = context.chart;
-                                const {ctx: c, chartArea} = chart;
-                                if (!chartArea) return 'transparent';
-                                const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                                gradient.addColorStop(0, 'rgba(199, 163, 90, 0.15)');
-                                gradient.addColorStop(1, 'rgba(199, 163, 90, 0)');
-                                return gradient;
-                            }
-                        },
-                        {
-                            label: 'Previous Period',
-                            data: previousData,
-                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                            backgroundColor: 'transparent',
-                            borderWidth: 1.5,
-                            borderDash: [6, 4],
-                            tension: 0.4,
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            pointBackgroundColor: 'rgba(255,255,255,0.3)',
-                            fill: false
+                    labels,
+                    datasets: [{
+                        label: 'Revenue',
+                        data: currentData,
+                        borderColor: goldColor,
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        pointBackgroundColor: goldColor,
+                        pointBorderColor: goldColor,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        backgroundColor: (context) => {
+                            const chart = context.chart;
+                            const {ctx: c, chartArea} = chart;
+                            if (!chartArea) return 'transparent';
+                            const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                            gradient.addColorStop(0, 'rgba(199,163,90,0.15)');
+                            gradient.addColorStop(1, 'rgba(199,163,90,0)');
+                            return gradient;
                         }
-                    ]
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
-                            backgroundColor: 'rgba(20, 20, 30, 0.95)',
+                            backgroundColor: 'rgba(20,20,30,0.95)',
                             titleColor: 'rgba(255,255,255,0.7)',
                             bodyColor: '#fff',
-                            borderColor: 'rgba(199, 163, 90, 0.3)',
+                            borderColor: 'rgba(199,163,90,0.3)',
                             borderWidth: 1,
                             padding: 12,
-                            displayColors: true,
                             callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
-                                }
+                                label: ctx => ' $' + ctx.parsed.y.toLocaleString()
                             }
                         }
                     },
                     scales: {
                         x: {
-                            grid: {
-                                color: 'rgba(199, 163, 90, 0.06)',
-                                drawBorder: false
-                            },
-                            ticks: {
-                                color: 'rgba(255, 255, 255, 0.45)',
-                                font: { size: 11 }
-                            }
+                            grid: { color: 'rgba(199,163,90,0.06)', drawBorder: false },
+                            ticks: { color: 'rgba(255,255,255,0.45)', font: { size: 11 } }
                         },
                         y: {
-                            grid: {
-                                color: 'rgba(199, 163, 90, 0.08)',
-                                drawBorder: false
-                            },
+                            grid: { color: 'rgba(199,163,90,0.08)', drawBorder: false },
                             ticks: {
-                                color: 'rgba(255, 255, 255, 0.45)',
+                                color: 'rgba(255,255,255,0.45)',
                                 font: { size: 11 },
-                                callback: function(value) {
-                                    return '$' + (value / 1000).toFixed(1) + 'k';
-                                }
+                                callback: v => '$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v)
                             },
                             beginAtZero: true
                         }
                     }
                 }
             });
+        },
+        renderPlatformChart() {
+            const ctx = document.getElementById('platformChart');
+            const legendEl = document.getElementById('platformLegend');
+            if (!ctx) return;
+
+            const rawData = {{ platform_breakdown_json | safe }};
+            if (!rawData.length) {
+                if (legendEl) legendEl.innerHTML = '<div style="color:var(--text-subtle);font-size:0.8rem;padding:20px 0;">No contacts yet — add your first lead!</div>';
+                return;
+            }
+
+            const SOURCE_COLORS = {
+                'TikTok DM': '#fe2c55', 'TikTok': '#fe2c55',
+                'Instagram DM': '#e1306c', 'Instagram': '#e1306c',
+                'Facebook DM': '#1877f2', 'Facebook': '#1877f2',
+                'YouTube DM': '#ff0000', 'YouTube': '#ff0000',
+                'LinkedIn DM': '#0077b5', 'LinkedIn': '#0077b5',
+                'MailerLite': '#2ca01c',
+                'Stripe': '#635bff',
+                'Website': '#c7a35a',
+                'Referral': '#22c55e',
+                'Event': '#f59e0b',
+            };
+            const FALLBACK = ['#9c7bc4','#c7a35a','#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#8b5cf6'];
+
+            const labels = rawData.map(d => d.source);
+            const data   = rawData.map(d => d.count);
+            const total  = data.reduce((a, b) => a + b, 0);
+            const colors = labels.map((l, i) => SOURCE_COLORS[l] || FALLBACK[i % FALLBACK.length]);
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: 'rgba(20,20,30,0.8)', hoverOffset: 4 }]
+                },
+                options: {
+                    responsive: false,
+                    cutout: '68%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(20,20,30,0.95)',
+                            titleColor: 'rgba(255,255,255,0.7)',
+                            bodyColor: '#fff',
+                            callbacks: {
+                                label: c => ` ${c.parsed} contacts (${Math.round(c.parsed / total * 100)}%)`
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (legendEl) {
+                legendEl.innerHTML = rawData.slice(0, 7).map((d, i) => {
+                    const pct = Math.round(d.count / total * 100);
+                    const col = SOURCE_COLORS[d.source] || FALLBACK[i % FALLBACK.length];
+                    return `<div style="display:flex;align-items:center;gap:8px;font-size:0.78rem;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0;"></span>
+                        <span style="color:var(--text-primary);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.source}</span>
+                        <span style="color:var(--text-subtle);flex-shrink:0;">${d.count} <span style="font-size:0.68rem;">(${pct}%)</span></span>
+                    </div>`;
+                }).join('');
+            }
         }
     };
 }
