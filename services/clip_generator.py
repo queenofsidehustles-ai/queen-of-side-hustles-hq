@@ -90,12 +90,12 @@ Return ONLY the script text, nothing else."""
 # FFmpeg helpers
 # ---------------------------------------------------------------------------
 
-def _trim_clip(input_path: str, output_path: str, start: float, duration: float) -> bool:
-    """Trim video to [start, start+duration]. Re-encodes to handle any phone format."""
+def _trim_clip(input_path: str, output_path: str, start: float, duration: float) -> tuple[bool, str]:
+    """Trim video to [start, start+duration]. Returns (success, error_message)."""
     cmd = [
         "ffmpeg", "-y",
-        "-i", input_path,
         "-ss", str(start),
+        "-i", input_path,
         "-t", str(duration),
         "-c:v", "libx264", "-preset", "fast", "-crf", "23",
         "-c:a", "aac", "-b:a", "128k",
@@ -105,15 +105,20 @@ def _trim_clip(input_path: str, output_path: str, start: float, duration: float)
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if r.returncode != 0:
-            logger.error("FFmpeg trim failed (rc=%d): %s", r.returncode, r.stderr[-400:])
-            return False
-        return True
+            last_lines = r.stderr.strip().splitlines()
+            msg = " | ".join(last_lines[-3:]) if last_lines else r.stderr[-300:]
+            logger.error("FFmpeg trim failed (rc=%d): %s", r.returncode, msg)
+            return False, f"FFmpeg rc={r.returncode}: {msg}"
+        return True, ""
     except subprocess.TimeoutExpired:
         logger.error("FFmpeg trim timed out")
-        return False
+        return False, "FFmpeg timed out (>180s)"
+    except FileNotFoundError:
+        logger.error("FFmpeg not found — is it installed?")
+        return False, "FFmpeg not installed on server"
     except Exception as e:
         logger.exception("FFmpeg trim error: %s", e)
-        return False
+        return False, str(e)
 
 
 def _merge_voiceover(video_path: str, audio_path: str, output_path: str) -> bool:
@@ -134,8 +139,7 @@ def _merge_voiceover(video_path: str, audio_path: str, output_path: str) -> bool
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if r.returncode != 0:
             logger.error("FFmpeg merge failed (rc=%d): %s", r.returncode, r.stderr[-400:])
-            return False
-        return True
+        return r.returncode == 0
     except subprocess.TimeoutExpired:
         logger.error("FFmpeg merge timed out")
         return False
@@ -219,12 +223,17 @@ def generate_clip(video) -> dict:
         with open(raw_path, "wb") as f:
             for chunk in r.iter_content(65536):
                 f.write(chunk)
+        file_size = os.path.getsize(raw_path)
+        logger.info("Downloaded %d bytes to %s", file_size, raw_path)
+        if file_size < 1024:
+            return {"ok": False, "error": f"Download too small ({file_size} bytes) — R2 URL may be invalid or private"}
 
         # 2. Trim clip
         trimmed_path = _tmp("_trim.mp4")
         logger.info("Trimming clip: start=%.1fs duration=%.1fs", start, clip_dur)
-        if not _trim_clip(raw_path, trimmed_path, start, clip_dur):
-            return {"ok": False, "error": "FFmpeg trim failed — check Railway logs"}
+        ok, trim_err = _trim_clip(raw_path, trimmed_path, start, clip_dur)
+        if not ok:
+            return {"ok": False, "error": trim_err}
 
         # 3. Generate voiceover script
         script = _generate_script(video.tag_label, notes=video.notes or "")
