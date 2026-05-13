@@ -153,25 +153,28 @@ def _migrate_columns():
     """Safely add new columns to existing tables without dropping data."""
     from sqlalchemy import text as sa_text
 
-    new_cols = {"transcript": "TEXT"}
-    for col, col_type in new_cols.items():
+    migrations = [
+        ("content_items", "transcript",    "TEXT"),
+        ("contacts",      "tiktok_handle", "VARCHAR(100)"),
+        ("contacts",      "follow_up_date","DATE"),
+        ("contacts",      "notes_quick",   "TEXT"),
+    ]
+    for table, col, col_type in migrations:
         try:
-            # PostgreSQL supports IF NOT EXISTS; SQLite will raise if column exists (caught below)
             with db.engine.connect() as conn:
                 conn.execute(sa_text(
-                    f"ALTER TABLE content_items ADD COLUMN IF NOT EXISTS {col} {col_type}"
+                    f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}"
                 ))
                 conn.commit()
         except Exception:
-            # SQLite doesn't support IF NOT EXISTS — try without it, ignore if already exists
             try:
                 with db.engine.connect() as conn:
                     conn.execute(sa_text(
-                        f"ALTER TABLE content_items ADD COLUMN {col} {col_type}"
+                        f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"
                     ))
                     conn.commit()
             except Exception:
-                pass  # Column already exists — that's fine
+                pass
 
 
 # Module-level app instance for gunicorn

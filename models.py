@@ -14,10 +14,13 @@ class Contact(db.Model):
     email      = db.Column(db.String(200))
     phone      = db.Column(db.String(50))
     company    = db.Column(db.String(200))
-    status     = db.Column(db.String(20), default="Lead")
-    lead_source = db.Column(db.String(30), default="Other")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    status        = db.Column(db.String(50), default="Lead")
+    lead_source   = db.Column(db.String(30), default="Other")
+    tiktok_handle = db.Column(db.String(100))
+    follow_up_date = db.Column(db.Date)
+    notes_quick   = db.Column(db.Text)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     notes       = db.relationship("Note",        backref="contact", lazy=True, cascade="all, delete-orphan")
     deals       = db.relationship("Deal",        backref="contact", lazy=True)
@@ -28,15 +31,18 @@ class Contact(db.Model):
 
     def to_dict(self):
         return {
-            "id":          self.id,
-            "name":        self.name,
-            "email":       self.email,
-            "phone":       self.phone,
-            "company":     self.company,
-            "status":      self.status,
-            "lead_source": self.lead_source,
-            "created_at":  self.created_at.isoformat() if self.created_at else None,
-            "updated_at":  self.updated_at.isoformat() if self.updated_at else None,
+            "id":             self.id,
+            "name":           self.name,
+            "email":          self.email,
+            "phone":          self.phone,
+            "company":        self.company,
+            "status":         self.status,
+            "lead_source":    self.lead_source,
+            "tiktok_handle":  self.tiktok_handle,
+            "follow_up_date": self.follow_up_date.isoformat() if self.follow_up_date else None,
+            "notes_quick":    self.notes_quick,
+            "created_at":     self.created_at.isoformat() if self.created_at else None,
+            "updated_at":     self.updated_at.isoformat() if self.updated_at else None,
         }
 
 

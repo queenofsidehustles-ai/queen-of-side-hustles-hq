@@ -46,6 +46,14 @@ def create_contact():
     if not data or not data.get("name"):
         return jsonify({"error": "Name is required"}), 400
 
+    follow_up = data.get("follow_up_date")
+    if follow_up and isinstance(follow_up, str):
+        from datetime import date as _date
+        try:
+            follow_up = _date.fromisoformat(follow_up)
+        except ValueError:
+            follow_up = None
+
     contact = Contact(
         name=data["name"],
         email=data.get("email"),
@@ -53,6 +61,9 @@ def create_contact():
         company=data.get("company"),
         status=data.get("status", "Lead"),
         lead_source=data.get("lead_source", "Other"),
+        tiktok_handle=data.get("tiktok_handle"),
+        follow_up_date=follow_up,
+        notes_quick=data.get("notes_quick"),
     )
     db.session.add(contact)
     db.session.flush()
@@ -77,9 +88,20 @@ def update_contact(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     data = request.get_json()
 
-    for field in ["name", "email", "phone", "company", "status", "lead_source"]:
+    for field in ["name", "email", "phone", "company", "status", "lead_source", "tiktok_handle", "notes_quick"]:
         if field in data:
             setattr(contact, field, data[field])
+
+    if "follow_up_date" in data:
+        val = data["follow_up_date"]
+        if val and isinstance(val, str):
+            from datetime import date as _date
+            try:
+                contact.follow_up_date = _date.fromisoformat(val)
+            except ValueError:
+                pass
+        else:
+            contact.follow_up_date = val or None
 
     log_activity("contact_updated", f"Updated contact: {contact.name}", contact_id=contact.id)
     db.session.commit()
@@ -95,6 +117,23 @@ def delete_contact(contact_id):
     log_activity("contact_deleted", f"Deleted contact: {name}")
     db.session.commit()
     return jsonify({"message": f"Contact '{name}' deleted"})
+
+
+@api_bp.route("/contacts/<int:contact_id>/stage", methods=["PATCH"])
+@login_required
+def move_contact_stage(contact_id):
+    contact = Contact.query.get_or_404(contact_id)
+    data = request.get_json()
+    new_stage = data.get("stage")
+    valid = ["Checklist Downloaded", "Warming Up", "Lead", "Course Purchased",
+             "Hub Activated", "Active Subscriber", "VIP Client", "Churned"]
+    if new_stage not in valid:
+        return jsonify({"error": "Invalid stage"}), 400
+    old_stage = contact.status
+    contact.status = new_stage
+    log_activity("contact_moved", f"Moved {contact.name} from {old_stage} to {new_stage}", contact_id=contact.id)
+    db.session.commit()
+    return jsonify(contact.to_dict())
 
 
 # --- NOTES ---

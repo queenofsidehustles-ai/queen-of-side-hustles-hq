@@ -56,38 +56,51 @@
                 <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Company</th>
+                    <th>TikTok</th>
                     <th>Status</th>
-                    <th>Lead Source</th>
+                    <th>Follow Up</th>
+                    <th>Move Stage</th>
                     <th>Created</th>
                 </tr>
             </thead>
             <tbody>
                 {% for contact in contacts %}
-                <tr style="cursor: pointer;" onclick="window.location='/admin/contacts/{{ contact.id }}'">
-                    <td>
+                <tr x-data="{ moving: false }" style="cursor: pointer;">
+                    <td onclick="window.location='/admin/contacts/{{ contact.id }}'">
                         <div class="flex items-center gap-3">
                             <div class="avatar avatar-sm">{{ contact.name[0].upper() if contact.name else '?' }}</div>
                             <span>{{ contact.name }}</span>
                         </div>
                     </td>
-                    <td>{{ contact.email or '--' }}</td>
-                    <td>{{ contact.company or '--' }}</td>
-                    <td>
-                        {% if contact.status == 'Lead' %}
-                            <span class="badge badge-lead">Lead</span>
-                        {% elif contact.status == 'Customer' %}
-                            <span class="badge badge-customer">Customer</span>
-                        {% elif contact.status == 'VIP' %}
-                            <span class="badge badge-vip">VIP</span>
-                        {% elif contact.status == 'Inactive' %}
-                            <span class="badge badge-inactive">Inactive</span>
-                        {% else %}
-                            <span class="badge badge-lead">{{ contact.status or 'Lead' }}</span>
-                        {% endif %}
+                    <td onclick="window.location='/admin/contacts/{{ contact.id }}'">{{ contact.email or '--' }}</td>
+                    <td onclick="window.location='/admin/contacts/{{ contact.id }}'" style="color: var(--text-subtle); font-size: 0.8125rem;">
+                        {% if contact.tiktok_handle %}@{{ contact.tiktok_handle.lstrip('@') }}{% else %}--{% endif %}
                     </td>
-                    <td>{{ contact.lead_source or '--' }}</td>
-                    <td style="color: var(--text-subtle); font-size: 0.8125rem;">
+                    <td onclick="window.location='/admin/contacts/{{ contact.id }}'">
+                        <span class="badge badge-lead">{{ contact.status or 'Lead' }}</span>
+                    </td>
+                    <td onclick="window.location='/admin/contacts/{{ contact.id }}'" style="font-size: 0.8125rem;">
+                        {% if contact.follow_up_date %}
+                            <span style="color: {% if contact.follow_up_date <= today %}#ef4444{% else %}var(--text-subtle){% endif %}; font-weight: {% if contact.follow_up_date <= today %}600{% else %}400{% endif %};">
+                                {{ contact.follow_up_date.strftime('%b %d') }}
+                            </span>
+                        {% else %}--{% endif %}
+                    </td>
+                    <td>
+                        <select style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-subtle); cursor: pointer; min-width: 120px;"
+                                @change="moving=true; fetch('/api/contacts/{{ contact.id }}/stage', {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({stage: $event.target.value})}).then(()=>window.location.reload())">
+                            <option value="">Move to…</option>
+                            <option>Checklist Downloaded</option>
+                            <option>Warming Up</option>
+                            <option>Lead</option>
+                            <option>Course Purchased</option>
+                            <option>Hub Activated</option>
+                            <option>Active Subscriber</option>
+                            <option>VIP Client</option>
+                            <option>Churned</option>
+                        </select>
+                    </td>
+                    <td onclick="window.location='/admin/contacts/{{ contact.id }}'" style="color: var(--text-subtle); font-size: 0.8125rem;">
                         {{ contact.created_at.strftime('%b %d, %Y') if contact.created_at else '--' }}
                     </td>
                 </tr>

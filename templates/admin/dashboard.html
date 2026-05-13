@@ -3,8 +3,16 @@
 {% block page_title %}Dashboard{% endblock %}
 {% block page_subtitle %}<p class="page-subtitle">Welcome back. Here's your business at a glance.</p>{% endblock %}
 
+{% block page_actions %}
+<button class="btn btn-primary" @click="showQuickAdd = true"
+        x-data x-on:click="$dispatch('open-quick-add')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42C1 8.14 1 12 1 12s0 3.86.46 5.58a2.78 2.78 0 0 0 1.95 1.95C5.12 20 12 20 12 20s6.88 0 8.59-.47a2.78 2.78 0 0 0 1.95-1.95C23 15.86 23 12 23 12s0-3.86-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
+    Quick Add TikTok Lead
+</button>
+{% endblock %}
+
 {% block content %}
-<div x-data="dashboardData()">
+<div x-data="dashboardData()" @open-quick-add.window="showQuickAdd = true">
 
 <!-- KPI Stats Row -->
 <div class="grid-4" style="margin-bottom: 20px;">
@@ -48,6 +56,55 @@
         </div>
     </div>
 </div>
+
+{% if follow_ups %}
+<!-- Follow Up Today -->
+<div class="card" style="margin-bottom: 20px; border: 1px solid rgba(199,163,90,0.25);">
+    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="color: var(--text-primary); font-weight: 600; font-size: 0.875rem; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Follow Up Today
+            <span style="background: rgba(239,68,68,0.15); color: #ef4444; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px;">{{ follow_ups|length }}</span>
+        </h3>
+        <a href="/admin/contacts" style="font-size: 0.75rem; color: var(--text-subtle); text-decoration: none;">View all contacts →</a>
+    </div>
+    <div>
+        {% for contact in follow_ups %}
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border-subtle); gap: 12px;"
+             x-data="{ moving: false }">
+            <a href="/admin/contacts/{{ contact.id }}" style="display: flex; align-items: center; gap: 10px; text-decoration: none; flex: 1; min-width: 0;">
+                <div class="avatar avatar-sm">{{ contact.name[0].upper() if contact.name else '?' }}</div>
+                <div style="min-width: 0;">
+                    <div style="font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ contact.name }}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-subtle);">
+                        {% if contact.tiktok_handle %}@{{ contact.tiktok_handle.lstrip('@') }} · {% endif %}
+                        {% if contact.follow_up_date == today %}
+                            <span style="color: #ef4444; font-weight: 500;">Today</span>
+                        {% else %}
+                            {{ contact.follow_up_date.strftime('%b %d') }}
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                <span class="badge badge-lead" style="font-size: 0.65rem;">{{ contact.status }}</span>
+                <select style="font-size: 0.75rem; padding: 4px 8px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-subtle); cursor: pointer;"
+                        @change="moving=true; fetch('/api/contacts/{{ contact.id }}/stage', {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({stage: $event.target.value})}).then(()=>window.location.reload())">
+                    <option value="">Move stage…</option>
+                    <option>Checklist Downloaded</option>
+                    <option>Warming Up</option>
+                    <option>Course Purchased</option>
+                    <option>Hub Activated</option>
+                    <option>Active Subscriber</option>
+                    <option>VIP Client</option>
+                    <option>Churned</option>
+                </select>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 <!-- Revenue Chart -->
 <div class="card" style="margin-bottom: 20px; padding: 0; overflow: hidden;">
@@ -200,6 +257,81 @@
 </div>
 {% endif %}
 
+<!-- Quick Add TikTok Lead Modal -->
+<div class="modal-overlay" x-show="showQuickAdd" x-cloak
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     @click.self="showQuickAdd = false"
+     @keydown.escape.window="showQuickAdd = false">
+    <div class="modal" @click.stop style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42C1 8.14 1 12 1 12s0 3.86.46 5.58a2.78 2.78 0 0 0 1.95 1.95C5.12 20 12 20 12 20s6.88 0 8.59-.47a2.78 2.78 0 0 0 1.95-1.95C23 15.86 23 12 23 12s0-3.86-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
+                Quick Add TikTok Lead
+            </h3>
+            <button class="modal-close" @click="showQuickAdd = false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form @submit.prevent="submitQuickAdd()">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Name <span class="required">*</span></label>
+                        <input type="text" x-model="qa.name" placeholder="Full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">TikTok Handle</label>
+                        <input type="text" x-model="qa.tiktok_handle" placeholder="@username">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" x-model="qa.phone" placeholder="(555) 123-4567">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Follow Up Date</label>
+                        <input type="date" x-model="qa.follow_up_date">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Stage</label>
+                        <select x-model="qa.status">
+                            <option value="Warming Up">Warming Up</option>
+                            <option value="Checklist Downloaded">Checklist Downloaded</option>
+                            <option value="Lead">Lead</option>
+                            <option value="Course Purchased">Course Purchased</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Deal Value ($)</label>
+                        <input type="number" x-model="qa.deal_value" placeholder="497" min="0" step="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <input type="text" x-model="qa.notes" placeholder="What did they ask about?">
+                </div>
+                <div class="modal-footer" style="padding: 16px 0 0; margin-top: 8px; border-top: 1px solid var(--border-light);">
+                    <button type="button" class="btn btn-outline" @click="showQuickAdd = false">Cancel</button>
+                    <button type="submit" class="btn btn-primary" :disabled="qaSubmitting">
+                        <span x-show="!qaSubmitting">Save Lead</span>
+                        <span x-show="qaSubmitting" class="flex items-center gap-2">
+                            <span class="spinner spinner-sm"></span> Saving…
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Recent Activity -->
 <div class="card">
     <div class="card-header">
@@ -247,6 +379,30 @@
 <script>
 function dashboardData() {
     return {
+        showQuickAdd: false,
+        qaSubmitting: false,
+        qa: { name: '', tiktok_handle: '', phone: '', follow_up_date: '', status: 'Warming Up', deal_value: '', notes: '' },
+        async submitQuickAdd() {
+            if (!this.qa.name.trim()) return;
+            this.qaSubmitting = true;
+            try {
+                const resp = await fetch('/admin/quick-add-lead', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.qa)
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const d = await resp.json();
+                    alert(d.error || 'Failed to save');
+                    this.qaSubmitting = false;
+                }
+            } catch {
+                alert('Network error. Please try again.');
+                this.qaSubmitting = false;
+            }
+        },
         transactions: [
             { name: 'Sarah Mitchell', initials: 'SM', amount: '2,450.00', status: 'Paid', date: 'May 7, 2026', avatarBg: 'rgba(199,163,90,0.15)', avatarColor: 'var(--gold)' },
             { name: 'James Rodriguez', initials: 'JR', amount: '1,890.00', status: 'Paid', date: 'May 6, 2026', avatarBg: 'rgba(34,197,94,0.12)', avatarColor: '#22c55e' },

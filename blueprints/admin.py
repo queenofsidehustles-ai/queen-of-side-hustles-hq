@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
 from extensions import db
 from auth import login_required, check_credentials
 from models import Contact, Deal, Note, ActivityLog, Purchase
 from sqlalchemy import func
+from datetime import date, timedelta
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -35,9 +36,11 @@ def logout():
 @admin_bp.route("/dashboard")
 @login_required
 def dashboard():
+    active_stages = ["Checklist Downloaded", "Warming Up", "Lead", "Course Purchased",
+                     "Hub Activated", "Active Subscriber"]
     stats = {
         "total_contacts": Contact.query.count(),
-        "total_leads": Contact.query.filter(Contact.status == "Lead").count(),
+        "total_leads": Contact.query.filter(Contact.status.in_(active_stages)).count(),
         "pipeline_value": float(db.session.query(func.coalesce(func.sum(Deal.value), 0)).filter(
             Deal.stage.notin_(["Won", "Lost"])
         ).scalar()),
@@ -47,6 +50,13 @@ def dashboard():
         "total_deals": Deal.query.count(),
         "won_deals": Deal.query.filter(Deal.stage == "Won").count(),
     }
+
+    today = date.today()
+    follow_ups = (Contact.query
+                  .filter(Contact.follow_up_date <= today)
+                  .order_by(Contact.follow_up_date.asc())
+                  .limit(20).all())
+
     recent_activity = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(10).all()
 
     from models import ContentItem
@@ -57,6 +67,8 @@ def dashboard():
     return render_template(
         "admin/dashboard.html",
         stats=stats,
+        follow_ups=follow_ups,
+        today=today,
         recent_activity=recent_activity,
         content_total=content_total,
         content_ready=content_ready,
@@ -84,7 +96,7 @@ def contacts():
         query = query.filter(Contact.status == status_filter)
 
     contacts_list = query.order_by(Contact.created_at.desc()).all()
-    return render_template("admin/contacts.html", contacts=contacts_list, q=q, status_filter=status_filter)
+    return render_template("admin/contacts.html", contacts=contacts_list, q=q, status_filter=status_filter, today=date.today())
 
 
 @admin_bp.route("/contacts/<int:contact_id>")
@@ -231,6 +243,55 @@ def analytics():
         total_visitors=total_visitors, total_visits=total_visits,
         bounce_rate=bounce_rate, avg_duration=avg_duration,
         top_pages=top_pages, referrers=referrers)
+
+
+@admin_bp.route("/quick-add-lead", methods=["POST"])
+@login_required
+def quick_add_lead():
+    from models import log_activity
+    data = request.get_json()
+    if not data or not data.get("name"):
+        return jsonify({"error": "Name is required"}), 400
+
+    follow_up = data.get("follow_up_date")
+    if follow_up and isinstance(follow_up, str):
+        try:
+            from datetime import date as _date
+            follow_up = _date.fromisoformat(follow_up)
+        except ValueError:
+            follow_up = None
+
+    contact = Contact(
+        name=data["name"],
+        tiktok_handle=data.get("tiktok_handle", "").strip() or None,
+        phone=data.get("phone", "").strip() or None,
+        status=data.get("status", "Warming Up"),
+        lead_source="TikTok DM",
+        follow_up_date=follow_up,
+        notes_quick=data.get("notes", "").strip() or None,
+    )
+    db.session.add(contact)
+    db.session.flush()
+    log_activity("contact_created", f"Quick-added TikTok lead: {contact.name}", contact_id=contact.id)
+
+    deal_value = data.get("deal_value")
+    if deal_value:
+        try:
+            deal_value = float(deal_value)
+        except (ValueError, TypeError):
+            deal_value = None
+    if deal_value and deal_value > 0:
+        deal = Deal(
+            title=f"TikTok Interest — {contact.name}",
+            contact_id=contact.id,
+            value=deal_value,
+            stage="Warming Up",
+        )
+        db.session.add(deal)
+        log_activity("deal_created", f"Deal created for {contact.name}: ${deal_value:.0f}", contact_id=contact.id)
+
+    db.session.commit()
+    return jsonify({"ok": True, "contact_id": contact.id})
 
 
 @admin_bp.route("/sync-mailerlite", methods=["POST"])
