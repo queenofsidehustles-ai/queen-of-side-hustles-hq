@@ -89,6 +89,33 @@
                 <input type="password" name="GETLATE_API_KEY" value="" placeholder="{% if settings.get('GETLATE_API_KEY') %}****{{ settings.get('GETLATE_API_KEY', '')[-4:] }}{% else %}gl-...{% endif %}">
                 <p class="form-help">Used for AI video generation.</p>
             </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">
+                        {% if settings.get('ELEVENLABS_API_KEY') %}
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 6px;"></span>
+                        {% else %}
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-subtle); margin-right: 6px;"></span>
+                        {% endif %}
+                        ElevenLabs API Key
+                    </label>
+                    <input type="password" name="ELEVENLABS_API_KEY" value="" placeholder="{% if settings.get('ELEVENLABS_API_KEY') %}****{{ settings.get('ELEVENLABS_API_KEY', '')[-4:] }}{% else %}sk_...{% endif %}">
+                    <p class="form-help">Adds your voice to AI clips. Get your key at elevenlabs.io.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        {% if settings.get('ELEVENLABS_VOICE_ID') %}
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 6px;"></span>
+                        {% else %}
+                        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-subtle); margin-right: 6px;"></span>
+                        {% endif %}
+                        ElevenLabs Voice ID
+                    </label>
+                    <input type="text" name="ELEVENLABS_VOICE_ID" value="{{ settings.get('ELEVENLABS_VOICE_ID', '') }}" placeholder="Leave blank to use placeholder voice">
+                    <p class="form-help">Paste your cloned Voice ID here after you record your voice on ElevenLabs.</p>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -161,3 +161,21 @@ def update_video(video_id):
 
     db.session.commit()
     return jsonify({"ok": True})
+
+
+@library_bp.route("/generate", methods=["POST"])
+@login_required
+def generate():
+    """Generate AI clips from the library and add them to the content queue."""
+    from services.clip_generator import generate_clips
+    count = int(request.form.get("count", 3))
+    results = generate_clips(count=count)
+    succeeded = [r for r in results if r.get("ok")]
+    failed    = [r for r in results if not r.get("ok")]
+    return jsonify({
+        "ok": len(succeeded) > 0,
+        "generated": len(succeeded),
+        "failed": len(failed),
+        "errors": [r["error"] for r in failed],
+        "items": [{"id": r["content_item_id"], "script": r["script"][:80]} for r in succeeded],
+    })
