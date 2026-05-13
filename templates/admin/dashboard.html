@@ -4,10 +4,9 @@
 {% block page_subtitle %}<p class="page-subtitle">Welcome back. Here's your business at a glance.</p>{% endblock %}
 
 {% block page_actions %}
-<button class="btn btn-primary" @click="showQuickAdd = true"
-        x-data x-on:click="$dispatch('open-quick-add')">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42C1 8.14 1 12 1 12s0 3.86.46 5.58a2.78 2.78 0 0 0 1.95 1.95C5.12 20 12 20 12 20s6.88 0 8.59-.47a2.78 2.78 0 0 0 1.95-1.95C23 15.86 23 12 23 12s0-3.86-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
-    Quick Add TikTok Lead
+<button class="btn btn-primary" x-data x-on:click="$dispatch('open-quick-add')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Quick Add Social Lead
 </button>
 {% endblock %}
 
@@ -270,8 +269,8 @@
     <div class="modal" @click.stop style="max-width: 480px;">
         <div class="modal-header">
             <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42C1 8.14 1 12 1 12s0 3.86.46 5.58a2.78 2.78 0 0 0 1.95 1.95C5.12 20 12 20 12 20s6.88 0 8.59-.47a2.78 2.78 0 0 0 1.95-1.95C23 15.86 23 12 23 12s0-3.86-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
-                Quick Add TikTok Lead
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                Quick Add Social Lead
             </h3>
             <button class="modal-close" @click="showQuickAdd = false">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -279,24 +278,50 @@
         </div>
         <div class="modal-body">
             <form @submit.prevent="submitQuickAdd()">
+                <!-- Screenshot Upload -->
+                <div style="margin-bottom: 16px; padding: 12px; background: rgba(199,163,90,0.06); border: 1px dashed rgba(199,163,90,0.3); border-radius: 8px; text-align: center;">
+                    <label style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.8125rem; color: var(--text-subtle);">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span x-show="!qaExtracting">📸 Upload screenshot to auto-fill form</span>
+                        <span x-show="qaExtracting" class="flex items-center gap-2"><span class="spinner spinner-sm"></span> AI is reading screenshot…</span>
+                        <input type="file" accept="image/*" style="display:none;" @change="extractFromImage($event)" :disabled="qaExtracting">
+                    </label>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Platform</label>
+                        <select x-model="qa.platform">
+                            <option value="TikTok">TikTok</option>
+                            <option value="Instagram">Instagram</option>
+                            <option value="Facebook">Facebook</option>
+                            <option value="YouTube">YouTube</option>
+                            <option value="LinkedIn">LinkedIn</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Social Handle</label>
+                        <input type="text" x-model="qa.tiktok_handle" placeholder="@username">
+                    </div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Name</label>
                         <input type="text" x-model="qa.name" placeholder="Full name (optional)">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">TikTok Handle</label>
-                        <input type="text" x-model="qa.tiktok_handle" placeholder="@username">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" x-model="qa.phone" placeholder="(555) 123-4567">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Phone</label>
-                        <input type="tel" x-model="qa.phone" placeholder="(555) 123-4567">
-                    </div>
-                    <div class="form-group">
                         <label class="form-label">Follow Up Date</label>
                         <input type="date" x-model="qa.follow_up_date">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Deal Value ($)</label>
+                        <input type="number" x-model="qa.deal_value" placeholder="497" min="0" step="1">
                     </div>
                 </div>
                 <div class="form-row">
@@ -310,13 +335,9 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Deal Value ($)</label>
-                        <input type="number" x-model="qa.deal_value" placeholder="497" min="0" step="1">
+                        <label class="form-label">Notes</label>
+                        <input type="text" x-model="qa.notes" placeholder="What did they ask about?">
                     </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Notes</label>
-                    <input type="text" x-model="qa.notes" placeholder="What did they ask about?">
                 </div>
                 <div class="modal-footer" style="padding: 16px 0 0; margin-top: 8px; border-top: 1px solid var(--border-light);">
                     <button type="button" class="btn btn-outline" @click="showQuickAdd = false">Cancel</button>
@@ -381,10 +402,29 @@ function dashboardData() {
     return {
         showQuickAdd: false,
         qaSubmitting: false,
-        qa: { name: '', tiktok_handle: '', phone: '', follow_up_date: '', status: 'Warming Up', deal_value: '', notes: '' },
+        qaExtracting: false,
+        qa: { name: '', tiktok_handle: '', phone: '', follow_up_date: '', status: 'Warming Up', deal_value: '', notes: '', platform: 'TikTok' },
+        async extractFromImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            this.qaExtracting = true;
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+                const resp = await fetch('/admin/extract-contact-image', { method: 'POST', body: formData });
+                if (resp.ok) {
+                    const d = await resp.json();
+                    if (d.handle) this.qa.tiktok_handle = d.handle;
+                    if (d.name) this.qa.name = d.name;
+                    if (d.platform) this.qa.platform = d.platform;
+                    if (d.notes) this.qa.notes = d.notes;
+                }
+            } catch { /* silent fail — fields just stay empty */ }
+            this.qaExtracting = false;
+        },
         async submitQuickAdd() {
             if (!this.qa.name.trim() && !this.qa.tiktok_handle.trim()) {
-                alert('Please enter at least a name or TikTok handle.');
+                alert('Please enter at least a name or social handle.');
                 return;
             }
             this.qaSubmitting = true;

@@ -106,7 +106,7 @@ def contact_detail(contact_id):
     activities = ActivityLog.query.filter_by(contact_id=contact_id).order_by(ActivityLog.created_at.desc()).limit(20).all()
     all_deals = Deal.query.filter_by(contact_id=contact_id).all()
 
-    return render_template("admin/contact_detail.html", contact=contact, activities=activities, deals=all_deals)
+    return render_template("admin/contact_detail.html", contact=contact, activities=activities, deals=all_deals, today=date.today())
 
 
 @admin_bp.route("/settings")
@@ -268,12 +268,15 @@ def quick_add_lead():
         except ValueError:
             follow_up = None
 
+    platform = (data.get("platform") or "TikTok").strip()
+    lead_source = f"{platform} DM" if platform not in ("Website", "Referral", "Event", "Other") else platform
+
     contact = Contact(
         name=name,
         tiktok_handle=handle or None,
         phone=data.get("phone", "").strip() or None,
         status=data.get("status", "Warming Up"),
-        lead_source="TikTok DM",
+        lead_source=lead_source,
         follow_up_date=follow_up,
         notes_quick=data.get("notes", "").strip() or None,
     )
@@ -299,6 +302,52 @@ def quick_add_lead():
 
     db.session.commit()
     return jsonify({"ok": True, "contact_id": contact.id})
+
+
+@admin_bp.route("/extract-contact-image", methods=["POST"])
+@login_required
+def extract_contact_image():
+    import base64, json, re
+    img = request.files.get("image")
+    if not img:
+        return jsonify({"error": "No image provided"}), 400
+
+    b64 = base64.b64encode(img.read()).decode()
+    mime = img.content_type or "image/jpeg"
+
+    from services.openrouter import _get_client
+    client = _get_client()
+    if not client:
+        return jsonify({"error": "OpenRouter API key not configured in Settings"}), 400
+
+    try:
+        resp = client.chat.completions.create(
+            model="google/gemini-2.5-flash",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+                    {"type": "text", "text": (
+                        "Look at this screenshot from a social media app or DM. "
+                        "Extract contact info and return ONLY a JSON object with these fields (null if not found): "
+                        "name (display name, not username), handle (username WITHOUT @ symbol), "
+                        "platform (one of: TikTok, Instagram, Facebook, YouTube, LinkedIn), "
+                        "notes (one sentence: what they asked or are interested in). "
+                        'Example: {"name":"Sarah J","handle":"sarahparties","platform":"TikTok","notes":"Asked about pricing for balloon setups"}'
+                    )}
+                ]
+            }],
+            max_tokens=200,
+        )
+        raw = resp.choices[0].message.content.strip()
+        raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+        try:
+            data = json.loads(raw)
+        except Exception:
+            data = {}
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @admin_bp.route("/sync-mailerlite", methods=["POST"])

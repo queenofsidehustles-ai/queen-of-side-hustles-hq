@@ -40,6 +40,28 @@
                 <div class="card-body">
                     <!-- Display Mode -->
                     <div x-show="!editing">
+                        <!-- Stage Mover -->
+                        <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-light);">
+                            <div class="form-label" style="margin-bottom: 10px;">Pipeline Stage</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                {% for stage in ["Checklist Downloaded","Warming Up","Lead","Course Purchased","Hub Activated","Active Subscriber","VIP Client","Churned"] %}
+                                <button
+                                    style="font-size: 0.7rem; padding: 4px 10px; border-radius: 20px; border: 1px solid {% if contact.status == stage %}var(--gold){% else %}var(--border-subtle){% endif %}; background: {% if contact.status == stage %}var(--gold-tint){% else %}transparent{% endif %}; color: {% if contact.status == stage %}var(--gold){% else %}var(--text-subtle){% endif %}; cursor: pointer; font-weight: {% if contact.status == stage %}600{% else %}400{% endif %}; white-space: nowrap;"
+                                    @click="moveStage('{{ stage }}')"
+                                    :disabled="movingStage">
+                                    {{ stage }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        {% if contact.notes_quick %}
+                        <div style="background: rgba(199,163,90,0.08); border: 1px solid rgba(199,163,90,0.2); border-radius: 8px; padding: 12px 14px; margin-bottom: 20px;">
+                            <div class="form-label" style="margin-bottom: 4px; font-size: 0.7rem;">Quick Note</div>
+                            <p style="color: var(--text-primary); font-size: 0.875rem; margin: 0;">{{ contact.notes_quick }}</p>
+                        </div>
+                        {% endif %}
+
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div>
                                 <div class="form-label" style="margin-bottom: 4px;">Email</div>
@@ -53,44 +75,44 @@
                             </div>
                             <div>
                                 <div class="form-label" style="margin-bottom: 4px;">Phone</div>
-                                <div style="color: var(--text-primary); font-size: 0.875rem;">{{ contact.phone or '--' }}</div>
+                                <div style="color: var(--text-primary); font-size: 0.875rem;">
+                                    {% if contact.phone %}
+                                    <a href="tel:{{ contact.phone }}" style="color: var(--text-primary);">{{ contact.phone }}</a>
+                                    {% else %}--{% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Social Handle</div>
+                                <div style="color: var(--text-primary); font-size: 0.875rem;">
+                                    {% if contact.tiktok_handle %}@{{ contact.tiktok_handle.lstrip('@') }}{% else %}<span style="color:var(--text-subtle);">--</span>{% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Platform / Source</div>
+                                <div style="color: var(--text-primary); font-size: 0.875rem;">{{ contact.lead_source or '--' }}</div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Follow-up Date</div>
+                                <div style="font-size: 0.875rem;">
+                                    {% if contact.follow_up_date %}
+                                    <span style="color: {% if contact.follow_up_date <= today %}#ef4444{% else %}var(--text-primary){% endif %}; font-weight: {% if contact.follow_up_date <= today %}600{% else %}400{% endif %};">
+                                        {{ contact.follow_up_date.strftime('%b %d, %Y') }}
+                                        {% if contact.follow_up_date <= today %} — Overdue{% endif %}
+                                    </span>
+                                    {% else %}<span style="color:var(--text-subtle);">--</span>{% endif %}
+                                </div>
                             </div>
                             <div>
                                 <div class="form-label" style="margin-bottom: 4px;">Company</div>
                                 <div style="color: var(--text-primary); font-size: 0.875rem;">{{ contact.company or '--' }}</div>
                             </div>
                             <div>
-                                <div class="form-label" style="margin-bottom: 4px;">Status</div>
-                                <div>
-                                    {% if contact.status == 'Lead' %}
-                                        <span class="badge badge-lead">Lead</span>
-                                    {% elif contact.status == 'Customer' %}
-                                        <span class="badge badge-customer">Customer</span>
-                                    {% elif contact.status == 'VIP' %}
-                                        <span class="badge badge-vip">VIP</span>
-                                    {% elif contact.status == 'Inactive' %}
-                                        <span class="badge badge-inactive">Inactive</span>
-                                    {% else %}
-                                        <span class="badge badge-lead">{{ contact.status or 'Lead' }}</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div>
-                                <div class="form-label" style="margin-bottom: 4px;">Lead Source</div>
-                                <div style="color: var(--text-primary); font-size: 0.875rem;">{{ contact.lead_source or '--' }}</div>
-                            </div>
-                            <div>
                                 <div class="form-label" style="margin-bottom: 4px;">Created</div>
                                 <div style="color: var(--text-muted); font-size: 0.8125rem;">
-                                    {{ contact.created_at.strftime('%b %d, %Y at %I:%M %p') if contact.created_at else '--' }}
+                                    {{ contact.created_at.strftime('%b %d, %Y') if contact.created_at else '--' }}
                                 </div>
                             </div>
                         </div>
-                        {% if contact.updated_at %}
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-subtle);">
-                            Last updated: {{ contact.updated_at.strftime('%b %d, %Y at %I:%M %p') }}
-                        </div>
-                        {% endif %}
                     </div>
 
                     <!-- Edit Mode -->
@@ -105,30 +127,37 @@
                                 <input type="tel" x-model="form.phone" placeholder="(555) 123-4567">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Company</label>
-                                <input type="text" x-model="form.company" placeholder="Company name">
+                                <label class="form-label">Social Handle</label>
+                                <input type="text" x-model="form.tiktok_handle" placeholder="@username">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Status</label>
-                                <select x-model="form.status">
-                                    <option value="Lead">Lead</option>
-                                    <option value="Customer">Customer</option>
-                                    <option value="VIP">VIP</option>
-                                    <option value="Inactive">Inactive</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label class="form-label">Lead Source</label>
+                                <label class="form-label">Platform / Source</label>
                                 <select x-model="form.lead_source">
                                     <option value="">Select source...</option>
-                                    <option value="Website">Website</option>
+                                    <option value="TikTok DM">TikTok DM</option>
+                                    <option value="Instagram DM">Instagram DM</option>
+                                    <option value="Facebook DM">Facebook DM</option>
+                                    <option value="YouTube">YouTube</option>
+                                    <option value="LinkedIn">LinkedIn</option>
+                                    <option value="MailerLite">MailerLite</option>
+                                    <option value="Stripe">Stripe (Purchased)</option>
                                     <option value="Referral">Referral</option>
-                                    <option value="Social Media">Social Media</option>
-                                    <option value="Email Campaign">Email Campaign</option>
-                                    <option value="Cold Outreach">Cold Outreach</option>
+                                    <option value="Website">Website</option>
                                     <option value="Event">Event</option>
                                     <option value="Other">Other</option>
                                 </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Follow-up Date</label>
+                                <input type="date" x-model="form.follow_up_date">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Company</label>
+                                <input type="text" x-model="form.company" placeholder="Company name">
+                            </div>
+                            <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 0;">
+                                <label class="form-label">Quick Note</label>
+                                <input type="text" x-model="form.notes_quick" placeholder="What are they interested in?">
                             </div>
                         </div>
                     </div>
@@ -306,6 +335,7 @@ function contactDetail() {
         saving: false,
         deleting: false,
         addingNote: false,
+        movingStage: false,
         showDeleteModal: false,
         newNote: '',
         form: {
@@ -313,8 +343,11 @@ function contactDetail() {
             email: '{{ contact.email|default("", true)|e }}',
             phone: '{{ contact.phone|default("", true)|e }}',
             company: '{{ contact.company|default("", true)|e }}',
-            status: '{{ contact.status|default("Lead", true)|e }}',
-            lead_source: '{{ contact.lead_source|default("", true)|e }}'
+            status: '{{ contact.status|default("Warming Up", true)|e }}',
+            lead_source: '{{ contact.lead_source|default("", true)|e }}',
+            tiktok_handle: '{{ contact.tiktok_handle|default("", true)|e }}',
+            follow_up_date: '{{ contact.follow_up_date.isoformat() if contact.follow_up_date else "" }}',
+            notes_quick: '{{ contact.notes_quick|default("", true)|e }}'
         },
         originalForm: null,
 
@@ -328,8 +361,22 @@ function contactDetail() {
             this.editing = false;
         },
 
+        async moveStage(stage) {
+            this.movingStage = true;
+            try {
+                await fetch('/api/contacts/{{ contact.id }}/stage', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stage })
+                });
+                window.location.reload();
+            } catch {
+                alert('Network error. Please try again.');
+                this.movingStage = false;
+            }
+        },
+
         async saveContact() {
-            if (!this.form.name.trim()) return;
             this.saving = true;
             try {
                 const resp = await fetch('/api/contacts/{{ contact.id }}', {
