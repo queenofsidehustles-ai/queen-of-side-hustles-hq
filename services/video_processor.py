@@ -478,12 +478,11 @@ def process_video(raw_video_url: str, transcript: str, duration: float,
     """
     emit = emit_event or (lambda *a, **kw: None)
 
-    if not _ffmpeg_available():
-        emit("overlay", "warning", "FFmpeg is not installed on this server.")
-        return {"processed_url": None, "overlays": [], "demo": False,
-                "error": "ffmpeg not found"}
+    # Video text overlay is disabled — add text in TikTok/CapCut after downloading.
+    emit("overlay", "progress", "Text overlay skipped — add captions in TikTok or CapCut.")
+    return {"processed_url": raw_video_url, "overlays": [], "demo": False}
 
-    # 1. Generate overlay plan via AI
+    # 1. Generate overlay plan via AI  # noqa: unreachable
     plan = generate_overlay_plan(transcript, duration, script=script, emit_event=emit_event)
     overlays = plan.get("overlays", [])
 
