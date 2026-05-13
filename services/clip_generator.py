@@ -91,19 +91,23 @@ Return ONLY the script text, nothing else."""
 # ---------------------------------------------------------------------------
 
 def _trim_clip(input_path: str, output_path: str, start: float, duration: float) -> tuple[bool, str]:
-    """Trim video to [start, start+duration]. Returns (success, error_message)."""
+    """
+    Trim video to [start, start+duration] using stream copy — no re-encode.
+    This avoids OOM on large iPhone MOV/HEVC files (500MB+).
+    The merge step does the H.264 re-encode on the short 25s clip.
+    Returns (success, error_message).
+    """
     cmd = [
         "ffmpeg", "-y",
         "-ss", str(start),
         "-i", input_path,
         "-t", str(duration),
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-        "-c:a", "aac", "-b:a", "128k",
+        "-c", "copy",
         "-movflags", "+faststart",
         output_path,
     ]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if r.returncode != 0:
             last_lines = r.stderr.strip().splitlines()
             msg = " | ".join(last_lines[-3:]) if last_lines else r.stderr[-300:]
@@ -112,13 +116,33 @@ def _trim_clip(input_path: str, output_path: str, start: float, duration: float)
         return True, ""
     except subprocess.TimeoutExpired:
         logger.error("FFmpeg trim timed out")
-        return False, "FFmpeg timed out (>180s)"
+        return False, "FFmpeg timed out (>120s)"
     except FileNotFoundError:
         logger.error("FFmpeg not found — is it installed?")
         return False, "FFmpeg not installed on server"
     except Exception as e:
         logger.exception("FFmpeg trim error: %s", e)
         return False, str(e)
+
+
+def _normalize_clip(input_path: str, output_path: str) -> bool:
+    """Re-encode a short clip to H.264/AAC for platform compatibility."""
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        output_path,
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if r.returncode != 0:
+            logger.warning("FFmpeg normalize failed (rc=%d): %s", r.returncode, r.stderr[-200:])
+        return r.returncode == 0
+    except Exception as e:
+        logger.warning("FFmpeg normalize error: %s", e)
+        return False
 
 
 def _merge_voiceover(video_path: str, audio_path: str, output_path: str) -> bool:
@@ -250,14 +274,16 @@ def generate_clip(video) -> dict:
                 f.write(audio_bytes)
             logger.info("Merging voiceover (%d bytes)", len(audio_bytes))
             if not _merge_voiceover(trimmed_path, audio_path, final_path):
-                # Fall back to clip without voiceover
-                logger.warning("Voiceover merge failed — using original audio")
+                logger.warning("Voiceover merge failed — normalizing without voiceover")
+                if not _normalize_clip(trimmed_path, final_path):
+                    import shutil
+                    shutil.copy2(trimmed_path, final_path)
+        else:
+            # No voiceover — normalize to H.264 so clip is platform-compatible
+            logger.info("No voiceover — normalizing clip to H.264")
+            if not _normalize_clip(trimmed_path, final_path):
                 import shutil
                 shutil.copy2(trimmed_path, final_path)
-        else:
-            # No API key — keep original audio
-            import shutil
-            shutil.copy2(trimmed_path, final_path)
 
         # 5. Upload to R2
         logger.info("Uploading clip to R2")
