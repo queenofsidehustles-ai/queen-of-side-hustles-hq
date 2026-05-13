@@ -151,12 +151,12 @@ def stripe_webhook():
 
         db.session.commit()
 
-        # Send welcome email (non-blocking — failure won't break the webhook)
+        # Send purchase confirmation using the existing email template system
         try:
-            from services.email_service import send_welcome_email
-            send_welcome_email(contact.email, contact.name)
+            from blueprints.email import send_trigger_email
+            send_trigger_email("purchase_confirmation", contact)
         except Exception as e:
-            logger.warning("Welcome email failed: %s", e)
+            logger.warning("Purchase confirmation email failed: %s", e)
 
     except Exception:
         logger.exception("Stripe webhook: unexpected error")
