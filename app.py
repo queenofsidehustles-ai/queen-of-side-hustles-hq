@@ -145,6 +145,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         _migrate_columns()
+        _migrate_email_templates()
 
     return app
 
@@ -175,6 +176,119 @@ def _migrate_columns():
                     conn.commit()
             except Exception:
                 pass
+
+
+def _migrate_email_templates():
+    """Update email templates to Monica's branded versions if they still have generic seed content."""
+    try:
+        from models import EmailTemplate
+
+        purchase_html = """<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+</head>
+<body style="margin:0;padding:0;background:#faf9fc;font-family:'Lato',Arial,sans-serif;">
+  <div style="background:linear-gradient(135deg,#8a5db7 0%,#7048a0 60%,#5c3688 100%);padding:40px 24px 56px;text-align:center;">
+    <div style="font-family:'Dancing Script',cursive;font-size:2rem;color:#e4b94a;margin-bottom:6px;">Welcome to the family, {{name}}!</div>
+    <div style="color:rgba(255,255,255,0.88);font-size:1rem;font-weight:300;">Your payment was received. You're officially in.</div>
+  </div>
+  <div style="max-width:600px;margin:-28px auto 0;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 8px 40px rgba(124,77,170,0.12);">
+
+    <p style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#8c7a9e;margin-bottom:20px;">Here is what to do right now</p>
+
+    <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:18px;">
+      <div style="min-width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8a5db7,#7048a0);color:#fff;font-size:0.85rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px;text-align:center;line-height:32px;">1</div>
+      <div><strong style="display:block;font-size:0.95rem;color:#2d1f3d;margin-bottom:3px;">Go to Kids Party Profit Academy on Skool</strong>
+      <span style="font-size:0.88rem;color:#5a4570;line-height:1.6;">Click the button below. Create your free Skool account if you don't have one — you'll land straight inside the community.</span></div>
+    </div>
+
+    <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:18px;">
+      <div style="min-width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8a5db7,#7048a0);color:#fff;font-size:0.85rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px;text-align:center;line-height:32px;">2</div>
+      <div><strong style="display:block;font-size:0.95rem;color:#2d1f3d;margin-bottom:3px;">Read the Start Here post in Community first</strong>
+      <span style="font-size:0.88rem;color:#5a4570;line-height:1.6;">Find the pinned <strong>Start Here</strong> post in the Community tab. It walks you through everything and sets you up for success.</span></div>
+    </div>
+
+    <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:18px;">
+      <div style="min-width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8a5db7,#7048a0);color:#fff;font-size:0.85rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px;text-align:center;line-height:32px;">3</div>
+      <div><strong style="display:block;font-size:0.95rem;color:#2d1f3d;margin-bottom:3px;">Start Phase 0 — Mindset Reset in the Classroom</strong>
+      <span style="font-size:0.88rem;color:#5a4570;line-height:1.6;">All six phases are loaded and ready. Start at Phase 0. Trust the process — each phase builds on the last.</span></div>
+    </div>
+
+    <div style="text-align:center;margin:28px 0 20px;">
+      <a href="https://www.skool.com/queen-of-side-hustles-academy-5720/about"
+         style="display:inline-block;background:linear-gradient(135deg,#c9a84c,#e4b94a);color:#2d1f3d;font-family:'Lato',Arial,sans-serif;font-weight:700;font-size:0.95rem;text-decoration:none;padding:14px 36px;border-radius:50px;box-shadow:0 4px 20px rgba(201,168,76,0.35);">
+        Enter Kids Party Profit Academy →
+      </a>
+      <p style="font-size:0.75rem;color:#8c7a9e;margin-top:8px;">Bookmark this link for easy access later.</p>
+    </div>
+
+    <div style="height:1px;background:linear-gradient(90deg,transparent,#9c7bc4,#c9a84c,transparent);opacity:0.3;margin:24px 0;"></div>
+
+    <div style="background:#fdf6e3;border-left:4px solid #c9a84c;border-radius:10px;padding:14px 18px;font-size:0.88rem;color:#5a4570;line-height:1.65;">
+      <strong style="color:#2d1f3d;">Questions?</strong> Just reply to this email — I read every single one personally. You can also DM me on TikTok <strong>@kidspartybizcoach</strong>.
+    </div>
+
+    <p style="margin-top:28px;font-size:0.9rem;color:#5a4570;line-height:1.7;">So proud of you for betting on yourself.<br>Let's build your empire,</p>
+    <p style="font-family:'Dancing Script',cursive;font-size:1.4rem;color:#7048a0;margin-top:6px;">Coach Monica</p>
+    <p style="font-size:0.75rem;color:#8c7a9e;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Kids Party Profit System™ · partybusinesscoach.com</p>
+  </div>
+</body>
+</html>"""
+
+        lead_magnet_html = """<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+</head>
+<body style="margin:0;padding:0;background:#faf9fc;font-family:'Lato',Arial,sans-serif;">
+  <div style="background:linear-gradient(135deg,#8a5db7 0%,#7048a0 60%,#5c3688 100%);padding:40px 24px 56px;text-align:center;">
+    <div style="font-family:'Dancing Script',cursive;font-size:2rem;color:#e4b94a;margin-bottom:6px;">Your checklist is here, {{name}}!</div>
+    <div style="color:rgba(255,255,255,0.88);font-size:1rem;font-weight:300;">The first step toward your party business empire.</div>
+  </div>
+  <div style="max-width:600px;margin:-28px auto 0;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 8px 40px rgba(124,77,170,0.12);">
+    <p style="font-size:0.95rem;color:#5a4570;line-height:1.7;margin-bottom:24px;">
+      I put this checklist together because I wish someone had handed it to me when I was starting out. Every item on it is something I learned the hard way so you don't have to.
+    </p>
+
+    <div style="text-align:center;margin:28px 0 20px;">
+      <a href="{{lead_magnet_url}}"
+         style="display:inline-block;background:linear-gradient(135deg,#c9a84c,#e4b94a);color:#2d1f3d;font-family:'Lato',Arial,sans-serif;font-weight:700;font-size:0.95rem;text-decoration:none;padding:14px 36px;border-radius:50px;box-shadow:0 4px 20px rgba(201,168,76,0.35);">
+        Download Your Free Checklist →
+      </a>
+    </div>
+
+    <div style="height:1px;background:linear-gradient(90deg,transparent,#9c7bc4,#c9a84c,transparent);opacity:0.3;margin:24px 0;"></div>
+
+    <p style="font-size:0.88rem;color:#5a4570;line-height:1.7;">
+      When you're ready to go deeper — from checklist to fully booked — the <strong>Kids Party Profit System</strong> is your next step. It's everything you need to launch, price, and fill your calendar.
+    </p>
+    <p style="margin-top:20px;font-size:0.9rem;color:#5a4570;">In your corner,</p>
+    <p style="font-family:'Dancing Script',cursive;font-size:1.4rem;color:#7048a0;margin-top:6px;">Coach Monica</p>
+    <p style="font-size:0.75rem;color:#8c7a9e;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Kids Party Profit System™ · partybusinesscoach.com</p>
+  </div>
+</body>
+</html>"""
+
+        updates = {
+            "purchase_confirmation": {
+                "subject": "You're in, {{name}}! Here's how to access Kids Party Profit Academy 🎉",
+                "html": purchase_html,
+            },
+            "lead_magnet": {
+                "subject": "Here's your Kids Party Business Starter Checklist, {{name}}! 🎈",
+                "html": lead_magnet_html,
+            },
+        }
+
+        for trigger, content in updates.items():
+            t = EmailTemplate.query.filter_by(trigger_type=trigger).first()
+            if t:
+                t.subject = content["subject"]
+                t.body_html = content["html"]
+        db.session.commit()
+    except Exception:
+        pass
 
 
 # Module-level app instance for gunicorn
