@@ -1,5 +1,9 @@
+import hashlib
+import hmac
 import json
 import logging
+import os
+import time
 from flask import Blueprint, jsonify, request
 from extensions import db
 from models import Contact, Deal, log_activity
@@ -8,6 +12,21 @@ from sqlalchemy import func
 logger = logging.getLogger(__name__)
 
 webhooks_bp = Blueprint("webhooks", __name__)
+
+
+def _verify_stripe_signature(payload: bytes, sig_header: str, secret: str, tolerance: int = 300):
+    """Verify Stripe webhook signature without the stripe library."""
+    parts = {k: v for k, v in (p.split("=", 1) for p in sig_header.split(",") if "=" in p)}
+    timestamp = parts.get("t", "")
+    signature = parts.get("v1", "")
+    if not timestamp or not signature:
+        raise ValueError("Missing timestamp or signature")
+    if abs(time.time() - int(timestamp)) > tolerance:
+        raise ValueError("Timestamp too old")
+    signed = f"{timestamp}.{payload.decode('utf-8')}"
+    expected = hmac.new(secret.encode(), signed.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        raise ValueError("Signature mismatch")
 
 
 @webhooks_bp.route("/mailerlite", methods=["POST"])
@@ -101,7 +120,19 @@ def stripe_webhook():
     Webhook URL to paste in Stripe: https://your-railway-domain.up.railway.app/webhooks/stripe
     """
     try:
-        data = request.get_json(silent=True) or {}
+        payload = request.get_data()
+        sig = request.headers.get("Stripe-Signature", "")
+        secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+        if secret and sig:
+            # Verify the signature so only real Stripe events are processed
+            try:
+                _verify_stripe_signature(payload, sig, secret)
+            except ValueError:
+                logger.warning("Stripe webhook: invalid signature — request rejected")
+                return jsonify({"error": "invalid signature"}), 400
+
+        data = json.loads(payload) if payload else {}
         event_type = data.get("type", "")
 
         if event_type != "checkout.session.completed":
