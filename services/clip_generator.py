@@ -23,8 +23,8 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-CLIP_DURATION = 25      # seconds per clip
-MIN_VIDEO_SEC = 8       # skip videos shorter than this
+CLIP_DURATION = 30      # max seconds per clip (uses full video if shorter)
+MIN_VIDEO_SEC = 5       # skip videos shorter than this
 
 
 # ---------------------------------------------------------------------------
