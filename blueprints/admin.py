@@ -231,3 +231,45 @@ def analytics():
         total_visitors=total_visitors, total_visits=total_visits,
         bounce_rate=bounce_rate, avg_duration=avg_duration,
         top_pages=top_pages, referrers=referrers)
+
+
+@admin_bp.route("/sync-mailerlite", methods=["POST"])
+@login_required
+def sync_mailerlite():
+    from services.mailerlite import get_all_subscribers
+    from models import log_activity
+
+    subscribers = get_all_subscribers()
+    created = 0
+    skipped = 0
+
+    for sub in subscribers:
+        email = (sub.get("email") or "").strip().lower()
+        if not email:
+            continue
+        fields = sub.get("fields") or {}
+        name = (fields.get("name") or sub.get("name") or email.split("@")[0]).strip()
+
+        existing = Contact.query.filter(
+            func.lower(Contact.email) == email
+        ).first()
+
+        if existing is None:
+            contact = Contact(
+                name=name,
+                email=email,
+                status="Checklist Downloaded",
+                lead_source="MailerLite",
+            )
+            db.session.add(contact)
+            db.session.flush()
+            log_activity("contact_created",
+                         f"Imported from MailerLite: {name} ({email})",
+                         contact_id=contact.id)
+            created += 1
+        else:
+            skipped += 1
+
+    db.session.commit()
+    flash(f"MailerLite sync complete: {created} imported, {skipped} already existed.", "success")
+    return redirect(url_for("admin.dashboard"))

@@ -69,6 +69,30 @@ def _get_or_create_group(group_name):
     return None
 
 
+def get_all_subscribers():
+    """Fetch every active subscriber from MailerLite (handles pagination)."""
+    if not MAILERLITE_API_KEY:
+        return []
+    results = []
+    page = 1
+    while True:
+        resp = requests.get(
+            f"{BASE_URL}/subscribers",
+            params={"filter[status]": "active", "limit": 100, "page": page},
+            headers=_headers(),
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            break
+        body = resp.json()
+        results.extend(body.get("data", []))
+        meta = body.get("meta", {})
+        if page >= meta.get("last_page", 1):
+            break
+        page += 1
+    return results
+
+
 def get_subscriber_count():
     """Return total active subscriber count for the dashboard."""
     if not MAILERLITE_API_KEY:

@@ -232,6 +232,9 @@
             <h3 class="empty-state-heading">No activity yet</h3>
             <p class="empty-state-description">Start by adding your first contact to get things rolling.</p>
             <a href="/admin/contacts" class="btn btn-primary" style="margin-top: 12px;">Add Contact</a>
+            <form method="POST" action="/admin/sync-mailerlite" style="display:inline; margin-left: 8px;">
+                <button type="submit" class="btn btn-secondary" style="margin-top: 12px;">Import from MailerLite</button>
+            </form>
         </div>
         {% endif %}
     </div>
