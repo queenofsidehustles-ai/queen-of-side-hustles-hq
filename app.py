@@ -297,5 +297,10 @@ def _migrate_email_templates():
 # Module-level app instance for gunicorn
 app = create_app()
 
+# Start background scheduler (daily auto-generate)
+# With --preload, this runs in gunicorn master — threads don't survive fork to workers
+from services.scheduler import init_scheduler
+init_scheduler(app)
+
 if __name__ == "__main__":
     app.run(debug=True, port=8000)
