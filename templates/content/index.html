@@ -1,7 +1,7 @@
 {% extends "base_admin.html" %}
 
-{% block page_title %}Content Library{% endblock %}
-{% block page_subtitle %}<p class="page-subtitle">Manage your automated content pipeline.</p>{% endblock %}
+{% block page_title %}Content Queue{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Review and approve your AI-generated clips before they go live.</p>{% endblock %}
 
 {% block page_actions %}
 <a href="/content/batch" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);margin-right:8px;">
@@ -42,7 +42,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             </div>
             <div>
-                <div class="stat-value">{{ items|selectattr('status', 'equalto', 'ready')|list|length }}</div>
+                <div class="stat-value">{{ items|selectattr('status', 'in', ['ready', 'ReadyToPost'])|list|length }}</div>
                 <div class="stat-label">Ready to Post</div>
             </div>
         </div>
@@ -58,11 +58,19 @@
     </div>
 
     <!-- Filter Tabs -->
-    <div class="flex items-center gap-3" style="margin-bottom: 24px;">
-        <button class="btn btn-sm" :class="filter === 'all' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'all'">All</button>
-        <button class="btn btn-sm" :class="filter === 'draft' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'draft'">Draft</button>
-        <button class="btn btn-sm" :class="filter === 'processing' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'processing'">Processing</button>
-        <button class="btn btn-sm" :class="filter === 'ready' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'ready'">Ready</button>
+    <div class="flex items-center gap-3" style="margin-bottom: 24px; flex-wrap: wrap;">
+        <button class="btn btn-sm" :class="filter === 'all' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'all'">
+            All <span style="opacity:0.7; margin-left:4px;">{{ items|length }}</span>
+        </button>
+        <button class="btn btn-sm" :class="filter === 'review' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'review'"
+                style="position:relative;">
+            Review
+            {% set review_count = items|selectattr('status', 'equalto', 'ReadyToPost')|list|length %}
+            {% if review_count > 0 %}
+            <span style="display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#2d1f3d;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ review_count }}</span>
+            {% endif %}
+        </button>
+        <button class="btn btn-sm" :class="filter === 'ready' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'ready'">Approved</button>
         <button class="btn btn-sm" :class="filter === 'published' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'published'">Published</button>
     </div>
 
@@ -70,49 +78,67 @@
     {% if items|length > 0 %}
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
         {% for item in items %}
-        <a href="/content/{{ item.id }}"
-           class="card"
-           style="display: block; text-decoration: none; overflow: hidden; transition: border-color 0.2s;"
-           x-show="filterMatch('{{ item.status }}')"
-           x-transition>
-            <!-- Thumbnail -->
-            <div style="height: 160px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-light);">
-                {% if item.image_url %}
-                <img src="{{ item.image_url }}" alt="Content thumbnail" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;">
+        <div class="card"
+             id="content-card-{{ item.id }}"
+             style="overflow: hidden; transition: border-color 0.2s; display: flex; flex-direction: column;"
+             x-show="filterMatch('{{ item.status }}')"
+             x-transition>
+            <!-- Thumbnail / Video -->
+            <a href="/content/{{ item.id }}" style="text-decoration:none; display:block;">
+            <div style="background: var(--bg-secondary); overflow: hidden; border-bottom: 1px solid var(--border-light); position: relative;">
+                {% set vid = item.r2_video_url or item.video_url %}
+                {% if vid %}
+                <video src="{{ vid }}" preload="metadata" muted playsinline
+                       style="width:100%; aspect-ratio:9/16; max-height:220px; object-fit:cover; display:block; cursor:pointer;"
+                       onclick="this.paused ? this.play() : this.pause()"></video>
+                <div style="position:absolute;top:8px;left:8px;background:rgba(199,163,90,0.9);color:#2d1f3d;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:5px;">AI Clip</div>
+                {% elif item.image_url %}
+                <img src="{{ item.image_url }}" alt="" loading="lazy" style="width:100%;height:160px;object-fit:cover;display:block;">
                 {% else %}
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="opacity: 0.3;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <div style="height:160px;display:flex;align-items:center;justify-content:center;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="opacity:0.3;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
                 {% endif %}
             </div>
+            </a>
+
+            <!-- Script preview (AI clips only) -->
+            {% if item.script %}
+            <div style="padding: 10px 14px 0; font-size: 0.75rem; color: var(--text-subtle); line-height: 1.5; font-style: italic; flex: 1;">
+                "{{ item.script[:120] }}{% if item.script|length > 120 %}…{% endif %}"
+            </div>
+            {% endif %}
+
             <!-- Body -->
-            <div style="padding: 16px;">
-                <div style="font-weight: 600; color: var(--text-primary); font-size: 0.9rem; margin-bottom: 10px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    {{ item.article_title or item.input_text[:50] }}{% if item.input_text|length > 50 and not item.article_title %}...{% endif %}
+            <div style="padding: 12px 14px;">
+                <div style="font-weight: 600; color: var(--text-primary); font-size: 0.85rem; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ item.article_title or item.input_text[:50] }}{% if not item.article_title and item.input_text|length > 50 %}…{% endif %}
                 </div>
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <!-- Platform Badge -->
-                        <span class="badge" style="font-size: 0.7rem;">
-                            {{ (item.platform or 'instagram')|capitalize }}
-                        </span>
-                        <!-- Status Badge -->
-                        {% if item.status in ['processing', 'scraping', 'scripting', 'imaging', 'videoing'] %}
-                        <span class="badge" style="background: rgba(245,158,11,0.15); color: var(--warning); font-size: 0.7rem;">Processing</span>
-                        {% elif item.status == 'ready' or item.status == 'complete' %}
-                        <span class="badge" style="background: var(--gold-tint); color: var(--gold); font-size: 0.7rem;">Ready</span>
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="badge" style="font-size:0.68rem;">{{ (item.platform or 'tiktok')|capitalize }}</span>
+                        {% if item.status == 'ReadyToPost' %}
+                        <span class="badge" style="background:var(--gold-tint);color:var(--gold);font-size:0.68rem;">Review</span>
+                        {% elif item.status in ['ready','complete'] %}
+                        <span class="badge" style="background:var(--gold-tint);color:var(--gold);font-size:0.68rem;">Approved</span>
                         {% elif item.status == 'published' %}
-                        <span class="badge" style="background: rgba(34,197,94,0.15); color: var(--success); font-size: 0.7rem;">Published</span>
+                        <span class="badge" style="background:rgba(34,197,94,0.15);color:var(--success);font-size:0.68rem;">Published</span>
+                        {% elif item.status in ['processing','scraping','scripting','imaging','videoing'] %}
+                        <span class="badge" style="background:rgba(245,158,11,0.15);color:var(--warning);font-size:0.68rem;">Processing</span>
                         {% elif item.status == 'error' %}
-                        <span class="badge" style="background: rgba(239,68,68,0.15); color: var(--danger); font-size: 0.7rem;">Error</span>
-                        {% else %}
-                        <span class="badge" style="background: var(--bg-secondary); color: var(--text-subtle); font-size: 0.7rem;">Draft</span>
+                        <span class="badge" style="background:rgba(239,68,68,0.15);color:var(--danger);font-size:0.68rem;">Error</span>
                         {% endif %}
+                        <span style="color:var(--text-subtle);font-size:0.72rem;">{{ item.created_at.strftime('%b %d') if item.created_at else '' }}</span>
                     </div>
-                    <span style="color: var(--text-subtle); font-size: 0.75rem;">
-                        {{ item.created_at.strftime('%b %d') if item.created_at else '' }}
-                    </span>
+                    <button onclick="deleteContentItem({{ item.id }})"
+                            style="background:none;border:none;cursor:pointer;color:var(--text-subtle);padding:3px;display:flex;font-size:0.72rem;align-items:center;gap:3px;transition:color 0.15s;"
+                            onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-subtle)'">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        Delete
+                    </button>
                 </div>
             </div>
-        </a>
+        </div>
         {% endfor %}
     </div>
     {% else %}
@@ -156,15 +182,23 @@ function contentLibrary() {
         filter: 'all',
         filterMatch(status) {
             if (this.filter === 'all') return true;
-            if (this.filter === 'processing') {
-                return ['processing', 'scraping', 'scripting', 'imaging', 'videoing'].includes(status);
-            }
-            if (this.filter === 'ready') {
-                return ['ready', 'complete'].includes(status);
-            }
+            if (this.filter === 'review') return status === 'ReadyToPost';
+            if (this.filter === 'ready') return ['ready', 'complete'].includes(status);
+            if (this.filter === 'processing') return ['processing', 'scraping', 'scripting', 'imaging', 'videoing'].includes(status);
             return status === this.filter;
         }
     };
+}
+
+async function deleteContentItem(id) {
+    if (!confirm('Delete this clip from your queue? This cannot be undone.')) return;
+    const resp = await fetch(`/content/api/${id}`, { method: 'DELETE' });
+    if (resp.ok) {
+        const card = document.getElementById(`content-card-${id}`);
+        if (card) { card.style.opacity = '0'; card.style.transition = 'opacity 0.2s'; setTimeout(() => card.remove(), 200); }
+    } else {
+        alert('Could not delete. Please try again.');
+    }
 }
 </script>
 {% endblock %}
