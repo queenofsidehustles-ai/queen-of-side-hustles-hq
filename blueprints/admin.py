@@ -330,7 +330,7 @@ def quick_add_lead():
         if not name:
             name = f"@{handle}"
 
-        follow_up = data.get("follow_up_date")
+        follow_up = data.get("follow_up_date") or None
         if follow_up and isinstance(follow_up, str):
             try:
                 from datetime import date as _date
