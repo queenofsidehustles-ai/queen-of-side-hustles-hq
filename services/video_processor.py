@@ -283,9 +283,11 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         if result.returncode != 0:
             full_err = result.stderr
             logger.error("FFmpeg FULL stderr (rc=%d):\n%s", result.returncode, full_err)
+            # Skip version banner (~first 2000 chars), then take the FIRST 1200 chars
+            # of what remains — actual errors appear early, progress stats appear late.
             banner_end = full_err.find("\n\n", 500)
             after_banner = full_err[banner_end:].strip() if banner_end > 0 else full_err
-            err = after_banner[-1200:].strip() or full_err[-1200:].strip()
+            err = after_banner[:1200].strip() or full_err[:1200].strip()
             return False, err
         out_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
         logger.info("Overlay complete — output %d bytes", out_size)
@@ -498,7 +500,7 @@ def process_video(raw_video_url: str, transcript: str, duration: float,
         # 3. Burn overlays (PIL text → FFmpeg overlay filter)
         success, burn_err = burn_overlays(input_path, output_path, overlays)
         if not success:
-            emit("overlay", "warning", f"Overlay burn failed: {burn_err[-300:]}")
+            emit("overlay", "warning", f"Overlay burn failed: {burn_err[:400]}")
             return {"processed_url": raw_video_url, "overlays": overlays, "demo": False,
                     "error": f"ffmpeg burn failed: {burn_err}"}
 
