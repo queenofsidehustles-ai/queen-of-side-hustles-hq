@@ -1,0 +1,265 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Video Library{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Your party footage — AI pulls clips from here to build your daily posts.</p>{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-primary" x-data @click="$dispatch('open-upload')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    Upload Videos
+</button>
+{% endblock %}
+
+{% block content %}
+<div x-data="libraryData()" @open-upload.window="showUpload = true">
+
+<!-- ── Upload Panel ─────────────────────────────────────────────── -->
+<div x-show="showUpload" x-cloak
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     class="card" style="margin-bottom: 20px; padding: 0; overflow: hidden;">
+
+    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Party Videos
+        </h3>
+        <button @click="showUpload = false" style="background: none; border: none; cursor: pointer; color: var(--text-subtle); padding: 4px; display: flex;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+
+    <div style="padding: 20px;">
+        <!-- Category picker -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+            <label style="font-size: 0.8rem; color: var(--text-subtle); white-space: nowrap; flex-shrink: 0;">Tag these videos as:</label>
+            <select x-model="uploadTag" style="font-size: 0.85rem; padding: 6px 12px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-primary);">
+                {% for key, label in tags.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <span style="font-size: 0.73rem; color: var(--text-subtle);">You can change each video's tag after uploading.</span>
+        </div>
+
+        <!-- Drop zone -->
+        <div @dragover.prevent="dragOver = true"
+             @dragleave.prevent="dragOver = false"
+             @drop.prevent="handleDrop($event)"
+             :style="dragOver ? 'border-color: var(--gold); background: rgba(199,163,90,0.08);' : ''"
+             style="border: 2px dashed rgba(199,163,90,0.3); border-radius: 12px; padding: 36px 24px; text-align: center; transition: all 0.2s ease;">
+            <label for="videoFileInput" style="cursor: pointer; display: block;">
+                <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--gold-tint); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Tap to choose videos or drag them here</div>
+                <div style="font-size: 0.78rem; color: var(--text-subtle);">MP4, MOV, HEVC — iPhone &amp; Android videos work great · Multiple files OK</div>
+            </label>
+            <input type="file" id="videoFileInput" accept="video/*" multiple style="display: none;"
+                   @change="uploadFiles($event)" :disabled="anyUploading">
+        </div>
+
+        <!-- Upload progress list -->
+        <div x-show="uploads.length > 0" style="margin-top: 16px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-subtle);">
+            <template x-for="(u, i) in uploads" :key="i">
+                <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 0.8rem;">
+                    <span x-show="u.status === 'uploading'" class="spinner spinner-sm" style="flex-shrink: 0;"></span>
+                    <svg x-show="u.status === 'done'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg x-show="u.status === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" style="flex-shrink: 0;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <span style="flex: 1; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="u.name"></span>
+                    <span x-show="u.status === 'uploading'" style="color: var(--text-subtle); flex-shrink: 0; font-size: 0.75rem;">Uploading…</span>
+                    <span x-show="u.status === 'done'" style="color: #22c55e; flex-shrink: 0; font-size: 0.75rem; font-weight: 600;">Saved!</span>
+                    <span x-show="u.status === 'error'" x-text="'Error: ' + u.error" style="color: #ef4444; flex-shrink: 0; font-size: 0.73rem; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<!-- ── Filter Bar ────────────────────────────────────────────────── -->
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        <a href="/admin/library"
+           style="font-size: 0.78rem; padding: 5px 12px; border-radius: 20px; text-decoration: none; transition: all 0.15s;
+                  {% if not tag_filter %}background: var(--gold); color: #2d1f3d; font-weight: 600;
+                  {% else %}background: var(--bg-secondary); color: var(--text-subtle); border: 1px solid var(--border-subtle);{% endif %}">
+            All <span style="opacity: 0.75; margin-left: 3px;">({{ total }})</span>
+        </a>
+        {% for key, label in tags.items() %}
+        {% if tag_counts.get(key, 0) > 0 %}
+        <a href="/admin/library?tag={{ key }}"
+           style="font-size: 0.78rem; padding: 5px 12px; border-radius: 20px; text-decoration: none; transition: all 0.15s;
+                  {% if tag_filter == key %}background: var(--gold); color: #2d1f3d; font-weight: 600;
+                  {% else %}background: var(--bg-secondary); color: var(--text-subtle); border: 1px solid var(--border-subtle);{% endif %}">
+            {{ label }} <span style="opacity: 0.75; margin-left: 3px;">({{ tag_counts.get(key, 0) }})</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-subtle);">
+        {{ videos|length }} clip{% if videos|length != 1 %}s{% endif %}{% if tag_filter %} · {{ tags.get(tag_filter, tag_filter) }}{% endif %}
+    </div>
+</div>
+
+<!-- ── Empty State ───────────────────────────────────────────────── -->
+{% if not videos %}
+<div class="card" style="padding: 60px 24px; text-align: center;">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m10 8 5 3-5 3V8z"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+    </div>
+    <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0 0 8px;">
+        {% if tag_filter %}No {{ tags.get(tag_filter, tag_filter) }} videos yet{% else %}Your library is empty{% endif %}
+    </h3>
+    <p style="font-size: 0.85rem; color: var(--text-subtle); margin: 0 0 20px; max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+        {% if tag_filter %}
+        Upload some {{ tags.get(tag_filter, tag_filter).lower() }} videos to get started.
+        {% else %}
+        Upload your party videos and AI will use them to create 3 posts a day for you — automatically. The more you add, the better the content.
+        {% endif %}
+    </p>
+    <button class="btn btn-primary" @click="showUpload = true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Your First Video
+    </button>
+</div>
+{% endif %}
+
+<!-- ── Video Grid ────────────────────────────────────────────────── -->
+{% if videos %}
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px;">
+    {% for v in videos %}
+    <div class="card" id="video-card-{{ v.id }}" style="padding: 0; overflow: hidden;">
+
+        <!-- Video preview -->
+        <div style="position: relative; background: #000; border-radius: 10px 10px 0 0; overflow: hidden;">
+            <video src="{{ v.r2_url }}" preload="metadata" controls playsinline
+                   style="width: 100%; aspect-ratio: 9/16; display: block; object-fit: cover; max-height: 300px;"></video>
+
+            {% if v.duration %}
+            <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.72); color: #fff; font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 6px; backdrop-filter: blur(4px);">
+                {{ v.duration_fmt }}
+            </span>
+            {% endif %}
+
+            {% if v.used_count %}
+            <span style="position: absolute; top: 8px; left: 8px; background: rgba(199,163,90,0.9); color: #2d1f3d; font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                Used {{ v.used_count }}×
+            </span>
+            {% endif %}
+        </div>
+
+        <!-- Card body -->
+        <div style="padding: 12px;">
+            <!-- Tag selector -->
+            <select style="width: 100%; font-size: 0.78rem; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-primary); margin-bottom: 8px; cursor: pointer;"
+                    onchange="updateVideoTag({{ v.id }}, this.value)">
+                {% for key, label in tags.items() %}
+                <option value="{{ key }}" {% if v.tag == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Notes -->
+            <input type="text"
+                   value="{{ v.notes or '' }}"
+                   placeholder="Add a note…"
+                   style="width: 100%; font-size: 0.78rem; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-primary); margin-bottom: 10px; box-sizing: border-box;"
+                   onblur="updateVideoNotes({{ v.id }}, this.value)">
+
+            <!-- Date + delete -->
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.7rem; color: var(--text-subtle);">
+                    {{ v.created_at.strftime('%b %d, %Y') if v.created_at else '' }}
+                </span>
+                <button onclick="deleteVideo({{ v.id }})"
+                        style="background: none; border: none; cursor: pointer; color: var(--text-subtle); padding: 4px; display: flex; align-items: center; gap: 4px; font-size: 0.72rem; transition: color 0.15s;"
+                        onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-subtle)'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    Remove
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+</div><!-- /x-data -->
+
+<script>
+function libraryData() {
+    return {
+        showUpload: false,
+        dragOver: false,
+        uploadTag: 'other',
+        uploads: [],
+        get anyUploading() {
+            return this.uploads.some(u => u.status === 'uploading');
+        },
+        handleDrop(event) {
+            this.dragOver = false;
+            if (event.dataTransfer.files.length) this._processFiles(event.dataTransfer.files);
+        },
+        uploadFiles(event) {
+            this._processFiles(event.target.files);
+            event.target.value = '';
+        },
+        async _processFiles(fileList) {
+            const files = Array.from(fileList);
+            const startIdx = this.uploads.length;
+            files.forEach(f => this.uploads.push({ name: f.name, status: 'uploading', error: null }));
+
+            let anyDone = false;
+            for (let i = 0; i < files.length; i++) {
+                const idx = startIdx + i;
+                try {
+                    const fd = new FormData();
+                    fd.append('video', files[i]);
+                    fd.append('tag', this.uploadTag);
+                    const resp = await fetch('/admin/library/upload', { method: 'POST', body: fd });
+                    if (resp.ok) {
+                        this.uploads[idx].status = 'done';
+                        anyDone = true;
+                    } else {
+                        let msg = 'Upload failed';
+                        try { const d = await resp.json(); msg = d.error || msg; } catch {}
+                        this.uploads[idx].status = 'error';
+                        this.uploads[idx].error = msg;
+                    }
+                } catch {
+                    this.uploads[idx].status = 'error';
+                    this.uploads[idx].error = 'Connection error';
+                }
+            }
+            if (anyDone) setTimeout(() => window.location.reload(), 900);
+        }
+    };
+}
+
+async function deleteVideo(id) {
+    if (!confirm('Remove this video from your library? This cannot be undone.')) return;
+    const resp = await fetch(`/admin/library/${id}/delete`, { method: 'POST' });
+    if (resp.ok) {
+        const card = document.getElementById(`video-card-${id}`);
+        if (card) { card.style.opacity = '0'; card.style.transform = 'scale(0.95)'; card.style.transition = 'all 0.2s'; setTimeout(() => card.remove(), 200); }
+    } else {
+        alert('Could not remove. Please try again.');
+    }
+}
+
+async function updateVideoTag(id, tag) {
+    await fetch(`/admin/library/${id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag }),
+    });
+}
+
+async function updateVideoNotes(id, notes) {
+    await fetch(`/admin/library/${id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+    });
+}
+</script>
+{% endblock %}

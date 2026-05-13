@@ -3,6 +3,47 @@ from extensions import db
 
 
 # ---------------------------------------------------------------------------
+# Video Library
+# ---------------------------------------------------------------------------
+
+class LibraryVideo(db.Model):
+    __tablename__ = "library_videos"
+
+    TAGS = {
+        "party_setup":   "Party Setup",
+        "kids_reacting": "Kids Reacting",
+        "balloon_decor": "Balloon Decor",
+        "before_after":  "Before & After",
+        "table_setup":   "Table Setup",
+        "behind_scenes": "Behind the Scenes",
+        "results":       "Results & Wins",
+        "other":         "Other",
+    }
+
+    id         = db.Column(db.Integer, primary_key=True)
+    filename   = db.Column(db.String(500))
+    r2_url     = db.Column(db.Text, nullable=False)
+    r2_key     = db.Column(db.String(500))
+    tag        = db.Column(db.String(50), default="other")
+    duration   = db.Column(db.Float, default=0.0)
+    notes      = db.Column(db.Text)
+    used_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def tag_label(self):
+        return self.TAGS.get(self.tag, "Other")
+
+    @property
+    def duration_fmt(self):
+        if not self.duration:
+            return "--"
+        m = int(self.duration // 60)
+        s = int(self.duration % 60)
+        return f"{m}:{s:02d}"
+
+
+# ---------------------------------------------------------------------------
 # CRM Models
 # ---------------------------------------------------------------------------
 
