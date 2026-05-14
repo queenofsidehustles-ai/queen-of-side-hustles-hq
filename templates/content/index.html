@@ -58,7 +58,8 @@
     </div>
 
     <!-- Filter Tabs -->
-    <div class="flex items-center gap-3" style="margin-bottom: 24px; flex-wrap: wrap;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:10px;">
+    <div class="flex items-center gap-3" style="flex-wrap:wrap;">
         <button class="btn btn-sm" :class="filter === 'all' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'all'">
             All <span style="opacity:0.7; margin-left:4px;">{{ items|length }}</span>
         </button>
@@ -72,6 +73,11 @@
         </button>
         <button class="btn btn-sm" :class="filter === 'ready' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'ready'">Approved</button>
         <button class="btn btn-sm" :class="filter === 'published' ? 'btn-secondary' : 'btn-outline'" @click="filter = 'published'">Published</button>
+    </div>
+    <button onclick="clearAllAiClips()"
+            style="font-size:0.75rem; padding:5px 12px; background:none; border:1px solid rgba(239,68,68,0.4); color:#ef4444; border-radius:8px; cursor:pointer; white-space:nowrap;">
+        🗑 Clear All AI Clips
+    </button>
     </div>
 
     <!-- Content Grid -->
@@ -188,6 +194,17 @@ function contentLibrary() {
             return status === this.filter;
         }
     };
+}
+
+async function clearAllAiClips() {
+    if (!confirm('Delete ALL AI-generated clips from your queue? This cannot be undone.')) return;
+    const resp = await fetch('/content/api/clear-ai-clips', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+        window.location.reload();
+    } else {
+        alert('Something went wrong. Please try again.');
+    }
 }
 
 async function deleteContentItem(id) {

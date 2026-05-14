@@ -170,6 +170,15 @@ def delete_item(item_id):
     return jsonify({"success": True})
 
 
+@content_api_bp.route("/clear-ai-clips", methods=["POST"])
+@login_required
+def clear_ai_clips():
+    """Delete all AI-generated library clips from the queue."""
+    deleted = ContentItem.query.filter_by(input_type="library").delete()
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": deleted})
+
+
 @content_api_bp.route("/<int:item_id>/set-video-url", methods=["POST"])
 @login_required
 def set_video_url(item_id):
