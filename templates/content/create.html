@@ -27,13 +27,16 @@
 
                 <!-- Step 1: Idea -->
                 <div class="form-group">
-                    <label class="form-label">Your Idea or Hook</label>
+                    <label class="form-label">Your Hook <span style="font-weight:400; color:var(--text-subtle); font-size:0.8rem;">— type what's on screen in your video</span></label>
                     <textarea
                         x-model="input"
                         @input="detectInputType()"
-                        placeholder="Type your content idea... e.g. 'How I made $500 booking one kids party'"
+                        placeholder="Paste your hook or a few lines of what your video is about. e.g. 'If you're tired of your 9-to-5 and you keep scrolling past people living their dream...' — AI will expand on YOUR words, not replace them."
                         :disabled="generating"
-                        style="min-height: 90px; font-size: 0.95rem; resize: vertical;"></textarea>
+                        style="min-height: 110px; font-size: 0.95rem; resize: vertical;"></textarea>
+                    <p style="font-size:0.75rem; color:var(--text-subtle); margin-top:6px; line-height:1.5;">
+                        Tip: the more specific your hook, the better the caption. AI will open with your exact words and build from there — no off-topic tangents.
+                    </p>
                 </div>
 
                 <!-- Auto-detect Indicator -->

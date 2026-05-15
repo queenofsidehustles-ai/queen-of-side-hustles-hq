@@ -159,11 +159,21 @@ OUTPUT: Return ONLY the post text, starting directly with the hook. No labels li
 
 Apply the full psychology framework. Pick Dreamer OR Operator audience. Write in Monica's warm, boss-energy voice."""
     else:
-        user_prompt = f"""Create a {platform} post about this for Monica's kids party business audience:
+        user_prompt = f"""Monica has already recorded a video with this hook or topic on screen:
 
-{article_text_or_idea}
+"{article_text_or_idea}"
 
-Apply the psychology framework (hook → pain → transformation → proof → CTA). Pick Dreamer OR Operator audience. Write in Monica's voice."""
+Write a {platform} caption that:
+1. OPENS with Monica's exact words or a very close variation — do NOT invent a new hook to replace hers
+2. Expands on what she said: adds a relatable moment, a quick story, or the "why this matters" for her audience
+3. Picks ONE audience: Dreamer (tired of 9-to-5, wants to start a kids party biz from scratch) or Operator (already running parties, wants to grow)
+4. Ends with ONE soft CTA that fits the mood — "follow for more", "save this", "comment PARTY", etc.
+
+CRITICAL RULES:
+- Do NOT mention pricing, courses, or products unless Monica's input already mentions them
+- Do NOT replace her hook with a sales angle — match the energy of what she wrote
+- The caption should feel like a natural continuation of what's already on her screen
+- Write in Monica's warm, real-talk voice — like texting a friend who gets it"""
 
     emit("script", "progress", f"Calling OpenRouter → using the {DEFAULT_MODEL} model. OpenRouter is like a phone operator — it connects us to whichever AI model we pick.")
 
