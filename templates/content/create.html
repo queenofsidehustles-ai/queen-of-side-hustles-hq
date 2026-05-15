@@ -27,16 +27,32 @@
 
                 <!-- Step 1: Idea -->
                 <div class="form-group">
-                    <label class="form-label">Your Hook <span style="font-weight:400; color:var(--text-subtle); font-size:0.8rem;">— type what's on screen in your video</span></label>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                        <label class="form-label" style="margin:0;">Your Hook <span style="font-weight:400; color:var(--text-subtle); font-size:0.8rem;">— type or speak what's on screen in your video</span></label>
+                        <button type="button" @click="toggleVoice()"
+                                :title="listening ? 'Tap to stop' : 'Tap to speak your hook'"
+                                :disabled="generating"
+                                style="display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; border:none; cursor:pointer; font-size:0.78rem; font-weight:600; transition:all 0.2s;"
+                                :style="listening
+                                    ? 'background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.4);'
+                                    : 'background:var(--gold-tint); color:var(--gold); border:1px solid rgba(199,163,90,0.3);'">
+                            <svg x-show="!listening" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                            <span x-show="listening" style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:pulse 1s infinite;display:inline-block;"></span>
+                            <span x-text="listening ? 'Listening… tap to stop' : 'Speak your hook'"></span>
+                        </button>
+                    </div>
                     <textarea
                         x-model="input"
+                        x-ref="hookInput"
                         @input="detectInputType()"
-                        placeholder="Paste your hook or a few lines of what your video is about. e.g. 'If you're tired of your 9-to-5 and you keep scrolling past people living their dream...' — AI will expand on YOUR words, not replace them."
+                        placeholder="Speak or type your hook — e.g. 'If you're tired of your 9-to-5 and keep scrolling past people living their dream...' — AI will expand on YOUR words, not replace them."
                         :disabled="generating"
-                        style="min-height: 110px; font-size: 0.95rem; resize: vertical;"></textarea>
+                        style="min-height: 110px; font-size: 0.95rem; resize: vertical;"
+                        :style="listening ? 'border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.15);' : ''"></textarea>
                     <p style="font-size:0.75rem; color:var(--text-subtle); margin-top:6px; line-height:1.5;">
-                        Tip: the more specific your hook, the better the caption. AI will open with your exact words and build from there — no off-topic tangents.
+                        Tip: the more specific your hook, the better the caption. AI will open with your exact words and build from there.
                     </p>
+                    <style>@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }</style>
                 </div>
 
                 <!-- Auto-detect Indicator -->
@@ -176,10 +192,52 @@ function createContentApp() {
         statusMessage: 'Working...',
         sseLog: [],
         uploadedFile: null,
+        listening: false,
+        _recognition: null,
 
         detectInputType() {
             const trimmed = this.input.trim();
             this.inputType = (trimmed.startsWith('http://') || trimmed.startsWith('https://')) ? 'url' : 'idea';
+        },
+
+        toggleVoice() {
+            if (this.listening) {
+                this._recognition && this._recognition.stop();
+                this.listening = false;
+                return;
+            }
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                alert('Voice input is not supported in this browser. Try Chrome or Safari on your iPhone.');
+                return;
+            }
+            const rec = new SR();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+
+            let baseText = this.input;
+            rec.onresult = (e) => {
+                let interim = '';
+                let final = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    const t = e.results[i][0].transcript;
+                    if (e.results[i].isFinal) final += t;
+                    else interim += t;
+                }
+                this.input = baseText + (baseText && final ? ' ' : '') + final + interim;
+                if (final) { baseText = this.input.replace(interim, '').trim(); }
+                this.detectInputType();
+            };
+            rec.onerror = (e) => {
+                this.listening = false;
+                if (e.error !== 'aborted') alert('Microphone error: ' + e.error + '. Make sure your browser has mic permission.');
+            };
+            rec.onend = () => { this.listening = false; };
+
+            rec.start();
+            this._recognition = rec;
+            this.listening = true;
         },
 
         handleFileSelect(e) {
