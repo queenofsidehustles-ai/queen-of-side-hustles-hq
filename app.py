@@ -109,8 +109,10 @@ def create_app():
 
     from blueprints.pbh import pbh_bp
     from blueprints.pbh_api import pbh_api_bp
-    app.register_blueprint(pbh_bp,     url_prefix="/pbh")
-    app.register_blueprint(pbh_api_bp, url_prefix="/pbh/api")
+    from blueprints.pbh_dashboard import pbh_dashboard_bp
+    app.register_blueprint(pbh_bp,           url_prefix="/pbh")
+    app.register_blueprint(pbh_api_bp,       url_prefix="/pbh/api")
+    app.register_blueprint(pbh_dashboard_bp, url_prefix="/pbh/dashboard")
 
     if app.config["FEATURE_BOOKINGS"]:
         from blueprints.bookings import bookings_bp

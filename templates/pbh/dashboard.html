@@ -1,0 +1,310 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Party Biz Hub Dashboard{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Live revenue, subscribers, and lead funnel for Party Biz Hub.</p>{% endblock %}
+
+{% block page_actions %}
+<button onclick="refreshStats()" id="refreshBtn"
+        style="padding:8px 18px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;">
+    ↻ Refresh
+</button>
+{% endblock %}
+
+{% block content %}
+<div x-data="pbhDashboard()" x-init="load()">
+
+    <!-- Loading state -->
+    <div x-show="loading" style="text-align:center;padding:60px 0;color:var(--text-subtle);">
+        <div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:#6366f1;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 12px;"></div>
+        Loading live data…
+    </div>
+
+    <div x-show="!loading" x-transition>
+
+        <!-- ── Revenue Row ───────────────────────────────────────────────── -->
+        <div style="margin-bottom:8px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-subtle);margin-bottom:10px;">Revenue</div>
+        </div>
+        <div class="grid-4" style="margin-bottom:28px;">
+
+            <div class="stat-card" style="border-left:3px solid #6366f1;">
+                <div class="stat-icon" style="background:rgba(99,102,241,0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:#6366f1;" x-text="'$' + (stats.stripe?.mrr || 0).toLocaleString()"></div>
+                    <div class="stat-label">Monthly Recurring Revenue</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(139,92,246,0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value" x-text="stats.stripe?.total || 0"></div>
+                    <div class="stat-label">Active Subscribers</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background:var(--gold-tint);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:var(--gold);" x-text="'+' + (stats.stripe?.new_month || 0)"></div>
+                    <div class="stat-label">New This Month</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(34,197,94,0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:var(--success);" x-text="'+' + (stats.stripe?.new_week || 0)"></div>
+                    <div class="stat-label">New This Week</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ── Plan Split + Funnel ───────────────────────────────────────── -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
+
+            <!-- Plan breakdown -->
+            <div class="card">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">Plan Breakdown</div>
+
+                <div style="display:flex;align-items:center;justify-content:space-around;margin-bottom:20px;">
+                    <div style="text-align:center;">
+                        <div style="font-size:2.4rem;font-weight:900;color:#6366f1;line-height:1;" x-text="stats.stripe?.starter || 0"></div>
+                        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">Starter</div>
+                        <div style="font-size:0.72rem;color:var(--text-subtle);">$27/mo</div>
+                    </div>
+                    <div style="width:1px;height:60px;background:var(--border-light);"></div>
+                    <div style="text-align:center;">
+                        <div style="font-size:2.4rem;font-weight:900;color:var(--gold);line-height:1;" x-text="stats.stripe?.pro || 0"></div>
+                        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">Pro</div>
+                        <div style="font-size:0.72rem;color:var(--text-subtle);">$47/mo</div>
+                    </div>
+                </div>
+
+                <!-- Progress bar -->
+                <div style="background:var(--bg-secondary);border-radius:999px;height:8px;overflow:hidden;">
+                    <div :style="`width:${starterPct}%;background:linear-gradient(90deg,#6366f1,#8b5cf6);height:100%;border-radius:999px;`"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.72rem;color:var(--text-subtle);">
+                    <span x-text="`Starter ${starterPct}%`"></span>
+                    <span x-text="`Pro ${100 - starterPct}%`"></span>
+                </div>
+
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:0.8rem;color:var(--text-muted);">Projected Annual Revenue</span>
+                    <span style="font-weight:800;color:var(--text-primary);font-size:0.95rem;" x-text="'$' + ((stats.stripe?.mrr || 0) * 12).toLocaleString()"></span>
+                </div>
+            </div>
+
+            <!-- Lead funnel -->
+            <div class="card">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">Lead Funnel</div>
+
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(99,102,241,0.06);border-radius:10px;border-left:3px solid #6366f1;">
+                        <div>
+                            <div style="font-weight:700;font-size:0.85rem;color:var(--text-primary);">Quiz Leads</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">Took quiz at partybizhub.com</div>
+                        </div>
+                        <div style="font-size:1.6rem;font-weight:900;color:#6366f1;" x-text="stats.quiz_leads || 0"></div>
+                    </div>
+
+                    <div style="text-align:center;font-size:0.75rem;color:var(--text-subtle);">↓ email sequence (21 days)</div>
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--gold-tint);border-radius:10px;border-left:3px solid var(--gold);">
+                        <div>
+                            <div style="font-weight:700;font-size:0.85rem;color:var(--text-primary);">Paid Subscribers</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">Active Starter + Pro</div>
+                        </div>
+                        <div style="font-size:1.6rem;font-weight:900;color:var(--gold);" x-text="stats.stripe?.total || 0"></div>
+                    </div>
+
+                    <div style="padding:10px 14px;background:rgba(34,197,94,0.08);border-radius:10px;text-align:center;">
+                        <span style="font-size:0.78rem;color:var(--text-muted);">Conversion rate: </span>
+                        <span style="font-weight:800;color:var(--success);font-size:1rem;" x-text="(stats.conv_rate || 0) + '%'"></span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ── Traffic Sources ───────────────────────────────────────────── -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
+
+            <div class="card">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">Lead Sources</div>
+
+                <template x-if="Object.keys(stats.mailerlite?.sources || {}).length === 0">
+                    <div style="text-align:center;padding:24px 0;color:var(--text-subtle);font-size:0.82rem;">
+                        Sources will appear here as leads come in with UTM tracking.
+                        <div style="margin-top:8px;font-size:0.75rem;">Your tracking links are ready — see below.</div>
+                    </div>
+                </template>
+
+                <template x-for="[source, count] in Object.entries(stats.mailerlite?.sources || {})" :key="source">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                        <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
+                             :style="sourceStyle(source)">
+                            <span style="font-size:14px;" x-text="sourceEmoji(source)"></span>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                                <span style="font-size:0.82rem;font-weight:600;color:var(--text-primary);text-transform:capitalize;" x-text="source"></span>
+                                <span style="font-size:0.82rem;font-weight:700;color:var(--text-primary);" x-text="count"></span>
+                            </div>
+                            <div style="background:var(--bg-secondary);border-radius:999px;height:5px;overflow:hidden;">
+                                <div :style="`width:${sourcePct(count)}%;background:#6366f1;height:100%;border-radius:999px;`"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- UTM tracking links -->
+            <div class="card">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">Your Tracking Links</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:14px;">Use these links in your bios and posts so the dashboard knows where each lead came from.</div>
+
+                <template x-for="link in trackingLinks" :key="link.label">
+                    <div style="margin-bottom:10px;">
+                        <div style="font-size:0.75rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;" x-text="link.label"></div>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input type="text" :value="link.url" readonly
+                                   style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text-muted);font-size:0.72rem;font-family:monospace;">
+                            <button @click="copyLink(link.url, $event)"
+                                    style="padding:7px 12px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:8px;font-size:0.72rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+        </div>
+
+        <!-- ── Recent Subscribers ────────────────────────────────────────── -->
+        <div class="card">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">Recent Subscribers</div>
+
+            <template x-if="!stats.stripe?.recent?.length">
+                <div style="text-align:center;padding:24px 0;color:var(--text-subtle);font-size:0.85rem;">No subscribers yet — share your links and watch this fill up.</div>
+            </template>
+
+            <template x-for="sub in (stats.stripe?.recent || [])" :key="sub.email">
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-light);">
+                    <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.85rem;flex-shrink:0;"
+                         x-text="(sub.name || sub.email || '?')[0].toUpperCase()"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:0.85rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="sub.name || sub.email"></div>
+                        <div style="font-size:0.72rem;color:var(--text-subtle);" x-text="sub.email"></div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <span :style="sub.plan === 'Pro' ? 'background:var(--gold-tint);color:var(--gold);' : 'background:rgba(99,102,241,0.1);color:#6366f1;'"
+                              style="font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:6px;" x-text="sub.plan"></span>
+                        <div style="font-size:0.7rem;color:var(--text-subtle);margin-top:3px;" x-text="sub.created"></div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+    </div>
+
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width:768px) {
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr!important; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pbhDashboard() {
+    return {
+        loading: true,
+        stats:   {},
+
+        trackingLinks: [
+            { label: 'TikTok Bio',       url: 'https://partybizhub.com?utm_source=tiktok&utm_medium=bio' },
+            { label: 'Instagram Bio',    url: 'https://partybizhub.com?utm_source=instagram&utm_medium=bio' },
+            { label: 'Facebook',         url: 'https://partybizhub.com?utm_source=facebook&utm_medium=post' },
+            { label: 'Quiz (TikTok)',    url: 'https://partybizhub.com/quiz.html?utm_source=tiktok&utm_medium=bio' },
+            { label: 'Quiz (Instagram)', url: 'https://partybizhub.com/quiz.html?utm_source=instagram&utm_medium=bio' },
+        ],
+
+        async load() {
+            this.loading = true;
+            try {
+                const resp = await fetch('/pbh/dashboard/stats');
+                this.stats = await resp.json();
+            } catch(e) {
+                console.error('Dashboard load error:', e);
+            }
+            this.loading = false;
+        },
+
+        get starterPct() {
+            const total = this.stats.stripe?.total || 0;
+            if (!total) return 50;
+            return Math.round((this.stats.stripe?.starter || 0) / total * 100);
+        },
+
+        sourcePct(count) {
+            const sources = this.stats.mailerlite?.sources || {};
+            const max = Math.max(...Object.values(sources), 1);
+            return Math.round(count / max * 100);
+        },
+
+        sourceEmoji(source) {
+            const map = { tiktok:'🎵', instagram:'📸', facebook:'👥', youtube:'▶️', direct:'🔗', quiz:'🎯', email:'✉️' };
+            return map[source.toLowerCase()] || '🌐';
+        },
+
+        sourceStyle(source) {
+            const map = {
+                tiktok:    'background:rgba(0,0,0,0.08);',
+                instagram: 'background:rgba(225,48,108,0.1);',
+                facebook:  'background:rgba(24,119,242,0.1);',
+                youtube:   'background:rgba(255,0,0,0.1);',
+            };
+            return map[source.toLowerCase()] || 'background:rgba(99,102,241,0.1);';
+        },
+
+        copyLink(url, event) {
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = event.target;
+                btn.textContent = 'Copied!';
+                btn.style.background = 'rgba(34,197,94,0.15)';
+                btn.style.color = '#22c55e';
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.style.background = 'rgba(99,102,241,0.1)';
+                    btn.style.color = '#6366f1';
+                }, 2000);
+            });
+        }
+    };
+}
+
+function refreshStats() {
+    const btn = document.getElementById('refreshBtn');
+    btn.textContent = '↻ Refreshing…';
+    Alpine.store && window.dispatchEvent(new CustomEvent('pbh-refresh'));
+    // Re-trigger Alpine component load
+    document.querySelector('[x-data]').__x.$data.load().then(() => {
+        btn.textContent = '↻ Refresh';
+    });
+}
+</script>
+{% endblock %}

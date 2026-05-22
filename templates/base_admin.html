@@ -92,8 +92,11 @@
             <div class="sidebar-section">
                 <span class="sidebar-label" x-show="sidebarOpen">PARTY BIZ HUB</span>
             </div>
-            <a href="/pbh" class="sidebar-link {% if request.path.startswith('/pbh') %}active{% endif %}"
-               style="{% if request.path.startswith('/pbh') %}background:rgba(99,102,241,0.12);color:#6366f1;{% endif %}">
+            <a href="/pbh/dashboard" class="sidebar-link {% if request.path.startswith('/pbh/dashboard') %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span x-show="sidebarOpen">PBH Dashboard</span>
+            </a>
+            <a href="/pbh" class="sidebar-link {% if request.path == '/pbh' %}active{% endif %}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                 <span x-show="sidebarOpen">Content Engine</span>
             </a>
