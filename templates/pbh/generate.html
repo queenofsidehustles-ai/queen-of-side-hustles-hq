@@ -1,7 +1,7 @@
 {% extends "base_admin.html" %}
 
 {% block page_title %}Generate PBH Content{% endblock %}
-{% block page_subtitle %}<p class="page-subtitle">Pick a content type, platform, and optionally attach an app screenshot.</p>{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Create Party Biz Hub content in one place — pick type, add screenshot, see the result.</p>{% endblock %}
 
 {% block page_actions %}
 <a href="/pbh" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);">
@@ -10,123 +10,181 @@
 {% endblock %}
 
 {% block content %}
-<div style="max-width:720px;margin:0 auto;" x-data="pbhGenerator()">
+<div x-data="pbhGenerator()" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
 
-    <!-- Content Type -->
-    <div class="card" style="margin-bottom:20px;">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Content Type</div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+    <!-- ── LEFT: Configure ─────────────────────────────────────────────── -->
+    <div>
 
-            <template x-for="t in types" :key="t.id">
-                <div @click="contentType = t.id"
-                     :style="contentType === t.id
-                        ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.07);'
-                        : 'border:1px solid var(--border);background:var(--card-bg);'"
-                     style="border-radius:12px;padding:14px 16px;cursor:pointer;transition:all 0.15s;">
-                    <div style="font-size:1.3rem;margin-bottom:6px;" x-text="t.emoji"></div>
-                    <div style="font-weight:700;font-size:0.9rem;color:var(--text-primary);margin-bottom:3px;" x-text="t.label"></div>
-                    <div style="font-size:0.77rem;color:var(--text-muted);line-height:1.4;" x-text="t.desc"></div>
+        <!-- Content Type -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">1 — Content Type</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <template x-for="t in types" :key="t.id">
+                    <div @click="contentType = t.id"
+                         :style="contentType===t.id ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.07);' : 'border:1px solid var(--border);'"
+                         style="border-radius:10px;padding:10px 12px;cursor:pointer;">
+                        <div style="font-size:1.1rem;" x-text="t.emoji"></div>
+                        <div style="font-weight:700;font-size:0.82rem;color:var(--text-primary);margin-top:4px;" x-text="t.label"></div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;line-height:1.3;" x-text="t.desc"></div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Platform -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">2 — Platform</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <template x-for="p in platforms" :key="p.id">
+                    <button @click="platform=p.id"
+                            :style="platform===p.id ? 'background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;' : 'background:var(--card-bg);color:var(--text-primary);border:1px solid var(--border);'"
+                            style="padding:7px 16px;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;"
+                            x-text="p.label"></button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Asset picker + inline upload -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">3 — App Screenshot <span style="text-transform:none;font-weight:400;">(optional background)</span></div>
+
+            <!-- Existing assets -->
+            <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;">
+                <div @click="assetId=null"
+                     :style="assetId===null ? 'border:2px solid #6366f1;' : 'border:1px solid var(--border);'"
+                     style="min-width:64px;height:64px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-secondary);flex-shrink:0;font-size:0.68rem;color:var(--text-subtle);">
+                    None
                 </div>
-            </template>
-
-        </div>
-    </div>
-
-    <!-- Platform -->
-    <div class="card" style="margin-bottom:20px;">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Platform</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <template x-for="p in platforms" :key="p.id">
-                <button @click="platform = p.id"
-                        :style="platform === p.id
-                            ? 'background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;'
-                            : 'background:var(--card-bg);color:var(--text-primary);border:1px solid var(--border);'"
-                        style="padding:8px 18px;border-radius:8px;font-weight:600;font-size:0.85rem;cursor:pointer;transition:all 0.15s;"
-                        x-text="p.label"></button>
-            </template>
-        </div>
-    </div>
-
-    <!-- App Screenshot (optional) -->
-    {% if assets|length > 0 %}
-    <div class="card" style="margin-bottom:20px;">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">App Screenshot <span style="text-transform:none;font-weight:400;color:var(--text-subtle);">(optional — use as background)</span></div>
-        <div style="display:flex;gap:10px;overflow-x:auto;padding:6px 0;">
-            <div @click="assetId = null"
-                 :style="assetId === null ? 'border:2px solid #6366f1;' : 'border:1px solid var(--border);'"
-                 style="min-width:80px;height:80px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-secondary);">
-                <span style="font-size:0.72rem;color:var(--text-subtle);">None</span>
+                <template x-for="a in assets" :key="a.id">
+                    <div @click="assetId=a.id"
+                         :style="assetId===a.id ? 'border:2px solid #6366f1;' : 'border:1px solid var(--border);'"
+                         style="min-width:64px;height:64px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;position:relative;">
+                        <img :src="a.r2_url" style="width:100%;height:100%;object-fit:cover;">
+                        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.5);font-size:0.55rem;color:#fff;padding:2px 4px;text-align:center;" x-text="a.tag_label"></div>
+                    </div>
+                </template>
             </div>
-            {% for asset in assets %}
-            <div @click="assetId = {{ asset.id }}"
-                 :style="assetId === {{ asset.id }} ? 'border:2px solid #6366f1;' : 'border:1px solid var(--border);'"
-                 style="min-width:80px;height:80px;border-radius:10px;overflow:hidden;cursor:pointer;position:relative;flex-shrink:0;">
-                <img src="{{ asset.r2_url }}" alt="{{ asset.tag_label }}" style="width:100%;height:100%;object-fit:cover;display:block;">
-                <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);font-size:0.58rem;color:#fff;padding:3px 5px;text-align:center;">{{ asset.tag_label }}</div>
-            </div>
-            {% endfor %}
-        </div>
-        <a href="/pbh/assets" style="font-size:0.75rem;color:#6366f1;text-decoration:none;display:block;margin-top:8px;">+ Upload more screenshots →</a>
-    </div>
-    {% else %}
-    <div class="card" style="margin-bottom:20px;background:rgba(99,102,241,0.04);border:1px dashed rgba(99,102,241,0.3);">
-        <div style="display:flex;align-items:center;gap:12px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" style="flex-shrink:0;opacity:0.6;"><rect x="3" y="3" width="18" height="12" rx="2"/><path d="M3 20h18"/></svg>
-            <div>
-                <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:2px;">No app screenshots yet</div>
-                <div style="font-size:0.78rem;color:var(--text-muted);">Upload screenshots of Party Biz Hub to use as video backgrounds. <a href="/pbh/assets" style="color:#6366f1;">Upload now →</a></div>
+
+            <!-- Inline upload -->
+            <div style="border:1px dashed var(--border);border-radius:8px;padding:10px 12px;">
+                <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">+ Upload new screenshot</div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input type="file" id="quickUpload" accept="image/*,video/*,.mp4,.mov"
+                           style="font-size:0.75rem;flex:1;min-width:0;">
+                    <select x-model="uploadTag" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text-primary);font-size:0.75rem;">
+                        <option value="dashboard">Dashboard</option>
+                        <option value="quote">Quote Builder</option>
+                        <option value="booking">Booking Page</option>
+                        <option value="contract">Contracts</option>
+                        <option value="content">Content Machine</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <button @click="quickUpload()" :disabled="uploading"
+                            style="padding:5px 12px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                        <span x-show="!uploading">Upload</span>
+                        <span x-show="uploading">…</span>
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-    {% endif %}
 
-    <!-- Custom Angle -->
-    <div class="card" style="margin-bottom:24px;">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">
-            Custom Angle <span style="text-transform:none;font-weight:400;color:var(--text-subtle);">(optional)</span>
+        <!-- Custom angle -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">4 — Custom Angle <span style="text-transform:none;font-weight:400;">(optional)</span></div>
+            <textarea x-model="customAngle" placeholder="E.g. 'Focus on balloon artists who lose bookings without contracts'"
+                      style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;resize:vertical;min-height:60px;box-sizing:border-box;font-family:inherit;"></textarea>
         </div>
-        <textarea x-model="customAngle"
-                  placeholder="E.g. 'Focus on balloon artists who lose bookings because they don't have contracts' or 'Target party business owners charging under $150/event'"
-                  style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;resize:vertical;min-height:70px;box-sizing:border-box;font-family:inherit;"></textarea>
-    </div>
 
-    <!-- Generate Button -->
-    <div style="text-align:center;">
-        <button @click="generate()"
-                :disabled="generating"
-                style="padding:14px 48px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;min-width:200px;"
-                :style="generating ? 'opacity:0.7;cursor:not-allowed;' : ''">
+        <!-- Generate button -->
+        <button @click="generate()" :disabled="generating"
+                style="width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;"
+                :style="generating?'opacity:0.7;cursor:not-allowed;':''">
             <span x-show="!generating">Generate Post</span>
             <span x-show="generating" style="display:flex;align-items:center;justify-content:center;gap:8px;">
-                <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.5);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
+                <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
                 Generating…
             </span>
         </button>
     </div>
 
-    <!-- Progress / Result -->
-    <div x-show="log.length > 0" style="margin-top:28px;">
-        <div class="card">
-            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Pipeline Progress</div>
-            <template x-for="(entry, i) in log" :key="i">
-                <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
-                    <div :style="entry.status==='complete' ? 'color:#22c55e;' : entry.status==='error' ? 'color:#ef4444;' : 'color:#f59e0b;'"
-                         style="font-size:0.75rem;font-weight:700;text-transform:uppercase;min-width:60px;padding-top:1px;" x-text="entry.stage"></div>
-                    <div style="font-size:0.82rem;color:var(--text-primary);line-height:1.5;" x-text="entry.message"></div>
+    <!-- ── RIGHT: Preview ──────────────────────────────────────────────── -->
+    <div>
+
+        <!-- Idle state -->
+        <div x-show="!generating && !done" class="card"
+             style="min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="opacity:0.3;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <div style="color:var(--text-subtle);font-size:0.85rem;">Your generated post will appear here</div>
+        </div>
+
+        <!-- Progress -->
+        <div x-show="generating" class="card" style="min-height:200px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Generating…</div>
+            <template x-for="(entry,i) in log" :key="i">
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
+                    <span :style="entry.status==='complete'?'color:#22c55e;':entry.status==='error'?'color:#ef4444;':'color:#f59e0b;'"
+                          style="font-size:0.72rem;font-weight:700;text-transform:uppercase;min-width:56px;" x-text="entry.stage"></span>
+                    <span style="font-size:0.8rem;color:var(--text-primary);" x-text="entry.message"></span>
                 </div>
             </template>
-            <div x-show="done" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-light);text-align:center;">
-                <a :href="'/content/' + contentId" style="color:#6366f1;font-weight:700;font-size:0.9rem;text-decoration:none;">View Generated Post →</a>
-                &nbsp;&nbsp;
-                <a href="/pbh" style="color:var(--text-muted);font-size:0.85rem;">Back to Queue</a>
+        </div>
+
+        <!-- Result -->
+        <div x-show="done" x-transition>
+
+            <!-- Screenshot preview -->
+            <div x-show="result.image_url" class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+                <img :src="result.image_url" style="width:100%;max-height:260px;object-fit:cover;display:block;">
+                <div style="padding:8px 14px;font-size:0.72rem;color:var(--text-subtle);">Background image — will display behind your caption when posted</div>
+            </div>
+
+            <!-- Script -->
+            <div class="card" style="margin-bottom:16px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Script</div>
+                <div style="font-size:0.88rem;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;" x-text="result.script"></div>
+                <button @click="copyText(result.script)"
+                        style="margin-top:10px;padding:6px 14px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                    Copy Script
+                </button>
+            </div>
+
+            <!-- Platform captions -->
+            <div class="card" style="margin-bottom:16px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Platform Captions</div>
+                <template x-for="[platform, caption] in Object.entries(result.captions || {})" :key="platform">
+                    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border-light);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <span style="font-size:0.75rem;font-weight:700;color:var(--text-primary);text-transform:capitalize;" x-text="platform"></span>
+                            <button @click="copyText(caption)"
+                                    style="padding:3px 10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">
+                                Copy
+                            </button>
+                        </div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6;" x-text="caption"></div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:10px;">
+                <button @click="resetForm()"
+                        style="flex:1;padding:11px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-primary);border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                    Generate Another
+                </button>
+                <a href="/pbh" style="flex:1;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-radius:10px;font-weight:700;font-size:0.85rem;text-decoration:none;text-align:center;">
+                    View Queue →
+                </a>
             </div>
         </div>
-    </div>
 
+    </div>
 </div>
 
 <style>
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@media (max-width:900px) {
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr!important; }
+}
 </style>
 {% endblock %}
 
@@ -138,64 +196,113 @@ function pbhGenerator() {
         platform:    'tiktok',
         assetId:     null,
         customAngle: '',
+        uploadTag:   'dashboard',
         generating:  false,
-        log:         [],
+        uploading:   false,
         done:        false,
-        contentId:   null,
+        log:         [],
+        result:      {},
+        assets:      [],
 
         types: [
-            { id: 'party_tip',   emoji: '💡', label: 'Party Business Tip',  desc: 'Advice that leads naturally to Party Biz Hub' },
-            { id: 'app_demo',    emoji: '📱', label: 'App Demo',            desc: 'Show a specific Party Biz Hub feature in action' },
-            { id: 'hook_post',   emoji: '🎯', label: 'Bold Hook Post',      desc: 'Punchy text-only hook to stop the scroll' },
-            { id: 'testimonial', emoji: '⭐', label: 'User Story',          desc: 'Before/after story from a party biz owner' },
-            { id: 'comparison',  emoji: '⚡', label: 'Before vs After',     desc: 'Side-by-side: without vs with Party Biz Hub' },
+            { id:'party_tip',   emoji:'💡', label:'Party Tip',      desc:'Advice leading to Party Biz Hub' },
+            { id:'app_demo',    emoji:'📱', label:'App Demo',       desc:'Show a real feature in action' },
+            { id:'hook_post',   emoji:'🎯', label:'Hook Post',      desc:'Scroll-stopping bold text' },
+            { id:'testimonial', emoji:'⭐', label:'User Story',     desc:'Before/after from party owner' },
+            { id:'comparison',  emoji:'⚡', label:'Before vs After',desc:'Without vs with Party Biz Hub' },
         ],
         platforms: [
-            { id: 'tiktok',    label: 'TikTok' },
-            { id: 'instagram', label: 'Instagram' },
-            { id: 'facebook',  label: 'Facebook' },
-            { id: 'youtube',   label: 'YouTube' },
+            { id:'tiktok',    label:'TikTok' },
+            { id:'instagram', label:'Instagram' },
+            { id:'facebook',  label:'Facebook' },
+            { id:'youtube',   label:'YouTube' },
         ],
+
+        async init() {
+            const resp = await fetch('/pbh/api/assets');
+            this.assets = await resp.json();
+        },
+
+        async quickUpload() {
+            const file = document.getElementById('quickUpload').files[0];
+            if (!file) return;
+            this.uploading = true;
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('tag', this.uploadTag);
+            const resp = await fetch('/pbh/api/assets/upload', { method:'POST', body:fd });
+            const data = await resp.json();
+            if (resp.ok) {
+                this.assets.unshift(data);
+                this.assetId = data.id;
+            }
+            this.uploading = false;
+        },
 
         async generate() {
             this.generating = true;
-            this.log = [];
-            this.done = false;
-            this.contentId = null;
+            this.done       = false;
+            this.log        = [];
+            this.result     = {};
 
             const resp = await fetch('/pbh/api/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type':'application/json' },
                 body: JSON.stringify({
-                    content_type:  this.contentType,
-                    platform:      this.platform,
-                    asset_id:      this.assetId,
-                    custom_angle:  this.customAngle,
+                    content_type: this.contentType,
+                    platform:     this.platform,
+                    asset_id:     this.assetId,
+                    custom_angle: this.customAngle,
                 }),
             });
 
             const reader  = resp.body.getReader();
             const decoder = new TextDecoder();
+            let contentId = null;
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const chunk = decoder.decode(value);
-                for (const line of chunk.split('\n')) {
+                for (const line of decoder.decode(value).split('\n')) {
                     if (!line.startsWith('data:')) continue;
                     try {
                         const evt = JSON.parse(line.slice(5));
                         if (evt.stage === 'done') {
-                            this.done = true;
-                            this.contentId = evt.content_id;
-                            this.generating = false;
+                            contentId = evt.content_id;
                         } else {
                             this.log.push(evt);
                         }
                     } catch(e) {}
                 }
             }
+
+            // Load full result
+            if (contentId) {
+                const r = await fetch(`/content/api/${contentId}`);
+                const data = await r.json();
+                let captions = {};
+                try { captions = JSON.parse(data.captions || '{}'); } catch(e) {}
+                this.result = {
+                    script:    data.script || '',
+                    image_url: data.r2_image_url || data.image_url || '',
+                    captions,
+                };
+            }
+
             this.generating = false;
+            this.done = true;
+        },
+
+        copyText(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast && showToast('Copied!', 'success');
+            });
+        },
+
+        resetForm() {
+            this.done = false;
+            this.log  = [];
+            this.result = {};
         }
     };
 }
