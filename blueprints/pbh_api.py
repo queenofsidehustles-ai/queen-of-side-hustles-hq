@@ -214,47 +214,49 @@ def clear_items():
 @login_required
 def publish(item_id):
     item = ContentItem.query.filter_by(id=item_id, brand="pbh").first_or_404()
-    from services.getlate import publish_to_all_platforms
+    from services.getlate import publish_post
+
+    content_item = {
+        "script":      item.script or "",
+        "platform":    item.platform or "tiktok",
+        "image_url":   item.image_url or "",
+        "r2_image_url": item.r2_image_url or "",
+        "video_url":   item.video_url or "",
+        "r2_video_url": item.r2_video_url or "",
+        "scheduled_at": getattr(item, "scheduled_at", None),
+    }
+
+    # Use the platform-specific caption if available
+    if item.captions:
+        try:
+            captions_dict = json.loads(item.captions)
+            content_item["script"] = captions_dict.get(
+                item.platform,
+                captions_dict.get("default", item.script or "")
+            )
+        except (json.JSONDecodeError, AttributeError):
+            pass
 
     body = request.get_json(silent=True) or {}
     scheduled_at_str = body.get("scheduled_at")
-
     if scheduled_at_str:
         try:
             item.scheduled_at = datetime.fromisoformat(scheduled_at_str)
             item.status = "scheduled"
             db.session.commit()
+            content_item["scheduled_at"] = item.scheduled_at
         except (ValueError, TypeError):
-            scheduled_at_str = None
-
-    captions_dict = {}
-    if item.captions:
-        try:
-            captions_dict = json.loads(item.captions)
-        except Exception:
             pass
 
-    content_item = {
-        "script":      item.script or "",
-        "image_url":   item.image_url or "",
-        "r2_image_url": item.r2_image_url or "",
-        "video_url":   item.video_url or "",
-        "r2_video_url": item.r2_video_url or "",
-    }
+    result = publish_post(
+        content_item=content_item,
+        platforms=[item.platform] if item.platform else None,
+    )
 
-    try:
-        result = publish_to_all_platforms(
-            content_item=content_item,
-            captions_dict=captions_dict,
-            scheduled_at=scheduled_at_str,
-        )
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
-
-    if not scheduled_at_str and result.get("platforms_published"):
+    if not scheduled_at_str:
         item.status = "published"
         item.published_at = datetime.utcnow()
-        db.session.commit()
+    db.session.commit()
 
     return jsonify(result)
 
