@@ -1,0 +1,139 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}PBH App Screenshots{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Upload screenshots of Party Biz Hub to use as video backgrounds.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/pbh" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);">
+    ← Back to Queue
+</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="pbhAssets()">
+
+    <!-- Upload zone -->
+    <div class="card" style="margin-bottom:28px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Upload Screenshot</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+            <div>
+                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Screenshot File</label>
+                <input type="file" id="assetFile" accept="image/*,video/*,.mp4,.mov,.webm"
+                       style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Page / Feature</label>
+                <select x-model="uploadTag" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
+                    <option value="dashboard">Dashboard</option>
+                    <option value="quote">Quote Builder</option>
+                    <option value="booking">Booking Page</option>
+                    <option value="contract">Contracts</option>
+                    <option value="content">Content Machine</option>
+                    <option value="profile">Profile / Settings</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Notes (optional)</label>
+                <input type="text" x-model="uploadNotes" placeholder="e.g. quote builder mobile view"
+                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
+            </div>
+        </div>
+        <button @click="uploadAsset()"
+                :disabled="uploading"
+                style="padding:10px 28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+            <span x-show="!uploading">Upload Screenshot</span>
+            <span x-show="uploading">Uploading…</span>
+        </button>
+        <div x-show="uploadError" style="color:#ef4444;font-size:0.8rem;margin-top:8px;" x-text="uploadError"></div>
+    </div>
+
+    <!-- Asset grid -->
+    {% if assets|length > 0 %}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+        {% for asset in assets %}
+        <div class="card" id="asset-{{ asset.id }}" style="overflow:hidden;">
+            {% if asset.file_type == 'video' %}
+            <video src="{{ asset.r2_url }}" muted preload="metadata" playsinline
+                   style="width:100%;height:180px;object-fit:cover;display:block;border-bottom:1px solid var(--border-light);cursor:pointer;"
+                   onclick="this.paused?this.play():this.pause()"></video>
+            {% else %}
+            <img src="{{ asset.r2_url }}" alt="{{ asset.tag_label }}"
+                 style="width:100%;height:180px;object-fit:cover;display:block;border-bottom:1px solid var(--border-light);">
+            {% endif %}
+            <div style="padding:12px 14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <span class="badge" style="background:rgba(99,102,241,0.12);color:#6366f1;font-size:0.68rem;">{{ asset.tag_label }}</span>
+                    <span style="font-size:0.7rem;color:var(--text-subtle);">{{ asset.created_at.strftime('%b %d') if asset.created_at else '' }}</span>
+                </div>
+                {% if asset.notes %}
+                <div style="font-size:0.77rem;color:var(--text-muted);margin-bottom:8px;">{{ asset.notes }}</div>
+                {% endif %}
+                <button onclick="deleteAsset({{ asset.id }})"
+                        style="font-size:0.75rem;padding:5px 12px;background:none;border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:7px;cursor:pointer;width:100%;">
+                    Remove
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="opacity:0.4;"><rect x="3" y="3" width="18" height="12" rx="2"/><path d="M3 20h18"/></svg>
+            </div>
+            <h3 class="empty-state-heading">No screenshots yet</h3>
+            <p class="empty-state-description">Upload screenshots of the Party Biz Hub dashboard, quote builder, booking page, or any feature you want to show in your content.</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pbhAssets() {
+    return {
+        uploadTag:   'dashboard',
+        uploadNotes: '',
+        uploading:   false,
+        uploadError: '',
+
+        async uploadAsset() {
+            const fileInput = document.getElementById('assetFile');
+            if (!fileInput.files[0]) { this.uploadError = 'Please select a file.'; return; }
+            this.uploading = true;
+            this.uploadError = '';
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            fd.append('tag',  this.uploadTag);
+            fd.append('notes', this.uploadNotes);
+            try {
+                const resp = await fetch('/pbh/api/assets/upload', { method: 'POST', body: fd });
+                const data = await resp.json();
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    this.uploadError = data.error || 'Upload failed.';
+                }
+            } catch(e) {
+                this.uploadError = 'Upload failed — check R2 storage is configured.';
+            } finally {
+                this.uploading = false;
+            }
+        }
+    };
+}
+
+async function deleteAsset(id) {
+    if (!confirm('Remove this screenshot?')) return;
+    const resp = await fetch(`/pbh/api/assets/${id}`, { method: 'DELETE' });
+    if (resp.ok) {
+        const card = document.getElementById(`asset-${id}`);
+        if (card) { card.style.opacity = '0'; card.style.transition = 'opacity 0.2s'; setTimeout(() => card.remove(), 200); }
+    }
+}
+</script>
+{% endblock %}

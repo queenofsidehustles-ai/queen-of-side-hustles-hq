@@ -1,0 +1,272 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Party Biz Hub Content Engine{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">AI-generated content for Party Biz Hub — faceless, scheduled, 6-7x/day.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/pbh/assets" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);margin-right:8px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:5px;"><rect x="3" y="3" width="18" height="12" rx="2"/><path d="M3 20h18"/></svg>
+    App Screenshots
+</a>
+<a href="/pbh/generate" class="btn btn-primary">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Generate Content
+</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="pbhQueue()">
+
+    <!-- Stats -->
+    <div class="grid-4" style="margin-bottom:24px;">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(99,102,241,0.1);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </div>
+            <div>
+                <div class="stat-value">{{ items|length }}</div>
+                <div class="stat-label">Total Posts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.1);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div>
+                <div class="stat-value">{{ items|selectattr('status','in',['processing','scraping','scripting','imaging','videoing'])|list|length }}</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:var(--gold-tint);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div>
+                <div class="stat-value">{{ items|selectattr('status','in',['ReadyToPost','ready','complete'])|list|length }}</div>
+                <div class="stat-label">Ready to Post</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(34,197,94,0.1);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </div>
+            <div>
+                <div class="stat-value">{{ items|selectattr('status','equalto','published')|list|length }}</div>
+                <div class="stat-label">Published</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Batch Button -->
+    <div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:18px 22px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+            <div style="font-weight:700;color:var(--text-primary);margin-bottom:3px;">Generate Today's Batch</div>
+            <div style="font-size:0.82rem;color:var(--text-muted);">Create 6 posts at once — party tips, app demos, hooks — across all 4 platforms.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <select id="batchCount" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;">
+                <option value="3">3 posts</option>
+                <option value="6" selected>6 posts</option>
+                <option value="7">7 posts</option>
+            </select>
+            <button onclick="batchGenerate()"
+                    id="batchBtn"
+                    style="padding:9px 20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+                Generate Batch
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm" :class="filter==='all'?'btn-secondary':'btn-outline'" @click="filter='all'">
+                All <span style="opacity:0.7;margin-left:4px;">{{ items|length }}</span>
+            </button>
+            <button class="btn btn-sm" :class="filter==='review'?'btn-secondary':'btn-outline'" @click="filter='review'">
+                Review
+                {% set rc = items|selectattr('status','equalto','ReadyToPost')|list|length %}
+                {% if rc > 0 %}<span style="display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#2d1f3d;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ rc }}</span>{% endif %}
+            </button>
+            <button class="btn btn-sm" :class="filter==='ready'?'btn-secondary':'btn-outline'" @click="filter='ready'">Approved</button>
+            <button class="btn btn-sm" :class="filter==='published'?'btn-secondary':'btn-outline'" @click="filter='published'">Published</button>
+        </div>
+        <button onclick="clearAll()"
+                style="font-size:0.75rem;padding:5px 12px;background:none;border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:8px;cursor:pointer;">
+            Clear All
+        </button>
+    </div>
+
+    <!-- Grid -->
+    {% if items|length > 0 %}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+        {% for item in items %}
+        <div class="card"
+             id="pbh-card-{{ item.id }}"
+             style="overflow:hidden;display:flex;flex-direction:column;"
+             x-show="filterMatch('{{ item.status }}')"
+             x-transition>
+
+            <!-- Thumbnail -->
+            <div style="background:var(--bg-secondary);border-bottom:1px solid var(--border-light);position:relative;">
+                {% set vid = item.r2_video_url or item.video_url %}
+                {% set img = item.r2_image_url or item.image_url %}
+                {% if vid %}
+                <video src="{{ vid }}" preload="metadata" muted playsinline
+                       style="width:100%;aspect-ratio:9/16;max-height:220px;object-fit:cover;display:block;cursor:pointer;"
+                       onclick="this.paused?this.play():this.pause()"></video>
+                {% elif img %}
+                <img src="{{ img }}" alt="" loading="lazy" style="width:100%;height:180px;object-fit:cover;display:block;">
+                {% else %}
+                <div style="height:140px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="opacity:0.4;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                </div>
+                {% endif %}
+                <!-- PBH badge -->
+                <div style="position:absolute;top:8px;left:8px;background:rgba(99,102,241,0.9);color:#fff;font-size:0.62rem;font-weight:700;padding:2px 7px;border-radius:5px;">PBH</div>
+            </div>
+
+            <!-- Script preview -->
+            {% if item.script %}
+            <div style="padding:10px 14px 0;font-size:0.75rem;color:var(--text-subtle);line-height:1.5;font-style:italic;flex:1;">
+                "{{ item.script[:120] }}{% if item.script|length > 120 %}…{% endif %}"
+            </div>
+            {% endif %}
+
+            <!-- Meta + actions -->
+            <div style="padding:12px 14px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                    <span class="badge" style="font-size:0.68rem;background:rgba(99,102,241,0.12);color:#6366f1;">{{ (item.platform or 'tiktok')|capitalize }}</span>
+                    {% if item.status == 'ReadyToPost' %}
+                    <span class="badge" style="background:var(--gold-tint);color:var(--gold);font-size:0.68rem;">Review</span>
+                    {% elif item.status in ['ready','complete'] %}
+                    <span class="badge" style="background:var(--gold-tint);color:var(--gold);font-size:0.68rem;">Approved</span>
+                    {% elif item.status == 'published' %}
+                    <span class="badge" style="background:rgba(34,197,94,0.15);color:var(--success);font-size:0.68rem;">Published</span>
+                    {% elif item.status in ['processing','scraping','scripting','imaging','videoing'] %}
+                    <span class="badge" style="background:rgba(245,158,11,0.15);color:var(--warning);font-size:0.68rem;">Processing</span>
+                    {% elif item.status == 'error' %}
+                    <span class="badge" style="background:rgba(239,68,68,0.15);color:var(--danger);font-size:0.68rem;">Error</span>
+                    {% endif %}
+                    <span style="color:var(--text-subtle);font-size:0.72rem;margin-left:auto;">{{ item.created_at.strftime('%b %d') if item.created_at else '' }}</span>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    {% if item.status != 'published' %}
+                    <button id="pbh-post-{{ item.id }}"
+                            onclick="pbhPostNow({{ item.id }}, '{{ item.platform or 'tiktok' }}')"
+                            style="flex:1;padding:7px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        Post Now
+                    </button>
+                    {% else %}
+                    <span style="flex:1;text-align:center;font-size:0.72rem;color:var(--success);font-weight:600;">✓ Posted</span>
+                    {% endif %}
+                    <button onclick="pbhDelete({{ item.id }})"
+                            style="background:none;border:1px solid var(--border-subtle);border-radius:8px;cursor:pointer;color:var(--text-subtle);padding:6px 8px;"
+                            onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.4)'"
+                            onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="opacity:0.4;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </div>
+            <h3 class="empty-state-heading">No PBH content yet</h3>
+            <p class="empty-state-description">Generate your first Party Biz Hub post to get started.</p>
+            <a href="/pbh/generate" class="btn" style="margin-top:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;">
+                Generate First Post
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+@media (max-width:1024px){div[style*="grid-template-columns:repeat(3"]{grid-template-columns:repeat(2,1fr)!important;}}
+@media (max-width:640px){div[style*="grid-template-columns:repeat(3"]{grid-template-columns:1fr!important;}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pbhQueue() {
+    return {
+        filter: 'all',
+        filterMatch(status) {
+            if (this.filter === 'all') return true;
+            if (this.filter === 'review') return status === 'ReadyToPost';
+            if (this.filter === 'ready') return ['ready','complete'].includes(status);
+            return status === this.filter;
+        }
+    };
+}
+
+async function batchGenerate() {
+    const btn   = document.getElementById('batchBtn');
+    const count = document.getElementById('batchCount').value;
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+        const resp = await fetch('/pbh/api/batch-generate', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ count: parseInt(count), platforms: ['tiktok','instagram','facebook','youtube'] })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            showToast && showToast(`${data.count} posts queued — they'll appear below as they finish.`, 'success');
+            setTimeout(() => window.location.reload(), 3000);
+        }
+    } catch(e) {
+        alert('Could not start batch — please try again.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Batch';
+    }
+}
+
+async function pbhPostNow(id, platform) {
+    const btn = document.getElementById(`pbh-post-${id}`);
+    if (!confirm(`Post this to ${platform} now?`)) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span style="width:10px;height:10px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>'; }
+    try {
+        const resp = await fetch(`/pbh/api/items/${id}/publish`, { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok && data.status !== 'error') {
+            if (btn) { btn.style.background = 'rgba(34,197,94,0.15)'; btn.style.color = '#22c55e'; btn.innerHTML = '✓ Posted!'; }
+            showToast && showToast('Posted successfully!', 'success');
+        } else {
+            if (btn) { btn.disabled = false; btn.textContent = 'Post Now'; }
+            alert(data.error || 'Posting failed.');
+        }
+    } catch(e) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Post Now'; }
+        alert('Connection error — try again.');
+    }
+}
+
+async function pbhDelete(id) {
+    if (!confirm('Delete this post?')) return;
+    const resp = await fetch(`/pbh/api/items/${id}`, { method: 'DELETE' });
+    if (resp.ok) {
+        const card = document.getElementById(`pbh-card-${id}`);
+        if (card) { card.style.opacity = '0'; card.style.transition = 'opacity 0.2s'; setTimeout(() => card.remove(), 200); }
+    }
+}
+
+async function clearAll() {
+    if (!confirm('Delete ALL Party Biz Hub content? This cannot be undone.')) return;
+    const resp = await fetch('/pbh/api/items/clear', { method: 'POST' });
+    if (resp.ok) window.location.reload();
+}
+</script>
+{% endblock %}

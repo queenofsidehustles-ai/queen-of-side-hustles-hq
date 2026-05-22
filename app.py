@@ -107,6 +107,11 @@ def create_app():
     from blueprints.onboarding import onboarding_bp
     app.register_blueprint(onboarding_bp, url_prefix="/onboarding")
 
+    from blueprints.pbh import pbh_bp
+    from blueprints.pbh_api import pbh_api_bp
+    app.register_blueprint(pbh_bp,     url_prefix="/pbh")
+    app.register_blueprint(pbh_api_bp, url_prefix="/pbh/api")
+
     if app.config["FEATURE_BOOKINGS"]:
         from blueprints.bookings import bookings_bp
         app.register_blueprint(bookings_bp, url_prefix="/bookings")
@@ -159,6 +164,8 @@ def _migrate_columns():
 
     migrations = [
         ("content_items", "transcript",    "TEXT"),
+        ("content_items", "brand",         "VARCHAR(10) DEFAULT 'kpps'"),
+        ("pbh_assets",    "file_type",     "VARCHAR(10) DEFAULT 'image'"),
         ("contacts",      "tiktok_handle", "VARCHAR(100)"),
         ("contacts",      "follow_up_date","DATE"),
         ("contacts",      "notes_quick",   "TEXT"),

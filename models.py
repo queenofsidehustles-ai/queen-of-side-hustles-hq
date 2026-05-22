@@ -332,10 +332,47 @@ class PageView(db.Model):
 # Content Models
 # ---------------------------------------------------------------------------
 
+class PBHAsset(db.Model):
+    """Party Biz Hub screenshots / brand assets uploaded by Monica."""
+    __tablename__ = "pbh_assets"
+
+    TAGS = {
+        "dashboard":    "Dashboard",
+        "quote":        "Quote Builder",
+        "booking":      "Booking Page",
+        "contract":     "Contracts",
+        "content":      "Content Machine",
+        "profile":      "Profile / Settings",
+        "other":        "Other",
+    }
+
+    id         = db.Column(db.Integer, primary_key=True)
+    filename   = db.Column(db.String(500))
+    r2_url     = db.Column(db.Text, nullable=False)
+    r2_key     = db.Column(db.String(500))
+    tag        = db.Column(db.String(50), default="other")
+    file_type  = db.Column(db.String(10), default="image")   # 'image' or 'video'
+    notes      = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def tag_label(self):
+        return self.TAGS.get(self.tag, "Other")
+
+    def to_dict(self):
+        return {
+            "id": self.id, "filename": self.filename,
+            "r2_url": self.r2_url, "tag": self.tag,
+            "tag_label": self.tag_label, "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class ContentItem(db.Model):
     __tablename__ = "content_items"
 
     id              = db.Column(db.Integer, primary_key=True)
+    brand           = db.Column(db.String(10), default="kpps")   # 'kpps' or 'pbh'
     input_text      = db.Column(db.Text)
     input_type      = db.Column(db.String(10),  default="idea")
     platform        = db.Column(db.String(20),  default="tiktok")

@@ -1,0 +1,203 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Generate PBH Content{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Pick a content type, platform, and optionally attach an app screenshot.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/pbh" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);">
+    ← Back to Queue
+</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;margin:0 auto;" x-data="pbhGenerator()">
+
+    <!-- Content Type -->
+    <div class="card" style="margin-bottom:20px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Content Type</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+
+            <template x-for="t in types" :key="t.id">
+                <div @click="contentType = t.id"
+                     :style="contentType === t.id
+                        ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.07);'
+                        : 'border:1px solid var(--border);background:var(--card-bg);'"
+                     style="border-radius:12px;padding:14px 16px;cursor:pointer;transition:all 0.15s;">
+                    <div style="font-size:1.3rem;margin-bottom:6px;" x-text="t.emoji"></div>
+                    <div style="font-weight:700;font-size:0.9rem;color:var(--text-primary);margin-bottom:3px;" x-text="t.label"></div>
+                    <div style="font-size:0.77rem;color:var(--text-muted);line-height:1.4;" x-text="t.desc"></div>
+                </div>
+            </template>
+
+        </div>
+    </div>
+
+    <!-- Platform -->
+    <div class="card" style="margin-bottom:20px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Platform</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <template x-for="p in platforms" :key="p.id">
+                <button @click="platform = p.id"
+                        :style="platform === p.id
+                            ? 'background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;'
+                            : 'background:var(--card-bg);color:var(--text-primary);border:1px solid var(--border);'"
+                        style="padding:8px 18px;border-radius:8px;font-weight:600;font-size:0.85rem;cursor:pointer;transition:all 0.15s;"
+                        x-text="p.label"></button>
+            </template>
+        </div>
+    </div>
+
+    <!-- App Screenshot (optional) -->
+    {% if assets|length > 0 %}
+    <div class="card" style="margin-bottom:20px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">App Screenshot <span style="text-transform:none;font-weight:400;color:var(--text-subtle);">(optional — use as background)</span></div>
+        <div style="display:flex;gap:10px;overflow-x:auto;padding:6px 0;">
+            <div @click="assetId = null"
+                 :style="assetId === null ? 'border:2px solid #6366f1;' : 'border:1px solid var(--border);'"
+                 style="min-width:80px;height:80px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-secondary);">
+                <span style="font-size:0.72rem;color:var(--text-subtle);">None</span>
+            </div>
+            {% for asset in assets %}
+            <div @click="assetId = {{ asset.id }}"
+                 :style="assetId === {{ asset.id }} ? 'border:2px solid #6366f1;' : 'border:1px solid var(--border);'"
+                 style="min-width:80px;height:80px;border-radius:10px;overflow:hidden;cursor:pointer;position:relative;flex-shrink:0;">
+                <img src="{{ asset.r2_url }}" alt="{{ asset.tag_label }}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);font-size:0.58rem;color:#fff;padding:3px 5px;text-align:center;">{{ asset.tag_label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="/pbh/assets" style="font-size:0.75rem;color:#6366f1;text-decoration:none;display:block;margin-top:8px;">+ Upload more screenshots →</a>
+    </div>
+    {% else %}
+    <div class="card" style="margin-bottom:20px;background:rgba(99,102,241,0.04);border:1px dashed rgba(99,102,241,0.3);">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" style="flex-shrink:0;opacity:0.6;"><rect x="3" y="3" width="18" height="12" rx="2"/><path d="M3 20h18"/></svg>
+            <div>
+                <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:2px;">No app screenshots yet</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">Upload screenshots of Party Biz Hub to use as video backgrounds. <a href="/pbh/assets" style="color:#6366f1;">Upload now →</a></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Custom Angle -->
+    <div class="card" style="margin-bottom:24px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">
+            Custom Angle <span style="text-transform:none;font-weight:400;color:var(--text-subtle);">(optional)</span>
+        </div>
+        <textarea x-model="customAngle"
+                  placeholder="E.g. 'Focus on balloon artists who lose bookings because they don't have contracts' or 'Target party business owners charging under $150/event'"
+                  style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;resize:vertical;min-height:70px;box-sizing:border-box;font-family:inherit;"></textarea>
+    </div>
+
+    <!-- Generate Button -->
+    <div style="text-align:center;">
+        <button @click="generate()"
+                :disabled="generating"
+                style="padding:14px 48px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;min-width:200px;"
+                :style="generating ? 'opacity:0.7;cursor:not-allowed;' : ''">
+            <span x-show="!generating">Generate Post</span>
+            <span x-show="generating" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.5);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
+                Generating…
+            </span>
+        </button>
+    </div>
+
+    <!-- Progress / Result -->
+    <div x-show="log.length > 0" style="margin-top:28px;">
+        <div class="card">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Pipeline Progress</div>
+            <template x-for="(entry, i) in log" :key="i">
+                <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+                    <div :style="entry.status==='complete' ? 'color:#22c55e;' : entry.status==='error' ? 'color:#ef4444;' : 'color:#f59e0b;'"
+                         style="font-size:0.75rem;font-weight:700;text-transform:uppercase;min-width:60px;padding-top:1px;" x-text="entry.stage"></div>
+                    <div style="font-size:0.82rem;color:var(--text-primary);line-height:1.5;" x-text="entry.message"></div>
+                </div>
+            </template>
+            <div x-show="done" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-light);text-align:center;">
+                <a :href="'/content/' + contentId" style="color:#6366f1;font-weight:700;font-size:0.9rem;text-decoration:none;">View Generated Post →</a>
+                &nbsp;&nbsp;
+                <a href="/pbh" style="color:var(--text-muted);font-size:0.85rem;">Back to Queue</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pbhGenerator() {
+    return {
+        contentType: 'party_tip',
+        platform:    'tiktok',
+        assetId:     null,
+        customAngle: '',
+        generating:  false,
+        log:         [],
+        done:        false,
+        contentId:   null,
+
+        types: [
+            { id: 'party_tip',   emoji: '💡', label: 'Party Business Tip',  desc: 'Advice that leads naturally to Party Biz Hub' },
+            { id: 'app_demo',    emoji: '📱', label: 'App Demo',            desc: 'Show a specific Party Biz Hub feature in action' },
+            { id: 'hook_post',   emoji: '🎯', label: 'Bold Hook Post',      desc: 'Punchy text-only hook to stop the scroll' },
+            { id: 'testimonial', emoji: '⭐', label: 'User Story',          desc: 'Before/after story from a party biz owner' },
+            { id: 'comparison',  emoji: '⚡', label: 'Before vs After',     desc: 'Side-by-side: without vs with Party Biz Hub' },
+        ],
+        platforms: [
+            { id: 'tiktok',    label: 'TikTok' },
+            { id: 'instagram', label: 'Instagram' },
+            { id: 'facebook',  label: 'Facebook' },
+            { id: 'youtube',   label: 'YouTube' },
+        ],
+
+        async generate() {
+            this.generating = true;
+            this.log = [];
+            this.done = false;
+            this.contentId = null;
+
+            const resp = await fetch('/pbh/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content_type:  this.contentType,
+                    platform:      this.platform,
+                    asset_id:      this.assetId,
+                    custom_angle:  this.customAngle,
+                }),
+            });
+
+            const reader  = resp.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                for (const line of chunk.split('\n')) {
+                    if (!line.startsWith('data:')) continue;
+                    try {
+                        const evt = JSON.parse(line.slice(5));
+                        if (evt.stage === 'done') {
+                            this.done = true;
+                            this.contentId = evt.content_id;
+                            this.generating = false;
+                        } else {
+                            this.log.push(evt);
+                        }
+                    } catch(e) {}
+                }
+            }
+            this.generating = false;
+        }
+    };
+}
+</script>
+{% endblock %}
