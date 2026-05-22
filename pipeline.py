@@ -480,9 +480,9 @@ def stage_caption(content_id, item, emit_event):
     row.status = "captioning"
     db.session.commit()
 
-    # Generate captions for the target platform + a few extras
+    # Generate captions for the target platform + all 4 social platforms
     target = item.platform or "instagram"
-    platforms = list(set([target, "instagram", "tiktok", "linkedin"]))
+    platforms = list(set([target, "instagram", "tiktok", "facebook", "youtube"]))
 
     emit_event(stage, "started", f"Last step! Each social platform has different rules (character limits, hashtag styles, tone). We're asking AI to write custom captions for {', '.join(platforms)} so each one fits perfectly.")
     _add_log(content_id, stage, "started", "Calling OpenRouter for captions")

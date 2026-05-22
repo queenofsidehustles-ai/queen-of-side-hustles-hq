@@ -165,6 +165,23 @@
                 </template>
             </div>
 
+            <!-- Post to All Platforms -->
+            <div class="card" style="margin-bottom:16px;text-align:center;">
+                <button @click="postToAll()"
+                        :disabled="posting || posted"
+                        style="width:100%;padding:13px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;"
+                        :style="(posting||posted)?'opacity:0.7;cursor:not-allowed;':''">
+                    <span x-show="!posting && !posted">Post to All Platforms Now</span>
+                    <span x-show="posting" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                        <span style="width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
+                        Posting…
+                    </span>
+                    <span x-show="posted">Posted!</span>
+                </button>
+                <div x-show="postError" style="margin-top:8px;font-size:0.78rem;color:#ef4444;" x-text="postError"></div>
+                <div style="margin-top:6px;font-size:0.72rem;color:var(--text-subtle);">Publishes to TikTok, Instagram, Facebook & YouTube at once</div>
+            </div>
+
             <!-- Actions -->
             <div style="display:flex;gap:10px;">
                 <button @click="resetForm()"
@@ -200,6 +217,10 @@ function pbhGenerator() {
         generating:  false,
         uploading:   false,
         done:        false,
+        posting:     false,
+        posted:      false,
+        postError:   '',
+        contentId:   null,
         log:         [],
         result:      {},
         assets:      [],
@@ -278,6 +299,7 @@ function pbhGenerator() {
 
             // Load full result
             if (contentId) {
+                this.contentId = contentId;
                 const r = await fetch(`/content/api/${contentId}`);
                 const data = await r.json();
                 let captions = {};
@@ -293,6 +315,25 @@ function pbhGenerator() {
             this.done = true;
         },
 
+        async postToAll() {
+            if (!this.contentId || this.posting || this.posted) return;
+            this.posting   = true;
+            this.postError = '';
+            try {
+                const resp = await fetch(`/pbh/api/items/${this.contentId}/publish`, { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok && data.status !== 'error') {
+                    this.posted = true;
+                    showToast && showToast('Posted to all platforms!', 'success');
+                } else {
+                    this.postError = data.error || 'Posting failed — check your Zernio connections.';
+                }
+            } catch(e) {
+                this.postError = 'Connection error — try again.';
+            }
+            this.posting = false;
+        },
+
         copyText(text) {
             navigator.clipboard.writeText(text).then(() => {
                 showToast && showToast('Copied!', 'success');
@@ -300,9 +341,13 @@ function pbhGenerator() {
         },
 
         resetForm() {
-            this.done = false;
-            this.log  = [];
-            this.result = {};
+            this.done      = false;
+            this.posting   = false;
+            this.posted    = false;
+            this.postError = '';
+            this.contentId = null;
+            this.log       = [];
+            this.result    = {};
         }
     };
 }
