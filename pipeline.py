@@ -193,6 +193,15 @@ def run_pipeline(content_id, emit_event):
                 item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
+        # STAGE 9: VOICEOVER — ElevenLabs reads the script over the video
+        # (only for PBH items that have a video asset and ElevenLabs configured)
+        # ==================================================================
+        if getattr(item, "brand", None) == "pbh":
+            cost = stage_voiceover(content_id, item, emit_event)
+            total_cost += cost
+            item = db.session.get(ContentItem, content_id)
+
+        # ==================================================================
         # PIPELINE COMPLETE
         # ==================================================================
         total_duration = round(time.time() - pipeline_start, 1)
@@ -858,3 +867,55 @@ def regenerate_image(content_id, new_prompt, emit_event):
                detail)
     _add_log(content_id, "image", "complete",
              f"Regenerated: {result.get('task_id', 'N/A')}", json.dumps(detail))
+
+
+# ---------------------------------------------------------------------------
+# STAGE 9: VOICEOVER — Monica's cloned voice reads the script over the video
+# ---------------------------------------------------------------------------
+def stage_voiceover(content_id, item, emit_event):
+    """
+    Generate ElevenLabs TTS from the script and layer it over the attached video.
+    Only runs for PBH items with a video asset and ELEVENLABS_API_KEY configured.
+    Silently skips if either condition is not met.
+    """
+    from services.elevenlabs import is_configured, synthesize
+    from services.video_processor import add_voiceover
+
+    stage = "voiceover"
+    start = time.time()
+
+    if not is_configured():
+        emit_event(stage, "skipped", "ElevenLabs not set up yet — voiceover will be added once your voice clone is ready.")
+        return 0.0
+
+    video_url = item.r2_video_url or item.video_url
+    if not video_url:
+        emit_event(stage, "skipped", "No video attached — skipping voiceover (image-only post).")
+        return 0.0
+
+    script_text = item.script or ""
+    if not script_text:
+        emit_event(stage, "skipped", "No script to read — skipping voiceover.")
+        return 0.0
+
+    emit_event(stage, "progress", "Sending script to ElevenLabs — your cloned voice is recording it now...")
+
+    audio_bytes = synthesize(script_text)
+    if not audio_bytes:
+        emit_event(stage, "warning", "ElevenLabs returned no audio — posting silent video.")
+        return 0.0
+
+    emit_event(stage, "progress", f"Got {len(audio_bytes)//1024}KB of audio. Combining with your video...")
+
+    row = db.session.get(ContentItem, content_id)
+    voiced_url = add_voiceover(video_url, audio_bytes, emit_event=emit_event)
+
+    if voiced_url:
+        row.r2_video_url = voiced_url
+        db.session.commit()
+        duration = round(time.time() - start, 1)
+        emit_event(stage, "complete", f"Your voice is on it! Voiceover video ready in {duration}s.")
+    else:
+        emit_event(stage, "warning", "Voiceover failed — video will post without audio.")
+
+    return 0.0

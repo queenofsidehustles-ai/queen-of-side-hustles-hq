@@ -466,6 +466,81 @@ def upload_processed_video(file_path: str, emit_event=None):
 
 
 # ---------------------------------------------------------------------------
+# add_voiceover() — layer ElevenLabs audio onto a silent video
+# ---------------------------------------------------------------------------
+def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | None:
+    """
+    Download a silent video from R2, add audio from ElevenLabs, upload back to R2.
+    Loops the video if it's shorter than the audio.
+    Returns the new R2 URL, or None on failure.
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+
+    if not _ffmpeg_available():
+        emit("voiceover", "warning", "FFmpeg not available — skipping voiceover.")
+        return None
+
+    tmp_video = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_audio = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    tmp_out   = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_video.close(); tmp_audio.close(); tmp_out.close()
+
+    try:
+        # Download video
+        emit("voiceover", "progress", "Downloading video for voiceover...")
+        resp = requests.get(video_url, stream=True, timeout=120)
+        resp.raise_for_status()
+        with open(tmp_video.name, "wb") as f:
+            for chunk in resp.iter_content(65536):
+                f.write(chunk)
+
+        # Write audio
+        with open(tmp_audio.name, "wb") as f:
+            f.write(audio_bytes)
+
+        vid_dur   = _get_video_duration(tmp_video.name)
+        vid_w, vid_h = _get_video_size(tmp_video.name)
+        vid_w = (vid_w // 2) * 2
+        vid_h = (vid_h // 2) * 2
+
+        emit("voiceover", "progress", f"Combining voice ({len(audio_bytes)//1024}KB) with video ({vid_dur:.0f}s)...")
+
+        # If video is shorter than audio, loop it; otherwise just replace audio
+        cmd = [
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-i", tmp_video.name,
+            "-i", tmp_audio.name,
+            "-vf", f"scale={vid_w}:{vid_h},format=yuv420p",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k",
+            "-shortest",
+            tmp_out.name,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            logger.error("FFmpeg voiceover error: %s", result.stderr[-400:])
+            emit("voiceover", "warning", "Voiceover combine failed — posting without audio.")
+            return None
+
+        emit("voiceover", "progress", "Voiceover combined! Uploading final video...")
+        url = upload_processed_video(tmp_out.name, emit_event=emit_event)
+        if url:
+            emit("voiceover", "progress", "Voiceover video ready!")
+        return url
+
+    except Exception as e:
+        logger.exception("add_voiceover failed")
+        emit("voiceover", "warning", f"Voiceover error: {str(e)[:120]}")
+        return None
+    finally:
+        for p in [tmp_video.name, tmp_audio.name, tmp_out.name]:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+# ---------------------------------------------------------------------------
 # process_video() — called from pipeline.py stage_overlay
 # ---------------------------------------------------------------------------
 def process_video(raw_video_url: str, transcript: str, duration: float,

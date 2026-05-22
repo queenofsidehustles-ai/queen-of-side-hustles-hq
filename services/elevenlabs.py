@@ -25,15 +25,18 @@ def is_configured() -> bool:
 
 def synthesize(text: str) -> bytes | None:
     """
-    Convert text to MP3 audio bytes using the configured ElevenLabs voice.
-    Returns None if no API key is set (clip will keep its original audio instead).
+    Convert text to MP3 audio bytes using Monica's cloned voice.
+    Returns None if no API key is set.
     """
     api_key  = os.getenv("ELEVENLABS_API_KEY", "")
     voice_id = os.getenv("ELEVENLABS_VOICE_ID", "") or DEFAULT_VOICE_ID
 
     if not api_key:
-        logger.info("ElevenLabs not configured — skipping TTS, keeping original audio")
+        logger.info("ElevenLabs not configured — skipping TTS")
         return None
+
+    # eleven_multilingual_v2 is the highest-quality model for cloned voices
+    model = "eleven_multilingual_v2" if os.getenv("ELEVENLABS_VOICE_ID") else "eleven_monolingual_v1"
 
     try:
         resp = requests.post(
@@ -45,16 +48,18 @@ def synthesize(text: str) -> bytes | None:
             },
             json={
                 "text": text,
-                "model_id": "eleven_monolingual_v1",
+                "model_id": model,
                 "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75,
+                    "stability": 0.45,
+                    "similarity_boost": 0.85,
+                    "style": 0.2,
+                    "use_speaker_boost": True,
                 },
             },
-            timeout=30,
+            timeout=60,
         )
         resp.raise_for_status()
-        logger.info("ElevenLabs TTS: %d bytes for %d chars", len(resp.content), len(text))
+        logger.info("ElevenLabs TTS: %d bytes for %d chars (model: %s)", len(resp.content), len(text), model)
         return resp.content
 
     except requests.exceptions.HTTPError as e:
