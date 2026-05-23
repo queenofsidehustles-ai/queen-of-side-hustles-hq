@@ -536,6 +536,35 @@ def test_voice():
         return jsonify({"ok": False, "error": str(e)})
 
 
+# ── Publish diagnostic ───────────────────────────────────────────────────────
+
+@pbh_api_bp.route("/test-publish", methods=["GET"])
+@login_required
+def test_publish():
+    """Check Zernio API key and connected accounts."""
+    import os, requests as req
+    api_key = os.getenv("ZERNIO_API_KEY") or os.getenv("GETLATE_API_KEY")
+    if not api_key:
+        return jsonify({"ok": False, "error": "No ZERNIO_API_KEY set in Railway Variables"})
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    try:
+        r = req.get("https://getlate.dev/api/v1/accounts", headers=headers, timeout=10)
+        accounts_raw = r.text[:500]
+        try:
+            accounts = r.json()
+        except Exception:
+            accounts = accounts_raw
+        return jsonify({
+            "ok": r.ok,
+            "http_status": r.status_code,
+            "api_key_prefix": api_key[:8] + "...",
+            "accounts": accounts,
+            "raw": accounts_raw,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
 # ── Knowledge Base ────────────────────────────────────────────────────────────
 
 @pbh_api_bp.route("/knowledge", methods=["GET"])

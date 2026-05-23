@@ -315,24 +315,37 @@ async function pbhApprove(id) {
 
 async function pbhPostNow(id, platform) {
     const btn = document.getElementById(`pbh-post-${id}`);
-    if (!confirm(`Post this to ${platform} now?`)) return;
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span style="width:10px;height:10px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>'; }
+    if (!confirm(`Post this to ALL connected platforms now?`)) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span style="width:10px;height:10px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span> Posting…'; }
     try {
         const resp = await fetch(`/pbh/api/items/${id}/publish`, { method: 'POST' });
         let data = {};
         try { data = await resp.json(); } catch(e) { data = { status: 'error', error: 'Server error (HTTP ' + resp.status + ')' }; }
-        if (data.status !== 'error' && data.status !== 'demo') {
+
+        if (data.status === 'demo') {
+            if (btn) { btn.disabled = false; btn.innerHTML = 'Post to All'; }
+            alert('Demo mode — your Zernio (GetLate) API key is not set in Railway.\n\nGo to Railway → your project → Variables and add:\nZERNIO_API_KEY = your key from zernio.com');
+            return;
+        }
+
+        const published = data.platforms_published || [];
+        const failed    = data.platforms_failed    || [];
+        const results   = data.results             || [];
+
+        if (published.length > 0) {
             if (btn) { btn.style.background = 'rgba(34,197,94,0.15)'; btn.style.color = '#22c55e'; btn.innerHTML = '✓ Posted!'; }
-            showToast && showToast('Posted successfully!', 'success');
-        } else if (data.status === 'demo') {
-            if (btn) { btn.style.background = 'rgba(99,102,241,0.15)'; btn.style.color = '#6366f1'; btn.innerHTML = '✓ Demo'; }
-            showToast && showToast('Demo mode — add Zernio key to post for real.', 'info');
+            let msg = `Posted to: ${published.join(', ')}`;
+            if (failed.length > 0) msg += `\n\nFailed on: ${failed.join(', ')}`;
+            showToast && showToast(msg, 'success');
         } else {
-            if (btn) { btn.disabled = false; btn.textContent = 'Post Now'; }
-            alert('Posting error: ' + (data.error || 'Unknown error'));
+            if (btn) { btn.disabled = false; btn.innerHTML = 'Post to All'; }
+            // Build a helpful error message from per-platform results
+            let errLines = results.map(r => `${r.platform}: ${r.error || r.status}`);
+            if (!errLines.length && data.error) errLines = [data.error];
+            alert('Posting failed on all platforms.\n\n' + (errLines.join('\n') || 'No details returned — check Railway logs.'));
         }
     } catch(e) {
-        if (btn) { btn.disabled = false; btn.textContent = 'Post Now'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Post to All'; }
         alert('Network error: ' + e.message);
     }
 }
