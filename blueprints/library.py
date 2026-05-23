@@ -163,6 +163,22 @@ def update_video(video_id):
     return jsonify({"ok": True})
 
 
+@library_bp.route("/clips", methods=["GET"])
+@login_required
+def clips_json():
+    """Return all library clips as JSON for the KPPS generate page."""
+    videos = LibraryVideo.query.order_by(LibraryVideo.created_at.desc()).all()
+    return jsonify([{
+        "id": v.id,
+        "r2_url": v.r2_url,
+        "tag": v.tag,
+        "tag_label": TAGS.get(v.tag, v.tag),
+        "notes": v.notes or "",
+        "duration_fmt": v.duration_fmt,
+        "used_count": v.used_count or 0,
+    } for v in videos])
+
+
 @library_bp.route("/generate", methods=["POST"])
 @login_required
 def generate():

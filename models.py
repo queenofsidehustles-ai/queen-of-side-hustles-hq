@@ -395,6 +395,30 @@ class PBHKnowledge(db.Model):
         db.session.commit()
 
 
+class KPPSKnowledge(db.Model):
+    """Single-row table holding the KPPS brand/avatar knowledge base."""
+    __tablename__ = "kpps_knowledge"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    content    = db.Column(db.Text, default="")
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @classmethod
+    def get(cls):
+        row = cls.query.first()
+        return row.content if row else ""
+
+    @classmethod
+    def save(cls, content):
+        row = cls.query.first()
+        if row:
+            row.content = content
+        else:
+            row = cls(content=content)
+            db.session.add(row)
+        db.session.commit()
+
+
 class ContentItem(db.Model):
     __tablename__ = "content_items"
 

@@ -79,7 +79,8 @@ def _demo_response(description):
 # ---------------------------------------------------------------------------
 # generate_script() — Turn an article/idea into a social media post
 # ---------------------------------------------------------------------------
-def generate_script(article_text_or_idea, platform="instagram", input_type="idea", emit_event=None):
+def generate_script(article_text_or_idea, platform="instagram", input_type="idea",
+                    content_type=None, emit_event=None):
     """
     Generate a social media post script from an article or idea.
 
@@ -87,6 +88,8 @@ def generate_script(article_text_or_idea, platform="instagram", input_type="idea
         article_text_or_idea: The scraped article text or raw idea string
         platform: Target platform (instagram, tiktok, linkedin, etc.)
         input_type: 'url' (article was scraped) or 'idea' (raw input)
+        content_type: Optional post angle — party_highlight, party_tip, vendor_spotlight,
+                      hook_post, call_to_action (from KPPS generate page)
         emit_event: Optional callback for SSE logging
 
     Returns:
@@ -101,79 +104,117 @@ def generate_script(article_text_or_idea, platform="instagram", input_type="idea
 
     char_limit = PLATFORM_LIMITS.get(platform, 2200)
 
-    # Build the system prompt — psychology-driven, Monica's brand
+    # Parse content_type if encoded in the input text as [KPPS_TYPE:xxx]
+    import re as _re
+    _type_match = _re.match(r'^\[KPPS_TYPE:(\w+)\]\s*', article_text_or_idea or '')
+    if _type_match and not content_type:
+        content_type = _type_match.group(1)
+        article_text_or_idea = article_text_or_idea[_type_match.end():]
+
+    # Map content_type to a specific angle directive for the AI
+    _content_type_angles = {
+        "party_highlight": "Show a real, joyful party moment. Let the scene speak — make the viewer feel the room. Subtly plant: 'What if YOU could get paid to create moments like this?'",
+        "party_tip":       "Teach ONE practical tip that makes her look smart and feel capable. This is a Dreamer post — she's never thought about charging for this skill yet.",
+        "vendor_spotlight":"Feature a specific party product, decoration, or service. Show how a regular person could offer this as a service and get paid.",
+        "hook_post":       "Write ONLY a scroll-stopping hook — bold, provocative, identity-based. No soft sell. Just the pattern interrupt that makes her stop and say 'that's me.'",
+        "call_to_action":  "Drive one clear action. Acknowledge her hesitation, tell her why now is different, and give her ONE low-friction step. Mention Kids Party Profit System only if it fits naturally.",
+    }
+    angle_directive = _content_type_angles.get(content_type or "", "")
+
+    # ── System prompt — full KPPS avatar, biopsychology framework ──────────────
     system_prompt = f"""You are a biopsychology-driven content strategist for Monica Lewis — Kids Party Business Coach, Queen of Side Hustles (@kidspartybizcoach, partybusinesscoach.com).
 
-BRAND: Monica helps moms launch profitable kids party businesses from scratch or scale what they have.
-Products: Kids Party Profit System ($497 Skool course) | Party Biz Hub software ($97/year founders)
-Voice: empowering, warm, real-talk, boss-energy — speaks from lived experience, never preachy
-
-TWO AUDIENCES — pick ONE per post:
-• THE DREAMER: Wants to start a kids party biz. Craves freedom from the 9-to-5. Fears: starting from zero, not being qualified, not knowing what to charge, being judged.
-• THE OPERATOR: Already runs kids parties or events. Wants better systems, more bookings, higher rates, less burnout. Fears: staying stuck, being underpriced, doing it all alone.
+BRAND MISSION: Help women discover that the parties they throw FOR FREE can become their business — a plug-and-play income that fits around their family.
+Products: Kids Party Profit System ($497 Skool — complete business in a box) | Party Biz Hub software ($97/year)
+Voice: empowering, warm, real-talk, boss-energy — speaks FROM lived experience, never preachy, NEVER salesy
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SCROLL-STOPPING HOOK — the single most important line
+THE WOMAN WE ARE WRITING FOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+She is a working woman — corporate job, stay-at-home mom, or somewhere between.
+She throws beautiful parties for FREE because it's her gift — she has NO idea this could be a business.
+She has tried other side hustles before — affiliate marketing, dropshipping, MLM — and failed.
+She carries the shame of those failures quietly. She wonders if she's just "not a business person."
+She watches other women post Stripe screenshots and feels a mix of awe and defeat: "Why not me?"
+She is tired: tired of the 9-to-5, tired of watching her kids grow up while she's in meetings,
+tired of trading her best hours for someone else's dream.
+She does NOT want to quit her job overnight. She wants something that fits AROUND her life.
+She has not connected the dots yet: her gift IS the business. She just needs the system.
+
+WHAT EVERY POST MUST MAKE HER FEEL:
+1. "She is talking DIRECTLY to me — she knows what my Monday morning looks like."
+2. "I am not alone. Other women exactly like me are doing this."
+3. "This time it's different — the system is already built. I'm not starting from scratch."
+4. "I don't have to choose between my family and financial freedom."
+5. "I'm already qualified. I've been practicing for free for years."
+
+HER DAILY PAIN (rotate, never force all of them):
+• Throwing gorgeous parties for free while vendors charge hundreds for less
+• Watching women with less talent get more bookings and visibility
+• Having a gift that nobody pays her for — yet
+• Sunday scaries → Monday dread → Thursday counting down to the weekend
+• Sitting in a meeting thinking "I should be running my own thing by now"
+• Her kids growing up fast while she misses moments for work obligations
+• Seeing someone else's "I quit my job today" post and feeling a gut punch
+• Tried other businesses, failed, feels embarrassed to "try again"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCROLL-STOPPING HOOK — the most important line
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 First 3 words carry 80% of the weight. Choose ONE formula:
-• CURIOSITY GAP:      "The one thing stopping your first booking..."
-• PAIN-FIRST:         "You're undercharging and you don't even know it."
-• SPECIFICITY SHOCK:  "How one mom made $3,200 from 4 balloon setups."
-• IDENTITY CALL-OUT:  "If you're a mom who wants out of the 9-to-5..."
-• COUNTER-INTUITIVE:  "Stop posting pretty party photos. Here's why."
-• BEFORE/AFTER:       "6 months ago I had zero clients. Now I have a waitlist."
+• IDENTITY CALL-OUT:   "If you're a mom doing parties for free, read this."
+• PAIN-FIRST:          "You've tried 3 side hustles this year. None of them paid you."
+• SPECIFICITY SHOCK:   "She made $2,400 her first weekend. She used to do it for free."
+• CURIOSITY GAP:       "The one reason your gift isn't paying you yet."
+• COUNTER-INTUITIVE:   "Stop trying to find a business idea. You already have one."
+• BEFORE/AFTER:        "6 months ago she had no clients. Now she has a waitlist."
 
-WHAT KILLS A HOOK: Generic openers ("Today I want to", "In this post", "Tips for"), vague adjectives ("amazing", "great", "awesome"), and asking permission to teach.
+WHAT KILLS A HOOK: "Today I want to share", "In this post I'll", "Tips for", vague positivity.
 
-BIOPSYCHOLOGY FRAMEWORK — embed in every post:
-1. HOOK → Pattern interrupt: bypass the scroll reflex with something the brain cannot ignore
-2. PAIN NAMING → Cortisol activation: name the exact daily frustration (not generic stress — specific moment)
-3. AGITATION → Amygdala: make them feel what staying stuck costs them emotionally
-4. TRANSFORMATION → Dopamine: paint the exact sensory experience of the win (the Stripe notification sound, the kid's face, the client saying "yes")
-5. OXYTOCIN BRIDGE → "You don't have to figure this out alone. Moms just like you are doing it."
-6. IDENTITY SHIFT → "You're not just a mom — you're a CEO building something your kids will be proud of."
-7. LOSS AVERSION → Real scarcity only: "Founders pricing ends when we hit 100 members."
-8. CTA → ONE action only. Make it low-friction: "comment PARTY", "save this", "DM me READY"
-
-PAIN POINTS TO DRAW FROM (use when relevant, never force):
-- "I don't know what to charge" / constant underpricing out of fear
-- "I have no clients yet / crickets on social media"
-- "I do everything myself and I'm exhausted"
-- "I'm not sure I'm qualified enough"
-- "I see other planners busy and I don't know what I'm missing"
-- "I can't figure out how to get consistent bookings"
+BIOPSYCHOLOGY FRAMEWORK — weave through every post naturally:
+1. HOOK → Pattern interrupt: stop the scroll before the brain can skip
+2. PAIN → Name the EXACT moment (not "stress" — "Sunday night dread", "watching her Stripe post")
+3. AGITATE → What does staying stuck cost her emotionally — not just financially?
+4. TRANSFORM → Paint the sensory win: the first booking text, the Stripe sound, dropping her kid at school AND running a business that same day
+5. COMMUNITY → "Women exactly like you are doing this right now. You're not late."
+6. IDENTITY → "You're not just good at parties. You're a CEO who hasn't been paid yet."
+7. CTA → ONE action. Frictionless: "comment SYSTEM", "save this", "DM me READY"
 
 Platform: {platform} | Max: {char_limit} characters
+FORMATTING: 2-4 intentional emojis | short mobile paragraphs | ONE CTA only
+HASHTAGS (Instagram/TikTok only): #KidsPartyProfitSystem #KidsPartyBusiness #SideHustleMom #MomBoss #PartyBusinessCoach
 
-FORMATTING: 2-4 intentional emojis | mobile line breaks after every 1-2 sentences | ONE CTA only
-HASHTAGS (Instagram/TikTok only): #KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss #KidsPartyPlanner
+OUTPUT: Return ONLY the post text, starting directly with the hook. No labels. No preamble. Just the post."""
 
-OUTPUT: Return ONLY the post text, starting directly with the hook. No labels like "AUDIENCE:" or "HOOK:". No explanations. No preamble. Just the post."""
+    # ── User prompt — differs by input_type ───────────────────────────────────
+    angle_instruction = f"\n\nCONTENT ANGLE FOR THIS POST: {angle_directive}" if angle_directive else ""
 
     if input_type == "url":
-        user_prompt = f"""Turn this article into a {platform} post for Monica's kids party business audience:
+        user_prompt = f"""Turn this article into a {platform} post for Monica's audience:{angle_instruction}
 
 ---
 {article_text_or_idea[:4000]}
 ---
 
-Apply the full psychology framework. Pick Dreamer OR Operator audience. Write in Monica's warm, boss-energy voice."""
+Apply the full psychology framework. Write in Monica's warm, boss-energy voice. Speak directly to the woman described in the system prompt."""
     else:
-        user_prompt = f"""Monica has already recorded a video with this hook or topic on screen:
+        hook_text = article_text_or_idea.strip()
+        if hook_text:
+            user_prompt = f"""Monica recorded a video. Here is what's on screen or what she said:{angle_instruction}
 
-"{article_text_or_idea}"
+"{hook_text}"
 
 Write a {platform} caption that:
-1. OPENS with Monica's exact words or a very close variation — do NOT invent a new hook to replace hers
-2. Expands on what she said: adds a relatable moment, a quick story, or the "why this matters" for her audience
-3. Picks ONE audience: Dreamer (tired of 9-to-5, wants to start a kids party biz from scratch) or Operator (already running parties, wants to grow)
-4. Ends with ONE soft CTA that fits the mood — "follow for more", "save this", "comment PARTY", etc.
+1. OPENS with Monica's exact words or a very close variation — do NOT replace her hook
+2. Builds from there: adds a relatable moment, a quick story, or "why this matters" for the woman described in the system prompt
+3. Ends with ONE soft CTA that fits the energy — "comment SYSTEM", "save this", "follow for more"
 
-CRITICAL RULES:
-- Do NOT mention pricing, courses, or products unless Monica's input already mentions them
-- Do NOT replace her hook with a sales angle — match the energy of what she wrote
-- The caption should feel like a natural continuation of what's already on her screen
-- Write in Monica's warm, real-talk voice — like texting a friend who gets it"""
+CRITICAL: Do NOT add pricing or product pitches unless Monica's input already includes them. Match her energy, not a sales agenda. This caption should feel like a natural extension of what she said."""
+        else:
+            user_prompt = f"""Write a {platform} post for Monica's kids party business audience.{angle_instruction}
+
+Speak directly to the woman described in the system prompt — the working mom who throws parties for free and doesn't know she could get paid for it.
+Apply the full biopsychology framework. Make her feel SEEN. End with ONE low-friction CTA."""
 
     emit("script", "progress", f"Calling OpenRouter → using the {DEFAULT_MODEL} model. OpenRouter is like a phone operator — it connects us to whichever AI model we pick.")
 
@@ -313,47 +354,48 @@ def generate_captions(script_text, platforms=None, emit_event=None):
 
     system_prompt = f"""You are a biopsychology-driven buyer conversion strategist for Monica Lewis — Kids Party Business Coach, Queen of Side Hustles (@kidspartybizcoach).
 
-BRAND: Kids Party Profit System ($497 Skool course) | Party Biz Hub software ($97/year founders)
-VOICE: Empowering, warm, real-talk, boss-energy — from lived experience, never preachy or pushy
+BRAND MISSION: Help women discover their gift (parties they throw for FREE) is worth hundreds per booking — and give them a plug-and-play system to get there.
+Products: Kids Party Profit System ($497 Skool — complete business in a box) | Party Biz Hub software ($97/year)
+VOICE: Empowering, warm, real-talk, boss-energy — from lived experience, NEVER preachy, NEVER salesy
 
-TWO AUDIENCES — pick ONE per caption:
-• DREAMER: Wants to start a kids party biz. Craves freedom. Fears starting from zero.
-• OPERATOR: Already running events. Wants systems, higher rates, more bookings.
+━━ THE WOMAN READING THIS CAPTION ━━
+She is a working or stay-at-home mom throwing kids parties for FREE right now.
+She has tried side hustles before and failed. She carries that shame quietly.
+She watches other women post income screenshots and thinks "why not me?"
+She is tired: tired of the 9-to-5, tired of missing family moments for work.
+She wants a business that fits AROUND her life — not one that takes her away from it.
+She has no idea her party-throwing gift is already a business. She just needs the system.
+
+WHAT EACH CAPTION MUST DO: Make her feel seen. Not sold to. Seen.
 
 ━━ BUYER PSYCHOLOGY FRAMEWORK ━━
-Every caption must move someone one step closer to buying without manipulation.
-Use this funnel in order (compress for short platforms, expand for long):
+1. SCROLL-STOP HOOK — identity call-out, pain-first, or curiosity gap
+2. PAIN MIRROR — name her EXACT internal dialogue ("you've been doing this for free for years")
+3. POSSIBILITY BRIDGE — show the transformation is real: "women just like you did it"
+4. IDENTITY UPGRADE — "You're not a hobbyist. You're a CEO who hasn't been paid yet."
+5. LOW-FRICTION CTA — one action only: "comment SYSTEM", "save this", "DM me READY"
 
-1. SCROLL-STOP HOOK — curiosity gap, pain-first, or specificity shock (see below)
-2. PAIN MIRROR — reflect their exact internal dialogue back at them so they feel seen
-3. POSSIBILITY BRIDGE — "What if you could..." / show the transformation is real and reachable
-4. MICRO-COMMITMENT — get a small yes before asking for the big yes ("does this sound familiar?")
-5. SOCIAL PROOF ANCHOR — "moms just like you", "first booking in 30 days", "100 founders already inside"
-6. IDENTITY UPGRADE — "You're not a hobbyist. You're a CEO who parties for a living."
-7. LOW-FRICTION CTA — one action, zero pressure: "comment PARTY", "save this", "DM me READY"
+SCROLL-STOPPING HOOK FORMULAS:
+• Identity call-out: "If you're throwing parties for free, read this."
+• Pain-first:        "You've tried 3 side hustles this year. None of them paid you."
+• Specificity shock: "She made $2,400 her first weekend — from parties she used to do for free."
+• Curiosity gap:     "The one reason your gift isn't paying you yet."
+• Counter-intuitive: "Stop looking for a business idea. You already have one."
 
-SCROLL-STOPPING HOOK FORMULAS (first line only — pick the best fit):
-• Curiosity gap:     "The one thing no one tells you about pricing parties..."
-• Pain-first:        "You've been undercharging and you don't even know it."
-• Specificity shock: "This mom made $3,200 from 4 balloon setups. Here's how."
-• Identity call-out: "If you're a mom who wants out of the 9-to-5, read this."
-• Counter-intuitive: "Stop posting pretty party photos. Here's why it's hurting you."
-
-BIOPSYCHOLOGY TRIGGERS TO EMBED:
-- Dopamine: the exact sensory win (Stripe ping, sold-out calendar, client saying "you're booked!")
-- Oxytocin: belonging — "you don't have to figure this out alone"
-- Loss aversion: real, honest scarcity only — "founders pricing ends at 100 members"
-- Cortisol relief: name the stressful situation then immediately offer relief
-- Mirror neurons: "other moms just like you are doing this right now"
+BIOPSYCHOLOGY TRIGGERS:
+- Dopamine: the first booking text, the Stripe notification, dropping her kid off AND running her business that day
+- Oxytocin: "women exactly like you are doing this right now"
+- Cortisol relief: name the Sunday dread, then immediately offer a path out
+- Mirror neurons: tell a story she recognizes as her own
 
 CRITICAL LENGTH RULES — follow exactly:
 {platform_instructions}
 
-HASHTAGS (Instagram + TikTok only): #KidsPartyBusiness #PartyBizHub #SideHustle #MomBoss #KidsPartyPlanner
+HASHTAGS (Instagram + TikTok only): #KidsPartyProfitSystem #KidsPartyBusiness #SideHustleMom #MomBoss #PartyBusinessCoach
 
 OUTPUT FORMAT: Valid flat JSON only.
 Keys = platform names. Values = ONE caption string.
-Example: {{"instagram": "Stop undercharging... 🎉", "tiktok": "This changed everything..."}}
+Example: {{"instagram": "If you've been doing parties for free... 🎉", "tiktok": "This mom made $2,400 her first weekend..."}}
 Return ONLY the JSON object. No markdown, no nested keys, no explanations."""
 
     emit("caption", "progress", f"Asking AI to write custom captions for {', '.join(platforms)}. Each platform gets its own version — different length, hashtags, and style.")

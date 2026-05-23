@@ -102,6 +102,22 @@ def create_draft():
     )
     db.session.add(item)
     db.session.commit()
+
+    # If a library clip was selected, attach it as the video source
+    clip_id = data.get("clip_id")
+    if clip_id:
+        try:
+            from models import LibraryVideo
+            clip = LibraryVideo.query.get(int(clip_id))
+            if clip:
+                item.r2_video_url = clip.r2_url
+                item.video_url    = clip.r2_url
+                item.input_type   = "video"  # "library" is reserved for batch-generated clips
+                clip.used_count   = (clip.used_count or 0) + 1
+                db.session.commit()
+        except Exception:
+            pass
+
     return jsonify({"id": item.id})
 
 

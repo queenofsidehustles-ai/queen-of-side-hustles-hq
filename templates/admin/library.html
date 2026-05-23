@@ -241,6 +241,12 @@
                    style="width: 100%; font-size: 0.78rem; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-primary); margin-bottom: 10px; box-sizing: border-box;"
                    onblur="updateVideoNotes({{ v.id }}, this.value)">
 
+            <!-- Use This Clip -->
+            <a href="/content/create?clip_id={{ v.id }}"
+               style="display:block; width:100%; text-align:center; padding:8px 10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border-radius:8px; font-size:0.8rem; font-weight:700; text-decoration:none; margin-bottom:8px; box-sizing:border-box;">
+                ✨ Use This Clip
+            </a>
+
             <!-- Date + delete -->
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 0.7rem; color: var(--text-subtle);">

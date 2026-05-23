@@ -320,6 +320,7 @@ def stage_script(content_id, item, emit_event):
             source_text,
             platform=item.platform,
             input_type=input_type,
+            content_type=getattr(item, "content_type", None),
             emit_event=emit_event,
         )
 

@@ -1,203 +1,297 @@
 {% extends "base_admin.html" %}
 
 {% block page_title %}Create Content{% endblock %}
-{% block page_subtitle %}
-<div class="page-header breadcrumb" style="margin-bottom: 0;">
-    <a href="/content" style="color: var(--text-subtle); font-size: 0.875rem;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 4px;"><polyline points="15 18 9 12 15 6"/></svg>
-        Back to Content Library
-    </a>
-</div>
+{% block page_subtitle %}<p class="page-subtitle">Pick a clip, add your hook, and let AI build your post.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/content" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);">
+    ← Back to Queue
+</a>
 {% endblock %}
 
 {% block content %}
-<div x-data="createContentApp()">
+<div x-data="kppsGenerator()" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
 
-    <div style="display: grid; grid-template-columns: 1fr; gap: 24px; max-width: 800px;">
+    <!-- ── LEFT: Configure ───────────────────────────────────────────── -->
+    <div>
 
-        <!-- Input Card -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                    Content Input
-                </h3>
-            </div>
-            <div class="card-body">
-
-                <!-- Step 1: Idea -->
-                <div class="form-group">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                        <label class="form-label" style="margin:0;">Your Hook <span style="font-weight:400; color:var(--text-subtle); font-size:0.8rem;">— type or speak what's on screen in your video</span></label>
-                        <button type="button" @click="toggleVoice()"
-                                :title="listening ? 'Tap to stop' : 'Tap to speak your hook'"
-                                :disabled="generating"
-                                style="display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; border:none; cursor:pointer; font-size:0.78rem; font-weight:600; transition:all 0.2s;"
-                                :style="listening
-                                    ? 'background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.4);'
-                                    : 'background:var(--gold-tint); color:var(--gold); border:1px solid rgba(199,163,90,0.3);'">
-                            <svg x-show="!listening" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                            <span x-show="listening" style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:pulse 1s infinite;display:inline-block;"></span>
-                            <span x-text="listening ? 'Listening… tap to stop' : 'Speak your hook'"></span>
-                        </button>
+        <!-- 1 — Content Type -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">1 — Content Type</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <template x-for="t in types" :key="t.id">
+                    <div @click="contentType = t.id"
+                         :style="contentType===t.id ? 'border:2px solid var(--gold);background:var(--gold-tint);' : 'border:1px solid var(--border);'"
+                         style="border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.15s;">
+                        <div style="font-size:1.1rem;" x-text="t.emoji"></div>
+                        <div style="font-weight:700;font-size:0.82rem;color:var(--text-primary);margin-top:4px;" x-text="t.label"></div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;line-height:1.3;" x-text="t.desc"></div>
                     </div>
-                    <textarea
-                        x-model="input"
-                        x-ref="hookInput"
-                        @input="detectInputType()"
-                        placeholder="Speak or type your hook — e.g. 'If you're tired of your 9-to-5 and keep scrolling past people living their dream...' — AI will expand on YOUR words, not replace them."
-                        :disabled="generating"
-                        style="min-height: 110px; font-size: 0.95rem; resize: vertical;"
-                        :style="listening ? 'border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.15);' : ''"></textarea>
-                    <p style="font-size:0.75rem; color:var(--text-subtle); margin-top:6px; line-height:1.5;">
-                        Tip: the more specific your hook, the better the caption. AI will open with your exact words and build from there.
-                    </p>
-                    <style>@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }</style>
-                </div>
-
-                <!-- Auto-detect Indicator -->
-                <div x-show="input.length > 0" x-transition style="margin-bottom: 16px;">
-                    <span x-show="inputType === 'url'"
-                          style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; background: rgba(99,102,241,0.12); color: #6366f1;">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                        URL detected — will scrape article
-                    </span>
-                    <span x-show="inputType === 'idea'"
-                          style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; background: var(--gold-tint); color: var(--gold);">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                        Idea mode — will write caption from scratch
-                    </span>
-                </div>
-
-                <!-- Step 2: Upload Your Own Video (optional) -->
-                <div style="margin-bottom: 20px;">
-                    <label class="form-label" style="margin-bottom: 8px; display: block;">
-                        Upload Your Video or Photo
-                        <span style="color: var(--text-subtle); font-weight: 400; font-size: 0.78rem; margin-left: 6px;">(optional — skip if you want AI to make one)</span>
-                    </label>
-
-                    <!-- Drop zone / file picker -->
-                    <div x-show="!uploadedFile"
-                         @click="$refs.fileInput.click()"
-                         style="border: 2px dashed var(--border); border-radius: 12px; padding: 28px 16px; text-align: center; cursor: pointer; transition: border-color 0.2s;"
-                         @dragover.prevent="$event.currentTarget.style.borderColor='var(--gold)'"
-                         @dragleave="$event.currentTarget.style.borderColor='var(--border)'"
-                         @drop.prevent="handleDrop($event)">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="margin: 0 auto 10px; display: block;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                        <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 4px;">Tap to pick a video or photo from your camera roll</div>
-                        <div style="color: var(--text-subtle); font-size: 0.75rem;">MP4, MOV, JPG, PNG accepted</div>
-                    </div>
-
-                    <!-- File selected preview -->
-                    <div x-show="uploadedFile" style="border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px;">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
-                        <div style="flex: 1; min-width: 0;">
-                            <div x-text="uploadedFile ? uploadedFile.name : ''" style="font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
-                            <div x-text="uploadedFile ? formatFileSize(uploadedFile.size) : ''" style="font-size: 0.75rem; color: var(--text-subtle);"></div>
-                        </div>
-                        <button @click.stop="uploadedFile = null" style="background: none; border: none; cursor: pointer; color: var(--text-subtle); padding: 4px;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                    </div>
-
-                    <input type="file" x-ref="fileInput" accept="video/*,image/*" style="display: none;"
-                           @change="handleFileSelect($event)" :disabled="generating">
-                </div>
-
-                <!-- Controls Row -->
-                <div class="flex items-center gap-4" style="flex-wrap: wrap;">
-                    <!-- Platform Selector -->
-                    <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
-                        <label class="form-label">Platform</label>
-                        <select x-model="platform" :disabled="generating">
-                            <option value="tiktok">TikTok</option>
-                            <option value="instagram">Instagram</option>
-                            <option value="youtube">YouTube</option>
-                            <option value="linkedin">LinkedIn</option>
-                            <option value="x">X (Twitter)</option>
-                        </select>
-                    </div>
-
-                    <!-- Include Video (only show if no upload) -->
-                    <div x-show="!uploadedFile" style="padding-top: 20px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem; color: var(--text-muted);">
-                            <input type="checkbox" x-model="includeVideo" :disabled="generating"
-                                   style="accent-color: var(--gold); width: 16px; height: 16px;">
-                            Generate AI Video
-                        </label>
-                    </div>
-
-                    <div style="flex: 1;"></div>
-
-                    <!-- Generate Button -->
-                    <div style="padding-top: 20px;">
-                        <button class="btn btn-primary"
-                                :disabled="!input.trim() || generating"
-                                @click="submitContent()"
-                                style="padding: 10px 24px; font-weight: 600;">
-                            <template x-if="!generating">
-                                <span class="flex items-center gap-2">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                                    Generate Caption
-                                </span>
-                            </template>
-                            <template x-if="generating">
-                                <span class="flex items-center gap-2">
-                                    <span class="spinner spinner-sm"></span>
-                                    <span x-text="statusMessage"></span>
-                                </span>
-                            </template>
-                        </button>
-                    </div>
-                </div>
-
+                </template>
             </div>
         </div>
 
-        <!-- Pipeline X-Ray Log -->
-        <div class="card" x-show="sseLog.length > 0" x-transition>
-            <div class="card-header">
-                <h3 class="card-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-                    Pipeline X-Ray
-                </h3>
-                <span style="color: var(--text-subtle); font-size: 0.75rem;" x-text="sseLog.length + ' events'"></span>
+        <!-- 2 — Platform -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">2 — Platform</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <template x-for="p in platforms" :key="p.id">
+                    <button @click="platform=p.id"
+                            :style="platform===p.id ? 'background:var(--gold);color:#2d1f3d;border-color:transparent;' : 'background:var(--card-bg);color:var(--text-primary);border:1px solid var(--border);'"
+                            style="padding:7px 16px;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;transition:all 0.15s;"
+                            x-text="p.label"></button>
+                </template>
             </div>
-            <div class="card-body" style="padding: 0;">
-                <div x-ref="sseLogFeed" style="max-height: 320px; overflow-y: auto; padding: 12px 16px; font-family: 'SF Mono', 'Consolas', 'Monaco', monospace; font-size: 0.8rem; line-height: 1.8;">
-                    <template x-for="(entry, i) in sseLog" :key="i">
-                        <div style="display: flex; gap: 8px; align-items: baseline;">
-                            <span style="color: var(--gold); white-space: nowrap;" x-text="entry.stage ? '[' + entry.stage + ']' : '[system]'"></span>
-                            <span style="color: var(--text-muted);" x-text="entry.message || entry.status || JSON.stringify(entry)"></span>
+        </div>
+
+        <!-- 3 — Your Clip -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">3 — Your Clip <span style="text-transform:none;font-weight:400;">(optional — skip for text/image post)</span></div>
+
+            <!-- Selected clip preview -->
+            <div x-show="selectedClip" style="margin-bottom:10px;padding:8px 12px;background:var(--gold-tint);border:1px solid rgba(199,163,90,0.3);border-radius:8px;display:flex;align-items:center;gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style="font-size:0.8rem;font-weight:600;color:var(--gold);" x-text="selectedClip ? (selectedClip.notes || selectedClip.tag_label + ' clip') : ''"></span>
+                <span style="font-size:0.72rem;color:var(--text-muted);" x-text="selectedClip ? selectedClip.duration_fmt : ''"></span>
+                <button @click="selectedClip = null; clipId = null" style="margin-left:auto;background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:0.75rem;">✕ Change</button>
+            </div>
+
+            <!-- Clip browser -->
+            <div x-show="!selectedClip">
+                <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
+                    <div @click="selectedClip = null; clipId = null"
+                         style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);">
+                        <span style="font-size:0.8rem;color:var(--text-muted);">None — text/image post only</span>
+                    </div>
+                    <template x-for="c in clips" :key="c.id">
+                        <div @click="selectClip(c)"
+                             style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);transition:background 0.1s;"
+                             onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+                            <div style="width:40px;height:40px;border-radius:6px;background:#000;flex-shrink:0;overflow:hidden;">
+                                <video :src="c.r2_url" style="width:100%;height:100%;object-fit:cover;" preload="none" muted></video>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="c.notes || c.tag_label"></div>
+                                <div style="font-size:0.7rem;color:var(--text-muted);" x-text="c.tag_label + (c.duration_fmt ? ' · ' + c.duration_fmt : '') + (c.used_count ? ' · Used ' + c.used_count + '×' : '')"></div>
+                            </div>
                         </div>
                     </template>
+                    <div x-show="clips.length === 0" style="padding:16px;text-align:center;font-size:0.78rem;color:var(--text-subtle);">
+                        No clips yet —
+                        <a href="/admin/library" style="color:var(--gold);">upload some in the Library</a>
+                    </div>
                 </div>
+                <a href="/admin/library" style="font-size:0.75rem;color:var(--text-subtle);text-decoration:none;">+ Upload a new clip to the library</a>
+            </div>
+        </div>
+
+        <!-- 4 — Your Hook -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);">4 — Your Hook <span style="text-transform:none;font-weight:400;">(optional — speak or type your angle)</span></div>
+                <button @click="toggleVoice()" :disabled="generating"
+                        :style="listening ? 'background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.5);color:#ef4444;' : 'background:none;border-color:var(--border);color:var(--text-muted);'"
+                        style="display:flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm-1 1.93V18H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
+                    </svg>
+                    <span x-text="listening ? 'Listening…' : 'Speak'"></span>
+                    <span x-show="listening" style="width:7px;height:7px;background:#ef4444;border-radius:50%;display:inline-block;animation:pulse 1s infinite;"></span>
+                </button>
+            </div>
+            <textarea x-model="hook" placeholder="E.g. 'Parents always ask me how to keep kids entertained during cocktail hour…' — speak it or type it and AI will build from YOUR words."
+                      :style="listening ? 'border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,0.15);' : ''"
+                      :disabled="generating"
+                      style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;resize:vertical;min-height:80px;box-sizing:border-box;font-family:inherit;transition:border-color 0.2s;"></textarea>
+        </div>
+
+        <!-- Generate button -->
+        <button @click="generate()" :disabled="generating"
+                style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),#e8a844);color:#2d1f3d;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;transition:opacity 0.15s;"
+                :style="generating ? 'opacity:0.7;cursor:not-allowed;' : ''">
+            <span x-show="!generating">⚡ Generate Post</span>
+            <span x-show="generating" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                <span style="width:14px;height:14px;border:2px solid rgba(45,31,61,0.4);border-top-color:#2d1f3d;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
+                <span x-text="statusMsg"></span>
+            </span>
+        </button>
+
+    </div>
+
+    <!-- ── RIGHT: Result ──────────────────────────────────────────────── -->
+    <div>
+
+        <!-- Idle state -->
+        <div x-show="!generating && !done" class="card"
+             style="min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
+            <template x-if="selectedClip">
+                <div style="width:100%;border-radius:10px;overflow:hidden;background:#000;max-height:260px;margin-bottom:8px;">
+                    <video :src="selectedClip ? selectedClip.r2_url : ''" controls playsinline muted
+                           style="width:100%;max-height:260px;object-fit:cover;display:block;"></video>
+                </div>
+            </template>
+            <template x-if="!selectedClip">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" style="opacity:0.3;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </template>
+            <div style="color:var(--text-subtle);font-size:0.85rem;">Fill in your settings on the left, then hit Generate</div>
+        </div>
+
+        <!-- Pipeline log while generating -->
+        <div x-show="generating" class="card" style="min-height:220px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Pipeline Running…</div>
+            <div x-ref="logFeed" style="max-height:360px;overflow-y:auto;">
+                <template x-for="(entry,i) in log" :key="i">
+                    <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:8px;">
+                        <span :style="entry.status==='complete' ? 'color:#22c55e;' : entry.status==='error' ? 'color:#ef4444;' : 'color:var(--gold);'"
+                              style="font-size:0.7rem;font-weight:700;text-transform:uppercase;min-width:60px;flex-shrink:0;" x-text="entry.stage || 'info'"></span>
+                        <span style="font-size:0.8rem;color:var(--text-primary);line-height:1.4;" x-text="entry.message || entry.detail || ''"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Result -->
+        <div x-show="done" x-transition>
+
+            <!-- Video preview -->
+            <div x-show="result.video_url" class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+                <video :src="result.video_url" controls playsinline
+                       style="width:100%;max-height:300px;object-fit:cover;display:block;border-radius:10px 10px 0 0;"></video>
+                <div style="padding:8px 14px;font-size:0.72rem;color:var(--text-subtle);">
+                    <span x-show="result.has_voice" style="color:#22c55e;font-weight:600;">✓ Voiceover applied</span>
+                    <span x-show="!result.has_voice" style="color:var(--text-subtle);">Original clip — voiceover may still be processing</span>
+                </div>
+            </div>
+
+            <!-- Image preview (no video) -->
+            <div x-show="result.image_url && !result.video_url" class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+                <img :src="result.image_url" style="width:100%;max-height:260px;object-fit:cover;display:block;">
+            </div>
+
+            <!-- Script -->
+            <div class="card" style="margin-bottom:16px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Script</div>
+                <div style="font-size:0.88rem;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;" x-text="result.script"></div>
+                <button @click="copyText(result.script)"
+                        style="margin-top:10px;padding:6px 14px;background:var(--gold-tint);border:1px solid rgba(199,163,90,0.3);color:var(--gold);border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                    Copy Script
+                </button>
+            </div>
+
+            <!-- Platform Captions -->
+            <div x-show="Object.keys(result.captions || {}).length > 0" class="card" style="margin-bottom:16px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Platform Captions</div>
+                <template x-for="[plt, caption] in Object.entries(result.captions || {})" :key="plt">
+                    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border-light);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <span style="font-size:0.75rem;font-weight:700;color:var(--text-primary);text-transform:capitalize;" x-text="plt"></span>
+                            <button @click="copyText(caption)"
+                                    style="padding:3px 10px;background:var(--gold-tint);border:1px solid rgba(199,163,90,0.3);color:var(--gold);border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">
+                                Copy
+                            </button>
+                        </div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6;" x-text="typeof caption === 'object' ? (caption.DREAMER || caption.dreamer || Object.values(caption)[0] || '') : caption"></div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Post to All -->
+            <div class="card" style="margin-bottom:16px;text-align:center;">
+                <button @click="postToAll()"
+                        :disabled="posting || posted"
+                        style="width:100%;padding:13px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;transition:opacity 0.15s;"
+                        :style="(posting || posted) ? 'opacity:0.7;cursor:not-allowed;' : ''">
+                    <span x-show="!posting && !posted">🚀 Post to All Platforms</span>
+                    <span x-show="posting" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                        <span style="width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
+                        Posting…
+                    </span>
+                    <span x-show="posted">✓ Posted to All!</span>
+                </button>
+                <div x-show="postResult" style="margin-top:10px;font-size:0.78rem;line-height:1.5;" x-html="postResult"></div>
+                <div x-show="postError" style="margin-top:8px;font-size:0.78rem;color:#ef4444;" x-text="postError"></div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:10px;">
+                <button @click="resetForm()"
+                        style="flex:1;padding:11px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-primary);border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                    Generate Another
+                </button>
+                <a href="/content" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--gold),#e8a844);color:#2d1f3d;border-radius:10px;font-weight:700;font-size:0.85rem;text-decoration:none;text-align:center;">
+                    View Queue →
+                </a>
             </div>
         </div>
 
     </div>
-
 </div>
+
+<style>
+@keyframes spin  { to { transform:rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+@media (max-width:900px) {
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr!important; }
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function createContentApp() {
+function kppsGenerator() {
     return {
-        input: '',
-        inputType: 'idea',
-        platform: 'tiktok',
-        includeVideo: false,
-        generating: false,
-        statusMessage: 'Working...',
-        sseLog: [],
-        uploadedFile: null,
-        listening: false,
+        contentType: 'party_highlight',
+        platform:    'tiktok',
+        hook:        '',
+        clipId:      null,
+        selectedClip: null,
+        clips:       [],
+        listening:   false,
         _recognition: null,
+        generating:  false,
+        statusMsg:   'Working…',
+        done:        false,
+        posting:     false,
+        posted:      false,
+        postResult:  '',
+        postError:   '',
+        contentId:   null,
+        log:         [],
+        result:      {},
 
-        detectInputType() {
-            const trimmed = this.input.trim();
-            this.inputType = (trimmed.startsWith('http://') || trimmed.startsWith('https://')) ? 'url' : 'idea';
+        types: [
+            { id:'party_highlight', emoji:'🎉', label:'Party Highlight',  desc:'Fun moment from a real party' },
+            { id:'party_tip',       emoji:'💡', label:'Party Tip',        desc:'Quick advice for parents & planners' },
+            { id:'vendor_spotlight',emoji:'🎈', label:'Vendor Spotlight',  desc:'Feature a party product or service' },
+            { id:'hook_post',       emoji:'🎯', label:'Hook Post',        desc:'Scroll-stopping bold opener' },
+            { id:'call_to_action',  emoji:'📣', label:'Call to Action',   desc:'Drive bookings or sales' },
+        ],
+        platforms: [
+            { id:'tiktok',    label:'TikTok' },
+            { id:'instagram', label:'Instagram' },
+            { id:'facebook',  label:'Facebook' },
+            { id:'youtube',   label:'YouTube' },
+        ],
+
+        async init() {
+            // Load all library clips
+            try {
+                const r = await fetch('/admin/library/clips');
+                this.clips = await r.json();
+            } catch(e) {}
+
+            // Pre-select a clip if clip_id is in the URL
+            const params = new URLSearchParams(window.location.search);
+            const clipId = params.get('clip_id');
+            if (clipId) {
+                const found = this.clips.find(c => String(c.id) === clipId);
+                if (found) { this.selectedClip = found; this.clipId = found.id; }
+            }
+        },
+
+        selectClip(c) {
+            this.selectedClip = c;
+            this.clipId = c.id;
         },
 
         toggleVoice() {
@@ -207,95 +301,63 @@ function createContentApp() {
                 return;
             }
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SR) {
-                alert('Voice input is not supported in this browser. Try Chrome or Safari on your iPhone.');
-                return;
-            }
+            if (!SR) { alert('Voice input not supported here — try Chrome or Safari on your iPhone.'); return; }
             const rec = new SR();
             rec.continuous = true;
             rec.interimResults = true;
             rec.lang = 'en-US';
-
-            let baseText = this.input;
+            let base = this.hook;
             rec.onresult = (e) => {
-                let interim = '';
-                let final = '';
+                let interim = '', final = '';
                 for (let i = e.resultIndex; i < e.results.length; i++) {
                     const t = e.results[i][0].transcript;
                     if (e.results[i].isFinal) final += t;
                     else interim += t;
                 }
-                this.input = baseText + (baseText && final ? ' ' : '') + final + interim;
-                if (final) { baseText = this.input.replace(interim, '').trim(); }
-                this.detectInputType();
+                this.hook = base + (base && final ? ' ' : '') + final + interim;
+                if (final) { base = this.hook.replace(interim, '').trim(); }
             };
-            rec.onerror = (e) => {
-                this.listening = false;
-                if (e.error !== 'aborted') alert('Microphone error: ' + e.error + '. Make sure your browser has mic permission.');
-            };
+            rec.onerror = (e) => { this.listening = false; if (e.error !== 'aborted') alert('Mic error: ' + e.error); };
             rec.onend = () => { this.listening = false; };
-
             rec.start();
             this._recognition = rec;
             this.listening = true;
         },
 
-        handleFileSelect(e) {
-            this.uploadedFile = e.target.files[0] || null;
-        },
-
-        handleDrop(e) {
-            this.uploadedFile = e.dataTransfer.files[0] || null;
-        },
-
-        formatFileSize(bytes) {
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        },
-
-        async submitContent() {
-            if (!this.input.trim() || this.generating) return;
+        async generate() {
             this.generating = true;
-            this.sseLog = [];
+            this.done       = false;
+            this.log        = [];
+            this.result     = {};
+            this.contentId  = null;
 
             try {
-                // Step 1: Create draft item (always, no pipeline yet)
-                this.statusMessage = 'Creating...';
+                // Step 1: Create draft (attach clip if selected)
+                this.statusMsg = 'Creating draft…';
+                // Encode content_type as a prefix so the pipeline can use it for angle direction
+                const hookText = this.hook.trim() || (this.selectedClip ? (this.selectedClip.notes || this.selectedClip.tag_label) : '');
+                const inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
+                const draftBody = {
+                    input_text:  inputText,
+                    input_type:  'idea',
+                    platform:    this.platform,
+                    clip_id:     this.clipId,
+                };
                 const draftRes = await fetch('/content/api/create-draft', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        input_text: this.input.trim(),
-                        input_type: this.inputType,
-                        platform: this.platform,
-                        include_video: this.includeVideo && !this.uploadedFile,
-                    })
+                    body: JSON.stringify(draftBody),
                 });
                 if (!draftRes.ok) throw new Error('Could not create draft (' + draftRes.status + ')');
                 const { id: itemId } = await draftRes.json();
+                this.contentId = itemId;
 
-                // Step 2: Upload file if user picked one
-                if (this.uploadedFile) {
-                    this.statusMessage = 'Uploading your video...';
-                    this.sseLog.push({ stage: 'upload', message: 'Uploading ' + this.uploadedFile.name + ' to storage...' });
-                    const form = new FormData();
-                    form.append('file', this.uploadedFile);
-                    form.append('item_id', itemId);
-                    const upRes = await fetch('/content/api/upload', { method: 'POST', body: form });
-                    if (!upRes.ok) {
-                        const err = await upRes.json().catch(() => ({}));
-                        throw new Error(err.error || 'Upload failed (' + upRes.status + ')');
-                    }
-                    const upData = await upRes.json();
-                    this.sseLog.push({ stage: 'upload', message: 'Uploaded! AI image/video will be skipped — using your file.' });
-                }
-
-                // Step 3: Run pipeline via SSE
-                this.statusMessage = 'Writing caption...';
+                // Step 2: Run pipeline via SSE
+                this.statusMsg = 'Writing script…';
                 const response = await fetch('/content/api/' + itemId + '/run-pipeline', { method: 'POST' });
-                if (!response.ok) throw new Error('Pipeline start failed (' + response.status + ')');
+                if (!response.ok) throw new Error('Pipeline failed to start (' + response.status + ')');
 
-                const reader = response.body.getReader();
+                const reader  = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
 
@@ -308,44 +370,87 @@ function createContentApp() {
                     buffer = lines.pop();
 
                     for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            try {
-                                const event = JSON.parse(line.slice(6));
-                                this.sseLog.push(event);
-
-                                if (event.stage && event.message) {
-                                    this.statusMessage = event.message.slice(0, 40) + (event.message.length > 40 ? '...' : '');
-                                }
-
-                                if (event.status === 'done' || event.status === 'complete' || event.status === 'pipeline_complete') {
-                                    this.generating = false;
-                                    if (event.content_id) {
-                                        showToast('Done! Your caption is ready.', 'success');
-                                        setTimeout(() => {
-                                            window.location.href = '/content/' + event.content_id;
-                                        }, 800);
-                                    }
-                                }
-                            } catch (e) { /* skip malformed */ }
-                        }
+                        if (!line.startsWith('data: ')) continue;
+                        try {
+                            const evt = JSON.parse(line.slice(6));
+                            if (evt.stage !== 'done') {
+                                this.log.push(evt);
+                                if (evt.message) this.statusMsg = evt.message.slice(0, 50) + (evt.message.length > 50 ? '…' : '');
+                            }
+                            if (evt.stage === 'done' || evt.status === 'complete') {
+                                this.generating = false;
+                            }
+                        } catch(e) {}
+                        this.$nextTick(() => { const f = this.$refs.logFeed; if (f) f.scrollTop = f.scrollHeight; });
                     }
-
-                    this.$nextTick(() => {
-                        const feed = this.$refs.sseLogFeed;
-                        if (feed) feed.scrollTop = feed.scrollHeight;
-                    });
                 }
 
-                if (this.generating) {
-                    this.generating = false;
-                    showToast('Pipeline finished.', 'success');
+                // Step 3: Load result
+                if (itemId) {
+                    const r = await fetch('/content/api/' + itemId);
+                    const data = await r.json();
+                    let captions = {};
+                    try { captions = JSON.parse(data.captions || '{}'); } catch(e) {}
+                    this.result = {
+                        script:    data.script || '',
+                        image_url: data.r2_image_url || data.image_url || '',
+                        video_url: data.r2_video_url || data.video_url || '',
+                        has_voice: !!(data.r2_video_url),
+                        captions,
+                    };
                 }
 
-            } catch (err) {
+            } catch(err) {
+                this.log.push({ stage:'error', message: err.message, status:'error' });
+            } finally {
                 this.generating = false;
-                showToast('Error: ' + err.message, 'error');
+                this.done = true;
             }
-        }
+        },
+
+        async postToAll() {
+            if (!this.contentId || this.posting || this.posted) return;
+            this.posting   = true;
+            this.postError = '';
+            this.postResult = '';
+            try {
+                const resp = await fetch('/content/api/' + this.contentId + '/publish-all', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok && data.status !== 'error') {
+                    this.posted = true;
+                    const ok  = (data.platforms_published || []).join(', ') || 'none';
+                    const bad = (data.platforms_failed || []);
+                    let html = '<span style="color:#22c55e;font-weight:600;">✓ Posted to: ' + ok + '</span>';
+                    if (bad.length) html += '<br><span style="color:#f59e0b;">⚠ Failed: ' + bad.join(', ') + '</span>';
+                    if (data.status === 'demo') html = '<span style="color:var(--gold);">Demo mode — add your Zernio API key in Settings to post for real.</span>';
+                    this.postResult = html;
+                    showToast && showToast('Posted to all platforms!', 'success');
+                } else {
+                    this.postError = data.error || 'Posting failed — check your Zernio connections in Settings.';
+                }
+            } catch(e) {
+                this.postError = 'Connection error — try again.';
+            }
+            this.posting = false;
+        },
+
+        copyText(text) {
+            if (!text) return;
+            const t = typeof text === 'object' ? (text.DREAMER || text.dreamer || Object.values(text)[0] || '') : text;
+            navigator.clipboard.writeText(t).then(() => { showToast && showToast('Copied!', 'success'); });
+        },
+
+        resetForm() {
+            this.done       = false;
+            this.posting    = false;
+            this.posted     = false;
+            this.postResult = '';
+            this.postError  = '';
+            this.contentId  = null;
+            this.log        = [];
+            this.result     = {};
+            this.hook       = '';
+        },
     };
 }
 </script>
