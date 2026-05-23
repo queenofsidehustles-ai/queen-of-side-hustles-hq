@@ -15,16 +15,34 @@ from extensions import db
 
 pbh_api_bp = Blueprint("pbh_api", __name__)
 
+# ── Party Biz Hub feature knowledge base ────────────────────────────────────
+
+PBH_KNOWLEDGE = """
+Party Biz Hub is a business management app built specifically for kids party businesses.
+
+FEATURES:
+- Quote Builder: Create a professional, itemized quote in under 60 seconds. Add packages, add-ons, travel fees, and deposits. Client sees a polished quote page — not a text message.
+- Online Booking Page: A personalized link clients use to book and pay directly. No more back-and-forth texts. Deposit collected automatically at booking.
+- Contract Templates: Legal contracts auto-filled with the client's event details. Sent digitally, signed online. No printer needed.
+- AI Content Machine: One click generates TikTok, Instagram, Facebook, and YouTube posts about the business. No writing skills needed.
+- Client Dashboard: Every booking, payment, contract, and conversation for every client in one place. Never lose track of an event again.
+- Invoice & Payment: Send professional invoices and collect payment online. Stripe-powered.
+- Custom Branding: Add a logo, choose colors, add a business name. The app looks like YOUR software, not a generic tool.
+- Mobile Friendly: Works on phone, tablet, and desktop. Manage the entire business from anywhere.
+- Automated Reminders: Auto-sends payment reminders and event confirmations so nothing falls through the cracks.
+- Back Office View: See all upcoming events, outstanding invoices, and recent bookings on one dashboard — the command center for the business.
+
+TARGET USER: Someone already running a kids party business (face painter, balloon artist, bounce house rental, princess entertainer, party planner) who is losing time to manual admin work.
+"""
+
 # ── Content type prompts ────────────────────────────────────────────────────
 
 PBH_PROMPTS = {
     "app_demo": (
         "Create a {platform} video script showing Party Biz Hub in action. "
-        "Pick ONE specific feature from this list: quote builder, booking page, contract templates, "
-        "AI content machine, or client dashboard. "
-        "Hook: start with a pain point party business owners face (e.g., chasing unpaid invoices, "
-        "losing bookings to disorganization, spending hours on admin). "
-        "Demo moment: describe exactly what the feature does visually in 2-3 sentences. "
+        "Use the Party Biz Hub feature details provided above — do NOT invent features. "
+        "Hook: start with ONE specific pain point (chasing unpaid invoices, losing bookings, spending hours on admin, looking unprofessional). "
+        "Demo moment: describe exactly what the relevant feature does visually — 2-3 concrete sentences. "
         "CTA: 'Link in bio — start free at partybizhub.com'. "
         "Keep it under 45 seconds when read aloud. Faceless video — no 'I' or personal pronouns."
     ),
@@ -62,15 +80,26 @@ PBH_PROMPTS = {
 def _build_input_text(content_type, platform, custom_angle=""):
     template = PBH_PROMPTS.get(content_type, PBH_PROMPTS["party_tip"])
     base = template.format(platform=platform.capitalize())
+
+    # App demo always gets the knowledge base so the AI has real feature details
+    knowledge_block = f"\n\nAPP KNOWLEDGE BASE (use this as your source of truth):\n{PBH_KNOWLEDGE}" if content_type == "app_demo" else ""
+
     if custom_angle:
-        # Topic overrides everything — AI must stay on this subject
         return (
-            f"TOPIC (stay strictly on this — do not deviate): {custom_angle}\n\n"
-            f"Format guide for {platform.capitalize()} ({content_type.replace('_',' ')}):\n{base}\n\n"
-            f"IMPORTANT: Every line of the script must relate directly to the topic above. "
-            f"Do not introduce unrelated features, pricing, or generic tips."
+            f"CONTENT SUBJECT — what this post must be ABOUT (do not deviate from this):\n"
+            f"{custom_angle}\n\n"
+            f"IMPORTANT RULES:\n"
+            f"1. Every sentence must be directly about the SUBJECT above.\n"
+            f"2. If the subject mentions a writing STYLE or TECHNIQUE (e.g. 'use buyer psychology', "
+            f"'use storytelling') — apply that technique to write ABOUT the subject. Do NOT write about the technique itself.\n"
+            f"3. Do not switch to a different topic (e.g. pricing, undercharging, general tips) "
+            f"unless the subject explicitly states that topic.\n"
+            f"4. Follow the format structure below.\n\n"
+            f"FORMAT GUIDE ({platform.capitalize()} / {content_type.replace('_', ' ')}):\n{base}"
+            f"{knowledge_block}"
         )
-    return base
+
+    return base + knowledge_block
 
 
 # ── Generate (SSE stream) ────────────────────────────────────────────────────
