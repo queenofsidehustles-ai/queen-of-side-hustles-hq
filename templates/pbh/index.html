@@ -140,9 +140,11 @@
                 <div style="position:absolute;top:8px;left:8px;background:rgba(99,102,241,0.9);color:#fff;font-size:0.62rem;font-weight:700;padding:2px 7px;border-radius:5px;">PBH</div>
             </div>
 
-            <!-- Script preview -->
+            <!-- Script preview — click to open full preview -->
             {% if item.script %}
-            <div style="padding:10px 14px 0;font-size:0.75rem;color:var(--text-subtle);line-height:1.5;font-style:italic;flex:1;">
+            <div onclick="pbhPreview({{ {'id': item.id, 'script': item.script, 'captions': item.captions, 'platform': item.platform or 'tiktok', 'status': item.status, 'video': item.r2_video_url or item.video_url or '', 'image': item.r2_image_url or item.image_url or ''}|tojson }})"
+                 style="padding:10px 14px 0;font-size:0.75rem;color:var(--text-subtle);line-height:1.5;font-style:italic;flex:1;cursor:pointer;"
+                 title="Click to read full script">
                 "{{ item.script[:120] }}{% if item.script|length > 120 %}…{% endif %}"
             </div>
             {% endif %}
@@ -165,6 +167,11 @@
                     <span style="color:var(--text-subtle);font-size:0.72rem;margin-left:auto;">{{ item.created_at.strftime('%b %d') if item.created_at else '' }}</span>
                 </div>
                 <div style="display:flex;gap:6px;">
+                    <!-- Preview button always visible -->
+                    <button onclick="pbhPreview({{ {'id': item.id, 'script': item.script, 'captions': item.captions, 'platform': item.platform or 'tiktok', 'status': item.status, 'video': item.r2_video_url or item.video_url or '', 'image': item.r2_image_url or item.image_url or ''}|tojson }})"
+                            style="padding:7px 10px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-muted);white-space:nowrap;">
+                        Preview
+                    </button>
                     {% if item.status in ['review','ReadyToPost','captioned','transcribed','overlaid'] %}
                     <button id="pbh-approve-{{ item.id }}"
                             onclick="pbhApprove({{ item.id }})"
@@ -213,6 +220,37 @@
     </div>
     {% endif %}
 
+</div>
+
+<!-- ── Preview Modal ───────────────────────────────────────────────── -->
+<div id="previewModal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;align-items:center;justify-content:center;padding:20px;"
+     onclick="if(event.target===this)closePreview()">
+    <div style="background:var(--card-bg);border-radius:16px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;">
+        <!-- Header -->
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card-bg);z-index:1;border-radius:16px 16px 0 0;">
+            <div style="font-weight:700;font-size:0.95rem;color:var(--text-primary);">Post Preview</div>
+            <button onclick="closePreview()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;padding:2px 6px;line-height:1;">✕</button>
+        </div>
+        <!-- Media -->
+        <div id="previewMedia" style="padding:18px 20px 0;"></div>
+        <!-- Script -->
+        <div style="padding:16px 20px 0;">
+            <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Script</div>
+            <div id="previewScript" style="font-size:0.84rem;color:var(--text-primary);line-height:1.65;white-space:pre-wrap;background:var(--bg-secondary);padding:14px 16px;border-radius:10px;border:1px solid var(--border-light);"></div>
+        </div>
+        <!-- Platform Captions -->
+        <div style="padding:16px 20px 0;">
+            <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Platform Captions</div>
+            <div id="previewCaptions" style="display:flex;flex-direction:column;gap:12px;"></div>
+        </div>
+        <!-- Footer -->
+        <div style="padding:16px 20px;margin-top:18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--card-bg);border-radius:0 0 16px 16px;">
+            <button onclick="closePreview()" style="padding:9px 18px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:0.82rem;cursor:pointer;">Close</button>
+            <button id="previewApproveBtn" style="padding:9px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:none;">Approve</button>
+            <button id="previewPostBtn" style="padding:9px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:none;">Post Now</button>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -310,6 +348,61 @@ async function clearAll() {
     if (!confirm('Delete ALL Party Biz Hub content? This cannot be undone.')) return;
     const resp = await fetch('/pbh/api/items/clear', { method: 'POST' });
     if (resp.ok) window.location.reload();
+}
+
+function pbhPreview(item) {
+    const modal = document.getElementById('previewModal');
+    modal.style.display = 'flex';
+
+    // Script
+    document.getElementById('previewScript').textContent = item.script || 'No script yet.';
+
+    // Media
+    const mediaBox = document.getElementById('previewMedia');
+    if (item.video) {
+        mediaBox.innerHTML = `<video src="${item.video}" controls playsinline style="width:100%;max-height:280px;border-radius:10px;background:#000;"></video>`;
+    } else if (item.image) {
+        mediaBox.innerHTML = `<img src="${item.image}" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;">`;
+    } else {
+        mediaBox.innerHTML = `<div style="height:80px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-subtle);font-size:0.8rem;">No media attached</div>`;
+    }
+
+    // Platform captions
+    const captionsBox = document.getElementById('previewCaptions');
+    captionsBox.innerHTML = '';
+    if (item.captions) {
+        try {
+            const caps = typeof item.captions === 'string' ? JSON.parse(item.captions) : item.captions;
+            for (const [platform, text] of Object.entries(caps)) {
+                const content = typeof text === 'object' ? (text.DREAMER || text.dreamer || Object.values(text)[0] || '') : text;
+                if (content) {
+                    captionsBox.innerHTML += `
+                        <div style="background:var(--bg-secondary);border:1px solid var(--border-light);border-radius:8px;padding:12px 14px;">
+                            <div style="font-size:0.68rem;font-weight:700;color:#6366f1;text-transform:capitalize;margin-bottom:6px;">${platform}</div>
+                            <div style="font-size:0.8rem;color:var(--text-primary);line-height:1.55;white-space:pre-wrap;">${content}</div>
+                        </div>`;
+                }
+            }
+        } catch(e) { captionsBox.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted);">Could not parse captions.</p>'; }
+    }
+    if (!captionsBox.innerHTML) {
+        captionsBox.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted);">No platform captions generated yet.</p>';
+    }
+
+    // Action buttons
+    const reviewStatuses = ['review','ReadyToPost','captioned','transcribed','overlaid'];
+    const approvedStatuses = ['approved','ready','complete'];
+    const approveBtn = document.getElementById('previewApproveBtn');
+    const postBtn    = document.getElementById('previewPostBtn');
+    approveBtn.style.display = reviewStatuses.includes(item.status) ? 'inline-block' : 'none';
+    postBtn.style.display    = approvedStatuses.includes(item.status) ? 'inline-block' : 'none';
+    approveBtn.onclick = () => { closePreview(); pbhApprove(item.id); };
+    postBtn.onclick    = () => { closePreview(); pbhPostNow(item.id, item.platform); };
+}
+
+function closePreview() {
+    document.getElementById('previewModal').style.display = 'none';
+    document.getElementById('previewMedia').innerHTML = '';
 }
 </script>
 {% endblock %}
