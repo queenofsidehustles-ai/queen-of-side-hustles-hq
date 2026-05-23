@@ -49,14 +49,23 @@ def create():
     def emit(stage, status, message, detail=""):
         q.put(json.dumps({
             "content_id": content_id,
-            "stage": stage,
-            "status": status,
-            "message": message,
-            "detail": detail,
+            "stage": stage, "status": status,
+            "message": message, "detail": detail,
         }))
+        try:
+            log_entry = PipelineLog(
+                content_id=content_id, stage=stage, status=status,
+                message=str(message)[:500], detail=str(detail)[:500],
+            )
+            db.session.add(log_entry)
+            db.session.commit()
+        except Exception:
+            pass
 
     def run():
         with app.app_context():
+            PipelineLog.query.filter_by(content_id=content_id).delete()
+            db.session.commit()
             from pipeline import run_pipeline
             run_pipeline(content_id, emit)
         q.put("DONE")
@@ -108,14 +117,23 @@ def run_pipeline_route(item_id):
     def emit(stage, status, message, detail=""):
         q.put(json.dumps({
             "content_id": content_id,
-            "stage": stage,
-            "status": status,
-            "message": message,
-            "detail": detail,
+            "stage": stage, "status": status,
+            "message": message, "detail": detail,
         }))
+        try:
+            log_entry = PipelineLog(
+                content_id=content_id, stage=stage, status=status,
+                message=str(message)[:500], detail=str(detail)[:500],
+            )
+            db.session.add(log_entry)
+            db.session.commit()
+        except Exception:
+            pass
 
     def run():
         with app.app_context():
+            PipelineLog.query.filter_by(content_id=content_id).delete()
+            db.session.commit()
             from pipeline import run_pipeline
             run_pipeline(content_id, emit)
         q.put("DONE")

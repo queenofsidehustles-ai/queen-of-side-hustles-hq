@@ -177,7 +177,11 @@
                         Preview
                     </button>
                     {% if item.status == 'published' %}
-                    <span style="flex:1;text-align:center;font-size:0.72rem;color:var(--success);font-weight:600;">✓ Posted</span>
+                    <button id="pbh-post-{{ item.id }}"
+                            onclick="pbhPostNow({{ item.id }}, '{{ item.platform or 'tiktok' }}')"
+                            style="flex:1;padding:7px 10px;background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.3);border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                        ↺ Repost
+                    </button>
                     {% elif item.status not in ['processing','scraping','scripting','imaging','videoing','captioning','draft'] %}
                     <button id="pbh-post-{{ item.id }}"
                             onclick="pbhPostNow({{ item.id }}, '{{ item.platform or 'tiktok' }}')"
@@ -459,7 +463,10 @@ function pbhPreview(id) {
     // Action buttons — single Post to All button for anything that isn't published or still processing
     const processingStatuses = ['processing','scraping','scripting','imaging','videoing','captioning','draft'];
     const postBtn = document.getElementById('previewPostBtn');
-    const canPost = item.status !== 'published' && !processingStatuses.includes(item.status);
+    const canPost = !processingStatuses.includes(item.status);
+    postBtn.innerHTML = item.status === 'published'
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px;vertical-align:middle;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Repost to All'
+        : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px;vertical-align:middle;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Post to All';
     postBtn.style.display = canPost ? 'inline-flex' : 'none';
     postBtn.style.alignItems = 'center';
     postBtn.onclick = () => { closePreview(); pbhPostNow(item.id, item.platform); };
