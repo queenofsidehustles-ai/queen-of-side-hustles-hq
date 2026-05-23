@@ -176,26 +176,14 @@
                             style="padding:7px 10px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-muted);white-space:nowrap;">
                         Preview
                     </button>
-                    {% if item.status in ['review','ReadyToPost','captioned','transcribed','overlaid'] %}
-                    <button id="pbh-approve-{{ item.id }}"
-                            onclick="pbhApprove({{ item.id }})"
-                            style="flex:1;padding:7px 10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;">
-                        Approve
-                    </button>
-                    {% elif item.status in ['approved','ready','complete'] %}
+                    {% if item.status == 'published' %}
+                    <span style="flex:1;text-align:center;font-size:0.72rem;color:var(--success);font-weight:600;">✓ Posted</span>
+                    {% elif item.status not in ['processing','scraping','scripting','imaging','videoing','captioning','draft'] %}
                     <button id="pbh-post-{{ item.id }}"
                             onclick="pbhPostNow({{ item.id }}, '{{ item.platform or 'tiktok' }}')"
                             style="flex:1;padding:7px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        Post Now
-                    </button>
-                    {% elif item.status == 'published' %}
-                    <span style="flex:1;text-align:center;font-size:0.72rem;color:var(--success);font-weight:600;">✓ Posted</span>
-                    {% else %}
-                    <button id="pbh-approve-{{ item.id }}"
-                            onclick="pbhApprove({{ item.id }})"
-                            style="flex:1;padding:7px 10px;background:rgba(99,102,241,0.15);color:#6366f1;border:1px solid rgba(99,102,241,0.3);border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;">
-                        Approve
+                        Post to All
                     </button>
                     {% endif %}
                     <button onclick="pbhDelete({{ item.id }})"
@@ -259,8 +247,10 @@
         <!-- Footer -->
         <div style="padding:16px 20px;margin-top:14px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--card-bg);border-radius:0 0 16px 16px;">
             <button onclick="closePreview()" style="padding:9px 18px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:0.82rem;cursor:pointer;">Close</button>
-            <button id="previewApproveBtn" style="padding:9px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:none;">Approve</button>
-            <button id="previewPostBtn" style="padding:9px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:none;">Post Now</button>
+            <button id="previewPostBtn" onclick="" style="padding:9px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:none;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px;vertical-align:middle;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Post to All
+            </button>
         </div>
     </div>
 </div>
@@ -445,15 +435,13 @@ function pbhPreview(id) {
         captionsBox.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted);">No platform captions generated yet.</p>';
     }
 
-    // Action buttons
-    const reviewStatuses = ['review','ReadyToPost','captioned','transcribed','overlaid'];
-    const approvedStatuses = ['approved','ready','complete'];
-    const approveBtn = document.getElementById('previewApproveBtn');
-    const postBtn    = document.getElementById('previewPostBtn');
-    approveBtn.style.display = reviewStatuses.includes(item.status) ? 'inline-block' : 'none';
-    postBtn.style.display    = approvedStatuses.includes(item.status) ? 'inline-block' : 'none';
-    approveBtn.onclick = () => { closePreview(); pbhApprove(item.id); };
-    postBtn.onclick    = () => { closePreview(); pbhPostNow(item.id, item.platform); };
+    // Action buttons — single Post to All button for anything that isn't published or still processing
+    const processingStatuses = ['processing','scraping','scripting','imaging','videoing','captioning','draft'];
+    const postBtn = document.getElementById('previewPostBtn');
+    const canPost = item.status !== 'published' && !processingStatuses.includes(item.status);
+    postBtn.style.display = canPost ? 'inline-flex' : 'none';
+    postBtn.style.alignItems = 'center';
+    postBtn.onclick = () => { closePreview(); pbhPostNow(item.id, item.platform); };
 }
 
 function closePreview() {

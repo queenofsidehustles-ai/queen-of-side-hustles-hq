@@ -927,10 +927,16 @@ def stage_voiceover(content_id, item, emit_event):
         emit_event(stage, "skipped", "No video attached — skipping voiceover.")
         return 0.0
 
-    script_text = item.script or ""
-    if not script_text:
+    raw_script = item.script or ""
+    if not raw_script:
         emit_event(stage, "skipped", "No script — skipping voiceover.")
         return 0.0
+
+    # Strip hashtags before TTS — they sound terrible when read aloud (#partybizhub → silence)
+    import re
+    script_text = re.sub(r'#\w+', '', raw_script)
+    script_text = re.sub(r'[ \t]+', ' ', script_text)
+    script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
 
     emit_event(stage, "progress", "Sending script to ElevenLabs — recording your cloned voice...")
 
