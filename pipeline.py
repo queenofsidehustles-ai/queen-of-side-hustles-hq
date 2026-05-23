@@ -873,47 +873,55 @@ def regenerate_image(content_id, new_prompt, emit_event):
 # ---------------------------------------------------------------------------
 def stage_voiceover(content_id, item, emit_event):
     """
-    Generate ElevenLabs TTS from the script and layer it over the attached video.
-    Only runs for PBH items with a video asset and ELEVENLABS_API_KEY configured.
-    Silently skips if either condition is not met.
+    Generate ElevenLabs TTS with word timestamps, layer audio over the video,
+    and burn synced TikTok-style captions onto the screen.
+    Silently skips if no video attached or ElevenLabs not configured.
     """
-    from services.elevenlabs import is_configured, synthesize
-    from services.video_processor import add_voiceover
+    from services.elevenlabs import is_configured, synthesize_with_timestamps, words_to_caption_chunks
+    from services.video_processor import add_voiceover_with_captions
 
     stage = "voiceover"
     start = time.time()
 
     if not is_configured():
-        emit_event(stage, "skipped", "ElevenLabs not set up yet — voiceover will be added once your voice clone is ready.")
+        emit_event(stage, "skipped", "ElevenLabs not configured — add ELEVENLABS_API_KEY to Railway to enable voiceover.")
         return 0.0
 
     video_url = item.r2_video_url or item.video_url
     if not video_url:
-        emit_event(stage, "skipped", "No video attached — skipping voiceover (image-only post).")
+        emit_event(stage, "skipped", "No video attached — skipping voiceover.")
         return 0.0
 
     script_text = item.script or ""
     if not script_text:
-        emit_event(stage, "skipped", "No script to read — skipping voiceover.")
+        emit_event(stage, "skipped", "No script — skipping voiceover.")
         return 0.0
 
-    emit_event(stage, "progress", "Sending script to ElevenLabs — your cloned voice is recording it now...")
+    emit_event(stage, "progress", "Sending script to ElevenLabs — recording your cloned voice with word timestamps...")
 
-    audio_bytes = synthesize(script_text)
-    if not audio_bytes:
-        emit_event(stage, "warning", "ElevenLabs returned no audio — posting silent video.")
+    result = synthesize_with_timestamps(script_text)
+    if not result:
+        emit_event(stage, "warning", "ElevenLabs returned no audio — skipping voiceover.")
         return 0.0
 
-    emit_event(stage, "progress", f"Got {len(audio_bytes)//1024}KB of audio. Combining with your video...")
+    audio_bytes     = result["audio"]
+    words           = result["words"]
+    caption_chunks  = words_to_caption_chunks(words, chunk_size=4)
+
+    emit_event(stage, "progress",
+               f"Got {len(audio_bytes)//1024}KB audio, {len(words)} words → {len(caption_chunks)} caption chunks. Combining with video...")
 
     row = db.session.get(ContentItem, content_id)
-    voiced_url = add_voiceover(video_url, audio_bytes, emit_event=emit_event)
+    voiced_url = add_voiceover_with_captions(
+        video_url, audio_bytes, caption_chunks, emit_event=emit_event
+    )
 
     if voiced_url:
         row.r2_video_url = voiced_url
         db.session.commit()
         duration = round(time.time() - start, 1)
-        emit_event(stage, "complete", f"Your voice is on it! Voiceover video ready in {duration}s.")
+        emit_event(stage, "complete",
+                   f"Done in {duration}s — your voice is reading the script and captions are burned in!")
     else:
         emit_event(stage, "warning", "Voiceover failed — video will post without audio.")
 

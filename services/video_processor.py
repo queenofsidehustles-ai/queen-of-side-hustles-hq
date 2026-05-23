@@ -541,6 +541,114 @@ def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | 
 
 
 # ---------------------------------------------------------------------------
+# add_voiceover_with_captions() — voice + synced on-screen text in one pass
+# ---------------------------------------------------------------------------
+def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
+                                caption_chunks: list, emit_event=None) -> str | None:
+    """
+    Download video, replace audio with ElevenLabs voiceover, burn synced
+    TikTok-style captions onto the video, upload to R2.
+
+    caption_chunks: [{"text": str, "start": float, "end": float}]
+    Returns new R2 URL or None on failure.
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+
+    if not _ffmpeg_available():
+        emit("voiceover", "warning", "FFmpeg not available — skipping captions.")
+        return add_voiceover(video_url, audio_bytes, emit_event=emit_event)
+
+    font_path = _resolve_font()
+
+    tmp_video  = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_audio  = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    tmp_voiced = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_out    = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    for f in [tmp_video, tmp_audio, tmp_voiced, tmp_out]:
+        f.close()
+
+    try:
+        # 1. Download video
+        emit("voiceover", "progress", "Downloading video...")
+        resp = requests.get(video_url, stream=True, timeout=120)
+        resp.raise_for_status()
+        with open(tmp_video.name, "wb") as f:
+            for chunk in resp.iter_content(65536):
+                f.write(chunk)
+
+        # 2. Write audio
+        with open(tmp_audio.name, "wb") as f:
+            f.write(audio_bytes)
+
+        vid_dur   = _get_video_duration(tmp_video.name)
+        vid_w, vid_h = _get_video_size(tmp_video.name)
+        vid_w = (vid_w // 2) * 2
+        vid_h = (vid_h // 2) * 2
+
+        emit("voiceover", "progress", f"Adding voice to video ({vid_dur:.0f}s, {vid_w}x{vid_h})...")
+
+        # 3. Combine video + audio (loop video if shorter than audio)
+        cmd = [
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-i", tmp_video.name,
+            "-i", tmp_audio.name,
+            "-vf", f"scale={vid_w}:{vid_h},format=yuv420p",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k",
+            "-shortest", tmp_voiced.name,
+        ]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if r.returncode != 0:
+            logger.error("FFmpeg voice combine error: %s", r.stderr[-300:])
+            emit("voiceover", "warning", "Voice combine failed — trying without captions.")
+            return None
+
+        # 4. Burn captions if we have a font and caption chunks
+        if font_path and caption_chunks:
+            emit("voiceover", "progress", f"Burning {len(caption_chunks)} caption chunks onto video...")
+            overlays = []
+            for chunk in caption_chunks:
+                text = _sanitize(chunk["text"])
+                if text:
+                    overlays.append({
+                        "text": text,
+                        "start": chunk["start"],
+                        "end": chunk["end"],
+                        "fontsize": 52,
+                        "position": "bottom",
+                    })
+            success, err = burn_overlays(tmp_voiced.name, tmp_out.name, overlays)
+            if not success:
+                logger.warning("Caption burn failed: %s — uploading without captions", err[:200])
+                emit("voiceover", "warning", "Caption burn failed — uploading voice-only video.")
+                import shutil
+                shutil.copy2(tmp_voiced.name, tmp_out.name)
+        else:
+            import shutil
+            shutil.copy2(tmp_voiced.name, tmp_out.name)
+            if not font_path:
+                emit("voiceover", "warning", "No font found — captions skipped, voice added.")
+
+        # 5. Upload to R2
+        emit("voiceover", "progress", "Uploading finished video to R2...")
+        url = upload_processed_video(tmp_out.name, emit_event=emit_event)
+        if url:
+            emit("voiceover", "complete", "Video ready — your voice + captions are baked in!")
+        return url
+
+    except Exception as e:
+        logger.exception("add_voiceover_with_captions failed")
+        emit("voiceover", "warning", f"Error: {str(e)[:120]}")
+        return None
+    finally:
+        for p in [tmp_video.name, tmp_audio.name, tmp_voiced.name, tmp_out.name]:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+# ---------------------------------------------------------------------------
 # process_video() — called from pipeline.py stage_overlay
 # ---------------------------------------------------------------------------
 def process_video(raw_video_url: str, transcript: str, duration: float,
