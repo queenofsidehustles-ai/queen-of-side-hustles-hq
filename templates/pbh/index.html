@@ -248,8 +248,16 @@
             <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Platform Captions</div>
             <div id="previewCaptions" style="display:flex;flex-direction:column;gap:12px;"></div>
         </div>
+        <!-- Pipeline Log (collapsed by default) -->
+        <div style="padding:12px 20px 0;">
+            <button onclick="togglePipelineLog()" id="logToggleBtn"
+                    style="font-size:0.72rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">
+                View pipeline log
+            </button>
+            <div id="pipelineLogBox" style="display:none;margin-top:8px;background:#0d0d1a;border-radius:8px;padding:12px 14px;max-height:220px;overflow-y:auto;font-family:monospace;font-size:0.72rem;line-height:1.7;"></div>
+        </div>
         <!-- Footer -->
-        <div style="padding:16px 20px;margin-top:18px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--card-bg);border-radius:0 0 16px 16px;">
+        <div style="padding:16px 20px;margin-top:14px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--card-bg);border-radius:0 0 16px 16px;">
             <button onclick="closePreview()" style="padding:9px 18px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:0.82rem;cursor:pointer;">Close</button>
             <button id="previewApproveBtn" style="padding:9px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:none;">Approve</button>
             <button id="previewPostBtn" style="padding:9px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:none;">Post Now</button>
@@ -374,6 +382,7 @@ const PBH_ITEMS = {
 function pbhPreview(id) {
     const item = PBH_ITEMS[id];
     if (!item) return;
+    _logItemId = id;
     const modal = document.getElementById('previewModal');
     modal.style.display = 'flex';
 
@@ -450,6 +459,51 @@ function pbhPreview(id) {
 function closePreview() {
     document.getElementById('previewModal').style.display = 'none';
     document.getElementById('previewMedia').innerHTML = '';
+    document.getElementById('pipelineLogBox').style.display = 'none';
+    document.getElementById('pipelineLogBox').innerHTML = '';
+    document.getElementById('logToggleBtn').textContent = 'View pipeline log';
+}
+
+let _logItemId = null;
+function togglePipelineLog() {
+    const box = document.getElementById('pipelineLogBox');
+    const btn = document.getElementById('logToggleBtn');
+    if (box.style.display !== 'none') {
+        box.style.display = 'none';
+        btn.textContent = 'View pipeline log';
+        return;
+    }
+    box.style.display = 'block';
+    btn.textContent = 'Hide log';
+    loadPipelineLog(_logItemId);
+}
+
+async function loadPipelineLog(itemId) {
+    const box = document.getElementById('pipelineLogBox');
+    box.innerHTML = '<span style="color:#666;">Loading…</span>';
+    try {
+        const resp = await fetch(`/pbh/api/items/${itemId}/log`);
+        const data = await resp.json();
+        if (!data.logs || data.logs.length === 0) {
+            box.innerHTML = '<span style="color:#666;">No log saved yet — run the pipeline first.</span>';
+            return;
+        }
+        const statusColors = { complete:'#22c55e', progress:'#6366f1', warning:'#f59e0b', skipped:'#94a3b8', error:'#ef4444' };
+        const lines = data.logs.map(l => {
+            const color = statusColors[l.status] || '#ccc';
+            const stage = (l.stage || '').padEnd(12, ' ');
+            return `<div><span style="color:${color};font-weight:700;">${stage}</span> <span style="color:#e2e8f0;">${l.message || ''}</span></div>`;
+        });
+        // Summary line at top
+        const voiceoverOk = data.r2_video_url ? '✓ Voiceover applied' : '✗ Voiceover NOT saved';
+        const voiceColor  = data.r2_video_url ? '#22c55e' : '#f59e0b';
+        box.innerHTML = `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2a2a3a;">
+            <span style="color:${voiceColor};font-weight:700;">${voiceoverOk}</span>
+            <span style="color:#666;margin-left:8px;">status: ${data.status}</span>
+        </div>` + lines.join('');
+    } catch(e) {
+        box.innerHTML = '<span style="color:#f59e0b;">Could not load log: ' + e.message + '</span>';
+    }
 }
 </script>
 {% endblock %}

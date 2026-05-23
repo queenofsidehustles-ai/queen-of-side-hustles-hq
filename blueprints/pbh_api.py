@@ -145,9 +145,24 @@ def generate():
             "stage": stage, "status": status,
             "message": message, "detail": detail,
         }))
+        # Also persist to DB so the log survives after the SSE stream closes
+        try:
+            log_entry = PipelineLog(
+                content_id=content_id,
+                stage=stage, status=status,
+                message=str(message)[:500],
+                detail=str(detail)[:500],
+            )
+            db.session.add(log_entry)
+            db.session.commit()
+        except Exception:
+            pass  # never let log writes crash the pipeline
 
     def run():
         with app.app_context():
+            # Clear old logs for this item before each new run
+            PipelineLog.query.filter_by(content_id=content_id).delete()
+            db.session.commit()
             from pipeline import run_pipeline
             run_pipeline(content_id, emit)
         q.put("DONE")
@@ -244,6 +259,23 @@ def clear_items():
 
 
 # ── Publish (reuse existing logic via content_api) ───────────────────────────
+
+@pbh_api_bp.route("/items/<int:item_id>/log", methods=["GET"])
+@login_required
+def item_log(item_id):
+    """Return the saved pipeline log for an item."""
+    logs = (PipelineLog.query
+            .filter_by(content_id=item_id)
+            .order_by(PipelineLog.created_at.asc())
+            .all())
+    item = ContentItem.query.filter_by(id=item_id, brand="pbh").first_or_404()
+    return jsonify({
+        "item_id": item_id,
+        "status": item.status,
+        "r2_video_url": item.r2_video_url,
+        "logs": [l.to_dict() for l in logs],
+    })
+
 
 @pbh_api_bp.route("/items/<int:item_id>/approve", methods=["POST"])
 @login_required
