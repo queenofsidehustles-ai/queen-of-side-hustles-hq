@@ -506,7 +506,8 @@ def stage_caption(content_id, item, emit_event):
     # Save captions as JSON
     captions_json = json.dumps(result.get("captions", {}))
     row = db.session.get(ContentItem, content_id)
-    row.status = "captioned"
+    # PBH items go to "review" so Monica can read them before posting
+    row.status = "review" if getattr(row, "brand", None) == "pbh" else "captioned"
     row.captions = captions_json
     db.session.commit()
 

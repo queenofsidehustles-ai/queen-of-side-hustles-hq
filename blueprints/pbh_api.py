@@ -63,7 +63,13 @@ def _build_input_text(content_type, platform, custom_angle=""):
     template = PBH_PROMPTS.get(content_type, PBH_PROMPTS["party_tip"])
     base = template.format(platform=platform.capitalize())
     if custom_angle:
-        base += f"\n\nExtra context / angle to incorporate: {custom_angle}"
+        # Topic overrides everything — AI must stay on this subject
+        return (
+            f"TOPIC (stay strictly on this — do not deviate): {custom_angle}\n\n"
+            f"Format guide for {platform.capitalize()} ({content_type.replace('_',' ')}):\n{base}\n\n"
+            f"IMPORTANT: Every line of the script must relate directly to the topic above. "
+            f"Do not introduce unrelated features, pricing, or generic tips."
+        )
     return base
 
 
@@ -209,6 +215,15 @@ def clear_items():
 
 
 # ── Publish (reuse existing logic via content_api) ───────────────────────────
+
+@pbh_api_bp.route("/items/<int:item_id>/approve", methods=["POST"])
+@login_required
+def approve(item_id):
+    item = ContentItem.query.filter_by(id=item_id, brand="pbh").first_or_404()
+    item.status = "approved"
+    db.session.commit()
+    return jsonify({"ok": True})
+
 
 @pbh_api_bp.route("/items/<int:item_id>/publish", methods=["POST"])
 @login_required
