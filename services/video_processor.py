@@ -506,12 +506,20 @@ def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | 
         vid_dur      = _get_video_duration(tmp_video.name)
         vid_w, vid_h = _get_video_size(tmp_video.name)
 
-        # Cap at 1280px wide to avoid OOM kill on Railway
-        if vid_w > 1280:
-            scale_w = 1280
-            scale_h = int(1280 * vid_h / max(vid_w, 1))
-        else:
-            scale_w, scale_h = vid_w, vid_h
+        # Cap longer dimension at 720px to avoid OOM on Railway (portrait 1080x1920 kills FFmpeg)
+        MAX_DIM = 720
+        if vid_h > vid_w:  # portrait
+            if vid_h > MAX_DIM:
+                scale_h = MAX_DIM
+                scale_w = int(MAX_DIM * vid_w / max(vid_h, 1))
+            else:
+                scale_h, scale_w = vid_h, vid_w
+        else:  # landscape or square
+            if vid_w > MAX_DIM:
+                scale_w = MAX_DIM
+                scale_h = int(MAX_DIM * vid_h / max(vid_w, 1))
+            else:
+                scale_w, scale_h = vid_w, vid_h
         scale_w = (scale_w // 2) * 2
         scale_h = (scale_h // 2) * 2
 
@@ -609,12 +617,20 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
         vid_dur      = _get_video_duration(tmp_video.name)
         vid_w, vid_h = _get_video_size(tmp_video.name)
 
-        # Cap resolution at 1280px wide to avoid OOM on Railway (1920x1080 kills FFmpeg)
-        if vid_w > 1280:
-            scale_w = 1280
-            scale_h = int(1280 * vid_h / max(vid_w, 1))
-        else:
-            scale_w, scale_h = vid_w, vid_h
+        # Cap longer dimension at 720px to avoid OOM on Railway (portrait 1080x1920 kills FFmpeg)
+        MAX_DIM = 720
+        if vid_h > vid_w:  # portrait
+            if vid_h > MAX_DIM:
+                scale_h = MAX_DIM
+                scale_w = int(MAX_DIM * vid_w / max(vid_h, 1))
+            else:
+                scale_h, scale_w = vid_h, vid_w
+        else:  # landscape or square
+            if vid_w > MAX_DIM:
+                scale_w = MAX_DIM
+                scale_h = int(MAX_DIM * vid_h / max(vid_w, 1))
+            else:
+                scale_w, scale_h = vid_w, vid_h
         scale_w = (scale_w // 2) * 2
         scale_h = (scale_h // 2) * 2
 
