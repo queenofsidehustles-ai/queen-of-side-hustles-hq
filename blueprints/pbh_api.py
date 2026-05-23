@@ -383,6 +383,55 @@ def delete_asset(asset_id):
     return jsonify({"ok": True})
 
 
+# ── ElevenLabs diagnostic ─────────────────────────────────────────────────────
+
+@pbh_api_bp.route("/test-voice", methods=["GET"])
+@login_required
+def test_voice():
+    """Quick diagnostic — call this URL to see exactly what ElevenLabs returns."""
+    import os, requests as req
+    api_key  = os.getenv("ELEVENLABS_API_KEY", "")
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "")
+
+    if not api_key:
+        return jsonify({"ok": False, "error": "ELEVENLABS_API_KEY is not set in Railway Variables"})
+    if not voice_id:
+        return jsonify({"ok": False, "error": "ELEVENLABS_VOICE_ID is not set in Railway Variables"})
+
+    try:
+        resp = req.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps",
+            headers={"xi-api-key": api_key, "Content-Type": "application/json"},
+            json={
+                "text": "Hello, this is a voice test.",
+                "model_id": "eleven_multilingual_v2",
+                "voice_settings": {"stability": 0.5, "similarity_boost": 0.8},
+            },
+            timeout=30,
+        )
+        if not resp.ok:
+            return jsonify({
+                "ok": False,
+                "http_status": resp.status_code,
+                "error": resp.text[:500],
+                "api_key_prefix": api_key[:8] + "...",
+                "voice_id": voice_id,
+            })
+        data = resp.json()
+        has_audio = "audio_base64" in data
+        audio_size = len(data.get("audio_base64", "")) if has_audio else 0
+        return jsonify({
+            "ok": has_audio,
+            "audio_base64_present": has_audio,
+            "audio_base64_length": audio_size,
+            "response_keys": list(data.keys()),
+            "voice_id": voice_id,
+            "api_key_prefix": api_key[:8] + "...",
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
 # ── Knowledge Base ────────────────────────────────────────────────────────────
 
 @pbh_api_bp.route("/knowledge", methods=["GET"])
