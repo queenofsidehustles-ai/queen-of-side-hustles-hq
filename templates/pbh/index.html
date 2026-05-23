@@ -335,8 +335,16 @@ async function pbhPostNow(id, platform) {
         if (published.length > 0) {
             if (btn) { btn.style.background = 'rgba(34,197,94,0.15)'; btn.style.color = '#22c55e'; btn.innerHTML = '✓ Posted!'; }
             let msg = `Posted to: ${published.join(', ')}`;
-            if (failed.length > 0) msg += `\n\nFailed on: ${failed.join(', ')}`;
-            showToast && showToast(msg, 'success');
+            if (failed.length > 0) {
+                const failDetails = results
+                    .filter(r => failed.includes(r.platform))
+                    .map(r => `${r.platform}: ${r.error || r.status}`)
+                    .join('\n');
+                msg += `\n\nFailed on: ${failed.join(', ')}\n${failDetails}`;
+                alert(msg);
+            } else {
+                showToast && showToast(msg, 'success');
+            }
         } else {
             if (btn) { btn.disabled = false; btn.innerHTML = 'Post to All'; }
             // Build a helpful error message from per-platform results
