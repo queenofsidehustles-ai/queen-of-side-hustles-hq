@@ -334,8 +334,9 @@ function kppsGenerator() {
             try {
                 // Step 1: Create draft (attach clip if selected)
                 this.statusMsg = 'Creating draft…';
-                // Encode content_type as a prefix so the pipeline can use it for angle direction
-                const hookText = this.hook.trim() || (this.selectedClip ? (this.selectedClip.notes || this.selectedClip.tag_label) : '');
+                // Encode content_type as a prefix so the pipeline can use it for angle direction.
+                // IMPORTANT: never fall back to tag_label — ElevenLabs would read "Behind the Scenes" aloud.
+                const hookText = this.hook.trim();
                 const inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
                 const draftBody = {
                     input_text:  inputText,

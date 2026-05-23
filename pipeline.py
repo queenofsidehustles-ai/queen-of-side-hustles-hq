@@ -911,6 +911,81 @@ def regenerate_image(content_id, new_prompt, emit_event):
 
 
 # ---------------------------------------------------------------------------
+# Helper: fit script to video duration, always ending with a CTA
+# ---------------------------------------------------------------------------
+def _fit_script_to_duration(script_text, video_secs, emit_event=None):
+    """
+    Trim the script so ElevenLabs audio won't outlast the video clip.
+    Speaking pace: ~2.2 words/second (natural TikTok/IG Reels pace).
+    Always ends with a 'comment PARTY' style call to action.
+    """
+    import random
+    import re as _re
+
+    emit = emit_event or (lambda *a, **kw: None)
+
+    CTA_POOL = [
+        "Comment PARTY below!",
+        "Comment PARTY for your free guide!",
+        "Comment PARTY to get started today!",
+        "Drop PARTY in the comments!",
+        "Comment PARTY and I'll DM you the details!",
+        "Type PARTY below to learn more!",
+    ]
+
+    _CTA_KEYWORDS = ["comment party", "drop party", "type party", "dm me", "comment below",
+                     "link in bio", "save this", "follow for"]
+
+    def _has_cta(text):
+        t = text.lower()
+        return any(kw in t for kw in _CTA_KEYWORDS)
+
+    WORDS_PER_SEC = 2.2
+    target_total = max(12, int(video_secs * WORDS_PER_SEC))
+    cta = random.choice(CTA_POOL)
+    cta_words = len(cta.split())
+    target_body = max(6, target_total - cta_words - 2)  # -2 for breathing room
+
+    words = script_text.split()
+    current_word_count = len(words)
+
+    # Script already fits AND has a CTA — return as-is
+    if current_word_count <= target_total and _has_cta(script_text):
+        return script_text
+
+    # Script fits but no CTA — just append one
+    if current_word_count <= target_total:
+        return script_text.rstrip() + "\n\n" + cta
+
+    # Script is too long — trim sentence by sentence, then add CTA
+    sentences = _re.split(r'(?<=[.!?\n])\s+', script_text.strip())
+    body_parts = []
+    word_count = 0
+
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        w = len(sentence.split())
+        if word_count + w <= target_body:
+            body_parts.append(sentence)
+            word_count += w
+        else:
+            if not body_parts:
+                # Always keep at least the hook (first sentence, truncated if needed)
+                body_parts.append(" ".join(sentence.split()[:target_body]))
+            break
+
+    trimmed_body = " ".join(body_parts).rstrip(".,;:— ")
+    result = trimmed_body + "\n\n" + cta
+
+    emit("voiceover", "progress",
+         f"Script trimmed from {current_word_count} to {len(result.split())} words to fit {video_secs:.0f}s clip. CTA added.")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # STAGE 9: VOICEOVER — Monica's cloned voice reads the script over the video
 # ---------------------------------------------------------------------------
 def stage_voiceover(content_id, item, emit_event):
@@ -951,6 +1026,24 @@ def stage_voiceover(content_id, item, emit_event):
     script_text = re.sub(r'#\w+', '', raw_script)
     script_text = re.sub(r'[ \t]+', ' ', script_text)
     script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
+
+    # Auto-shorten script to match video duration so the voice never outlasts the clip.
+    # Also guarantees a "comment PARTY" CTA at the end of every voiceover.
+    try:
+        durations = json.loads(item.stage_durations or "{}")
+        video_secs = float(durations.get("video_seconds", 0))
+    except Exception:
+        video_secs = 0.0
+
+    if video_secs > 0:
+        script_text = _fit_script_to_duration(script_text, video_secs, emit_event=emit_event)
+    else:
+        # No duration info — still ensure CTA is present
+        _CTA_KEYWORDS = ["comment party", "drop party", "type party", "dm me", "link in bio", "save this"]
+        if not any(kw in script_text.lower() for kw in _CTA_KEYWORDS):
+            import random
+            _ctas = ["Comment PARTY below!", "Drop PARTY in the comments!", "Comment PARTY to get started!"]
+            script_text = script_text.rstrip() + "\n\nComment PARTY below!"
 
     emit_event(stage, "progress", "Sending script to ElevenLabs — recording your cloned voice...")
 
