@@ -572,7 +572,9 @@ def stage_r2_upload(content_id, item, emit_event):
     _add_log(content_id, stage, "started", "Uploading to R2")
 
     row = db.session.get(ContentItem, content_id)
-    row.status = "uploading"
+    # Don't overwrite PBH "review" status — voiceover + preview still pending
+    if getattr(row, "brand", None) != "pbh":
+        row.status = "uploading"
     db.session.commit()
 
     r2_image_url = None

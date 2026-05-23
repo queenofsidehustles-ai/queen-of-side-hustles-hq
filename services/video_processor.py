@@ -423,16 +423,18 @@ Return ONLY valid JSON (no markdown, no explanation):
 # ---------------------------------------------------------------------------
 # R2 upload helper (from local file path)
 # ---------------------------------------------------------------------------
-def upload_processed_video(file_path: str, emit_event=None):
+def upload_processed_video(file_path: str, emit_event=None, emit_stage: str = "overlay"):
     """
     Upload a locally processed video to Cloudflare R2.
     Returns the public URL on success, None if R2 not configured or upload fails.
+    emit_stage: stage name used for emit_event calls ("overlay" or "voiceover")
     """
     emit = emit_event or (lambda *a, **kw: None)
 
     required = ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
-    if not all(os.getenv(v) for v in required):
-        emit("overlay", "warning", "R2 not configured — processed video won't be saved.")
+    missing = [v for v in required if not os.getenv(v)]
+    if missing:
+        emit(emit_stage, "warning", f"R2 not configured (missing: {', '.join(missing)}) — processed video won't be saved.")
         return None
 
     try:
@@ -450,18 +452,21 @@ def upload_processed_video(file_path: str, emit_event=None):
         bucket = os.environ["R2_BUCKET_NAME"]
         key = f"videos/processed_{uuid.uuid4().hex}.mp4"
 
-        emit("overlay", "progress", "Uploading processed video to R2...")
+        file_size = os.path.getsize(file_path)
+        emit(emit_stage, "progress", f"Uploading processed video to R2 ({file_size // 1024}KB)...")
         with open(file_path, "rb") as f:
             client.put_object(Bucket=bucket, Key=key, Body=f, ContentType="video/mp4")
 
         public_url = os.environ.get("R2_PUBLIC_URL", "").rstrip("/")
+        if not public_url:
+            emit(emit_stage, "warning", "R2_PUBLIC_URL not set — video uploaded but URL may be wrong.")
         url = f"{public_url}/{key}"
-        emit("overlay", "progress", f"Processed video saved: {url}")
+        emit(emit_stage, "progress", f"Processed video saved: {url[:80]}...")
         return url
 
     except Exception as e:
         logger.exception("R2 upload of processed video failed")
-        emit("overlay", "warning", f"R2 upload failed: {e}")
+        emit(emit_stage, "warning", f"R2 upload failed: {e}")
         return None
 
 
@@ -519,12 +524,14 @@ def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | 
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
-            logger.error("FFmpeg voiceover error: %s", result.stderr[-400:])
-            emit("voiceover", "warning", "Voiceover combine failed — posting without audio.")
+            err_tail = result.stderr[-500:] if result.stderr else "(no stderr)"
+            logger.error("FFmpeg voiceover error (rc=%d): %s", result.returncode, err_tail)
+            emit("voiceover", "warning",
+                 f"FFmpeg combine failed (exit {result.returncode}): {err_tail[-200:]}")
             return None
 
         emit("voiceover", "progress", "Voiceover combined! Uploading final video...")
-        url = upload_processed_video(tmp_out.name, emit_event=emit_event)
+        url = upload_processed_video(tmp_out.name, emit_event=emit_event, emit_stage="voiceover")
         if url:
             emit("voiceover", "progress", "Voiceover video ready!")
         return url
@@ -570,12 +577,17 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
 
     try:
         # 1. Download video
-        emit("voiceover", "progress", "Downloading video...")
+        emit("voiceover", "progress", f"Downloading video from {video_url[:60]}...")
         resp = requests.get(video_url, stream=True, timeout=120)
-        resp.raise_for_status()
+        if not resp.ok:
+            emit("voiceover", "warning",
+                 f"Video download failed (HTTP {resp.status_code}) — URL may be expired or private: {video_url[:80]}")
+            return None
         with open(tmp_video.name, "wb") as f:
             for chunk in resp.iter_content(65536):
                 f.write(chunk)
+        dl_size = os.path.getsize(tmp_video.name)
+        emit("voiceover", "progress", f"Video downloaded ({dl_size // 1024}KB)")
 
         # 2. Write audio
         with open(tmp_audio.name, "wb") as f:
@@ -601,8 +613,10 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
         ]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if r.returncode != 0:
-            logger.error("FFmpeg voice combine error: %s", r.stderr[-300:])
-            emit("voiceover", "warning", "Voice combine failed — trying without captions.")
+            err_tail = r.stderr[-500:] if r.stderr else "(no stderr)"
+            logger.error("FFmpeg voice combine error (rc=%d): %s", r.returncode, err_tail)
+            emit("voiceover", "warning",
+                 f"FFmpeg combine failed (exit {r.returncode}): {err_tail[-200:]}")
             return None
 
         # 4. Burn captions if we have a font and caption chunks
@@ -633,9 +647,11 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
 
         # 5. Upload to R2
         emit("voiceover", "progress", "Uploading finished video to R2...")
-        url = upload_processed_video(tmp_out.name, emit_event=emit_event)
+        url = upload_processed_video(tmp_out.name, emit_event=emit_event, emit_stage="voiceover")
         if url:
             emit("voiceover", "complete", "Video ready — your voice + captions are baked in!")
+        else:
+            emit("voiceover", "warning", "R2 upload returned no URL — check R2 env vars in Railway.")
         return url
 
     except Exception as e:
