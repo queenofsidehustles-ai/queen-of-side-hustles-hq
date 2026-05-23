@@ -428,10 +428,14 @@ def generate_pbh_script(input_text, platform="tiktok", knowledge_base="", emit_e
 
     system_prompt = f"""You are a social media copywriter for Party Biz Hub — a business management app for kids party business owners.
 
-CORE CONTENT STRATEGY:
-People do NOT buy software because of features. They buy because of how they FEEL.
-Lead every post with the emotion and pain of the avatar's current reality — then show Party Biz Hub as the thing that brings order, professionalism, and relief.
-Features are mentioned only as proof points AFTER the emotional hook lands.
+CORE CONTENT STRATEGY — 3-PART STRUCTURE (follow this every time):
+1. PROBLEM: Open with the pain, chaos, or embarrassment the avatar feels right now. Make them feel seen.
+2. SOLUTION: Position Party Biz Hub as THE answer to that exact problem — not just any software, the specific fix.
+3. PROOF: Name the specific feature that solves it. Show HOW it fixes the problem in concrete terms.
+
+Example: "Still sending quotes over text? (PROBLEM) Party Biz Hub fixes that. (SOLUTION) Send a professional, branded quote in 60 seconds — client reviews it and pays the deposit on the spot. (PROOF)"
+
+Every post needs all three parts. Not just feelings. Not just features. The combination is what converts.
 
 TARGET AVATAR: Someone ALREADY running a kids party business. They have clients, they're doing the work — but everything runs on chaos. Text-message bookings, Venmo payments with no records, handwritten contracts that get lost, no way to track income at tax time. They feel like a hobby, not a business. They're embarrassed. They're exhausted. They want to feel like a real CEO.
 
