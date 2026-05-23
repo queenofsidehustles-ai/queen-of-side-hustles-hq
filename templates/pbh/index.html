@@ -363,8 +363,10 @@ const PBH_ITEMS = {
         'captions': item.captions,
         'platform': item.platform or 'tiktok',
         'status': item.status,
-        'video': item.r2_video_url or item.video_url or '',
-        'image': item.r2_image_url or item.image_url or ''
+        'r2_video': item.r2_video_url or '',
+        'video':    item.video_url or '',
+        'r2_image': item.r2_image_url or '',
+        'image':    item.image_url or ''
     }|tojson }},
     {% endfor %}
 };
@@ -378,14 +380,37 @@ function pbhPreview(id) {
     // Script
     document.getElementById('previewScript').textContent = item.script || 'No script yet.';
 
-    // Media
+    // Media — find best available video/image across all fields
     const mediaBox = document.getElementById('previewMedia');
-    if (item.video) {
-        mediaBox.innerHTML = `<video src="${item.video}" controls playsinline style="width:100%;max-height:280px;border-radius:10px;background:#000;"></video>`;
-    } else if (item.image) {
-        mediaBox.innerHTML = `<img src="${item.image}" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;">`;
+    const VIDEO_EXTS = ['mp4','mov','webm','avi','m4v'];
+    function isVid(u) {
+        if (!u) return false;
+        const ext = u.split('?')[0].toLowerCase().split('.').pop();
+        return VIDEO_EXTS.includes(ext);
+    }
+
+    // r2_video = processed video with voiceover (best); then raw video fields;
+    // then check image fields in case Loom .mp4 landed there
+    const finalVideo  = item.r2_video;
+    const rawVideo    = item.video || (isVid(item.r2_image) ? item.r2_image : '') || (isVid(item.image) ? item.image : '');
+    const imageUrl    = !finalVideo && !rawVideo ? (item.r2_image || item.image) : '';
+
+    if (finalVideo) {
+        mediaBox.innerHTML = `
+            <div style="margin-bottom:6px;font-size:0.7rem;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:0.05em;">
+                Final version — with your voiceover
+            </div>
+            <video src="${finalVideo}" controls playsinline style="width:100%;max-height:300px;border-radius:10px;background:#000;"></video>`;
+    } else if (rawVideo) {
+        mediaBox.innerHTML = `
+            <div style="margin-bottom:6px;font-size:0.7rem;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.05em;">
+                Original video — voiceover will be added when ElevenLabs is active
+            </div>
+            <video src="${rawVideo}" controls playsinline style="width:100%;max-height:300px;border-radius:10px;background:#000;"></video>`;
+    } else if (imageUrl) {
+        mediaBox.innerHTML = `<img src="${imageUrl}" style="width:100%;max-height:300px;object-fit:cover;border-radius:10px;">`;
     } else {
-        mediaBox.innerHTML = `<div style="height:80px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-subtle);font-size:0.8rem;">No media attached</div>`;
+        mediaBox.innerHTML = `<div style="height:80px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-subtle);font-size:0.8rem;">No media attached — select a video on the Generate page</div>`;
     }
 
     // Platform captions
