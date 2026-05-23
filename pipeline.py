@@ -194,12 +194,11 @@ def run_pipeline(content_id, emit_event):
 
         # ==================================================================
         # STAGE 9: VOICEOVER — ElevenLabs reads the script over the video
-        # (only for PBH items that have a video asset and ElevenLabs configured)
+        # (runs for any item that has a video asset and ElevenLabs configured)
         # ==================================================================
-        if getattr(item, "brand", None) == "pbh":
-            cost = stage_voiceover(content_id, item, emit_event)
-            total_cost += cost
-            item = db.session.get(ContentItem, content_id)
+        cost = stage_voiceover(content_id, item, emit_event)
+        total_cost += cost
+        item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
         # PIPELINE COMPLETE
