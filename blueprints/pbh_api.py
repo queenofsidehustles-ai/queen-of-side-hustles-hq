@@ -258,33 +258,24 @@ def approve(item_id):
 @login_required
 def publish(item_id):
     item = ContentItem.query.filter_by(id=item_id, brand="pbh").first_or_404()
-    from services.getlate import publish_post
+    from services.getlate import publish_to_all_platforms
 
     content_item = {
-        "script":      item.script or "",
-        "platform":    item.platform or "tiktok",
-        "image_url":   item.image_url or "",
+        "script":       item.script or "",
+        "platform":     item.platform or "tiktok",
+        "image_url":    item.image_url or "",
         "r2_image_url": item.r2_image_url or "",
-        "video_url":   item.video_url or "",
+        "video_url":    item.video_url or "",
         "r2_video_url": item.r2_video_url or "",
-        "scheduled_at": getattr(item, "scheduled_at", None),
     }
 
-    # Use the platform-specific caption — always resolve to a clean string
+    # Build per-platform captions dict for publish_to_all_platforms
+    captions_dict = {}
     if item.captions:
         try:
             captions_dict = json.loads(item.captions)
-            raw = captions_dict.get(item.platform) or captions_dict.get("default") or item.script or ""
-            # Handle nested dict (e.g. {"DREAMER": "...", "OPERATOR": "..."})
-            if isinstance(raw, dict):
-                raw = raw.get("DREAMER") or raw.get("dreamer") or next(iter(raw.values()), "")
-            content_item["script"] = str(raw).strip() if raw else (item.script or "")
         except (json.JSONDecodeError, AttributeError):
             pass
-
-    # GetLate rejects empty content — fall back to script if caption resolved to nothing
-    if not content_item["script"]:
-        content_item["script"] = item.script or ""
 
     body = request.get_json(silent=True) or {}
     scheduled_at_str = body.get("scheduled_at")
@@ -293,14 +284,14 @@ def publish(item_id):
             item.scheduled_at = datetime.fromisoformat(scheduled_at_str)
             item.status = "scheduled"
             db.session.commit()
-            content_item["scheduled_at"] = item.scheduled_at
         except (ValueError, TypeError):
-            pass
+            scheduled_at_str = None
 
     try:
-        result = publish_post(
+        result = publish_to_all_platforms(
             content_item=content_item,
-            platforms=[item.platform] if item.platform else None,
+            captions_dict=captions_dict,
+            scheduled_at=scheduled_at_str,
         )
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 200

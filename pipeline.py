@@ -888,7 +888,14 @@ def stage_voiceover(content_id, item, emit_event):
         emit_event(stage, "skipped", "ElevenLabs not configured — add ELEVENLABS_API_KEY to Railway to enable voiceover.")
         return 0.0
 
-    video_url = item.r2_video_url or item.video_url
+    _VIDEO_EXTS = (".mp4", ".mov", ".webm", ".avi", ".m4v")
+    def _is_video_url(u):
+        return u and u.split("?")[0].lower().endswith(_VIDEO_EXTS)
+
+    # Check all media fields — Loom uploads often land in r2_image_url
+    video_url = (item.r2_video_url or item.video_url
+                 or (item.r2_image_url if _is_video_url(item.r2_image_url) else None)
+                 or (item.image_url if _is_video_url(item.image_url) else None))
     if not video_url:
         emit_event(stage, "skipped", "No video attached — skipping voiceover.")
         return 0.0

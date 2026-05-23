@@ -505,11 +505,12 @@ def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | 
 
         emit("voiceover", "progress", f"Combining voice ({len(audio_bytes)//1024}KB) with video ({vid_dur:.0f}s)...")
 
-        # If video is shorter than audio, loop it; otherwise just replace audio
+        # Loop video if shorter than audio; -map 0:v -map 1:a forces original audio muted
         cmd = [
             "ffmpeg", "-y",
             "-stream_loop", "-1", "-i", tmp_video.name,
             "-i", tmp_audio.name,
+            "-map", "0:v:0", "-map", "1:a:0",
             "-vf", f"scale={vid_w}:{vid_h},format=yuv420p",
             "-c:v", "libx264", "-preset", "fast", "-crf", "23",
             "-c:a", "aac", "-b:a", "128k",
@@ -587,11 +588,12 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
 
         emit("voiceover", "progress", f"Adding voice to video ({vid_dur:.0f}s, {vid_w}x{vid_h})...")
 
-        # 3. Combine video + audio (loop video if shorter than audio)
+        # 3. Combine video + audio; -map 0:v -map 1:a mutes original video audio
         cmd = [
             "ffmpeg", "-y",
             "-stream_loop", "-1", "-i", tmp_video.name,
             "-i", tmp_audio.name,
+            "-map", "0:v:0", "-map", "1:a:0",
             "-vf", f"scale={vid_w}:{vid_h},format=yuv420p",
             "-c:v", "libx264", "-preset", "fast", "-crf", "23",
             "-c:a", "aac", "-b:a", "128k",
