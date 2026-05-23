@@ -142,7 +142,7 @@
 
             <!-- Script preview — click to open full preview -->
             {% if item.script %}
-            <div onclick="pbhPreview({{ {'id': item.id, 'script': item.script, 'captions': item.captions, 'platform': item.platform or 'tiktok', 'status': item.status, 'video': item.r2_video_url or item.video_url or '', 'image': item.r2_image_url or item.image_url or ''}|tojson }})"
+            <div onclick="pbhPreview({{ item.id }})"
                  style="padding:10px 14px 0;font-size:0.75rem;color:var(--text-subtle);line-height:1.5;font-style:italic;flex:1;cursor:pointer;"
                  title="Click to read full script">
                 "{{ item.script[:120] }}{% if item.script|length > 120 %}…{% endif %}"
@@ -168,7 +168,7 @@
                 </div>
                 <div style="display:flex;gap:6px;">
                     <!-- Preview button always visible -->
-                    <button onclick="pbhPreview({{ {'id': item.id, 'script': item.script, 'captions': item.captions, 'platform': item.platform or 'tiktok', 'status': item.status, 'video': item.r2_video_url or item.video_url or '', 'image': item.r2_image_url or item.image_url or ''}|tojson }})"
+                    <button onclick="pbhPreview({{ item.id }})"
                             style="padding:7px 10px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-muted);white-space:nowrap;">
                         Preview
                     </button>
@@ -350,7 +350,24 @@ async function clearAll() {
     if (resp.ok) window.location.reload();
 }
 
-function pbhPreview(item) {
+// Item data map — avoids inline JSON escaping issues in onclick attributes
+const PBH_ITEMS = {
+    {% for item in items %}
+    {{ item.id }}: {{ {
+        'id': item.id,
+        'script': item.script or '',
+        'captions': item.captions,
+        'platform': item.platform or 'tiktok',
+        'status': item.status,
+        'video': item.r2_video_url or item.video_url or '',
+        'image': item.r2_image_url or item.image_url or ''
+    }|tojson }},
+    {% endfor %}
+};
+
+function pbhPreview(id) {
+    const item = PBH_ITEMS[id];
+    if (!item) return;
     const modal = document.getElementById('previewModal');
     modal.style.display = 'flex';
 

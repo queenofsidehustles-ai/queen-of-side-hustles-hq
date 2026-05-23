@@ -9,6 +9,12 @@ import os
 import requests
 from datetime import datetime, timezone
 
+_VIDEO_EXTS = {".mp4", ".mov", ".webm", ".avi", ".m4v", ".mkv"}
+
+def _media_type(url: str) -> str:
+    ext = os.path.splitext((url or "").split("?")[0].lower())[1]
+    return "video" if ext in _VIDEO_EXTS else "image"
+
 # ---------------------------------------------------------------------------
 # API endpoint
 # ---------------------------------------------------------------------------
@@ -106,9 +112,9 @@ def publish_post(content_item, platforms=None, emit_event=None):
         image_url = content_item.get("r2_image_url") or content_item.get("image_url")
         video_url = content_item.get("r2_video_url") or content_item.get("video_url")
         if image_url and "placehold" not in image_url:
-            media_items.append({"url": image_url, "type": "image"})
+            media_items.append({"url": image_url, "type": _media_type(image_url)})
         if video_url and "placehold" not in video_url:
-            media_items.append({"url": video_url, "type": "video"})
+            media_items.append({"url": video_url, "type": _media_type(video_url)})
         if media_items:
             payload["mediaItems"] = media_items
 
@@ -209,9 +215,9 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
         video_url = None
     media = []
     if image_url:
-        media.append({"url": image_url, "type": "image"})
+        media.append({"url": image_url, "type": _media_type(image_url)})
     if video_url:
-        media.append({"url": video_url, "type": "video"})
+        media.append({"url": video_url, "type": _media_type(video_url)})
 
     # Parse scheduled time once
     scheduled_for = None
