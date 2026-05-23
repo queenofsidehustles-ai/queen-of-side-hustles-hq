@@ -107,16 +107,14 @@ def publish_post(content_item, platforms=None, emit_event=None):
         }
 
         # Zernio uses 'mediaItems' (not 'media') for attaching files
-        # Filter out demo placeholder URLs (placehold.co) — never publish those
-        media_items = []
-        image_url = content_item.get("r2_image_url") or content_item.get("image_url")
-        video_url = content_item.get("r2_video_url") or content_item.get("video_url")
-        if image_url and "placehold" not in image_url:
-            media_items.append({"url": image_url, "type": _media_type(image_url)})
-        if video_url and "placehold" not in video_url:
-            media_items.append({"url": video_url, "type": _media_type(video_url)})
-        if media_items:
-            payload["mediaItems"] = media_items
+        # If voiced video exists, use ONLY that — never send two videos
+        voiced = content_item.get("r2_video_url") or content_item.get("video_url")
+        raw    = content_item.get("r2_image_url") or content_item.get("image_url")
+        if voiced and "placehold" in voiced: voiced = None
+        if raw    and "placehold" in raw:    raw    = None
+        best = voiced or raw
+        if best:
+            payload["mediaItems"] = [{"url": best, "type": _media_type(best)}]
 
         # If there's a scheduled time, use scheduledFor (camelCase — required by Zernio)
         if content_item.get("scheduled_at"):
@@ -207,17 +205,15 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
 
     # Build shared mediaItems payload (Zernio uses 'mediaItems', not 'media')
     # Filter out demo placeholder URLs (placehold.co) — never publish those
-    image_url = content_item.get("r2_image_url") or content_item.get("image_url")
-    video_url = content_item.get("r2_video_url") or content_item.get("video_url")
-    if image_url and "placehold" in image_url:
-        image_url = None
-    if video_url and "placehold" in video_url:
-        video_url = None
-    media = []
-    if image_url:
-        media.append({"url": image_url, "type": _media_type(image_url)})
-    if video_url:
-        media.append({"url": video_url, "type": _media_type(video_url)})
+    voiced_url = content_item.get("r2_video_url") or content_item.get("video_url")
+    raw_url    = content_item.get("r2_image_url") or content_item.get("image_url")
+    if voiced_url and "placehold" in voiced_url: voiced_url = None
+    if raw_url    and "placehold" in raw_url:    raw_url    = None
+
+    # If a voiced/processed video exists, use ONLY that — never send two videos in one post
+    # If no voiced video, fall back to the original raw media (image or video)
+    best_url = voiced_url or raw_url
+    media = [{"url": best_url, "type": _media_type(best_url)}] if best_url else []
 
     # Parse scheduled time once
     scheduled_for = None
