@@ -248,12 +248,15 @@ def publish(item_id):
         except (ValueError, TypeError):
             pass
 
-    result = publish_post(
-        content_item=content_item,
-        platforms=[item.platform] if item.platform else None,
-    )
+    try:
+        result = publish_post(
+            content_item=content_item,
+            platforms=[item.platform] if item.platform else None,
+        )
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 200
 
-    if not scheduled_at_str:
+    if not scheduled_at_str and result.get("status") != "error":
         item.status = "published"
         item.published_at = datetime.utcnow()
     db.session.commit()
