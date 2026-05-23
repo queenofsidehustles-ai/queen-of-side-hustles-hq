@@ -385,6 +385,78 @@ def delete_asset(asset_id):
 
 # ── ElevenLabs diagnostic ─────────────────────────────────────────────────────
 
+@pbh_api_bp.route("/test-voiceover", methods=["GET"])
+@login_required
+def test_voiceover():
+    """Step-by-step voiceover diagnostic — checks ElevenLabs → FFmpeg → R2 in sequence."""
+    import os, subprocess, tempfile, requests as req
+    results = {}
+
+    # 1. Check env vars
+    api_key   = os.getenv("ELEVENLABS_API_KEY", "")
+    voice_id  = os.getenv("ELEVENLABS_VOICE_ID", "")
+    r2_bucket = os.getenv("R2_BUCKET_NAME", "")
+    r2_pub    = os.getenv("R2_PUBLIC_URL", "")
+    results["env"] = {
+        "ELEVENLABS_API_KEY": bool(api_key),
+        "ELEVENLABS_VOICE_ID": bool(voice_id),
+        "R2_BUCKET_NAME": bool(r2_bucket),
+        "R2_PUBLIC_URL": r2_pub or "NOT SET",
+    }
+
+    # 2. Check FFmpeg
+    try:
+        r = subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=5)
+        results["ffmpeg"] = {"ok": r.returncode == 0}
+    except Exception as e:
+        results["ffmpeg"] = {"ok": False, "error": str(e)}
+
+    # 3. Find most recent PBH item with a video/image URL
+    item = ContentItem.query.filter_by(brand="pbh").order_by(ContentItem.created_at.desc()).first()
+    if not item:
+        return jsonify({"error": "No PBH items found — generate a post first", "results": results})
+
+    _VIDEO_EXTS = (".mp4", ".mov", ".webm", ".avi", ".m4v")
+    def _is_vid(u): return bool(u and u.split("?")[0].lower().endswith(_VIDEO_EXTS))
+    video_url = (item.r2_video_url or item.video_url
+                 or (item.r2_image_url if _is_vid(item.r2_image_url) else None)
+                 or (item.image_url if _is_vid(item.image_url) else None))
+
+    results["item"] = {
+        "id": item.id,
+        "status": item.status,
+        "r2_video_url": item.r2_video_url or None,
+        "video_url": item.video_url or None,
+        "r2_image_url": item.r2_image_url or None,
+        "image_url": item.image_url or None,
+        "video_detected": video_url,
+    }
+
+    if not video_url:
+        return jsonify({"error": "No video URL on latest item — select a Loom video when generating", "results": results})
+
+    # 4. Try downloading the video
+    try:
+        r = req.get(video_url, timeout=15, stream=True)
+        results["video_download"] = {"ok": r.ok, "status_code": r.status_code,
+                                      "content_type": r.headers.get("Content-Type", "?")}
+    except Exception as e:
+        results["video_download"] = {"ok": False, "error": str(e)}
+        return jsonify({"error": "Video download failed", "results": results})
+
+    # 5. Check R2 upload config
+    from services.video_processor import upload_processed_video
+    try:
+        from services.r2_storage import is_configured as r2_ok
+        results["r2"] = {"configured": r2_ok()}
+    except Exception as e:
+        results["r2"] = {"configured": False, "error": str(e)}
+
+    return jsonify({"results": results, "summary": "All checks passed — voiceover pipeline should work. Try generating a new post."
+                    if all(v.get("ok", v.get("configured", True)) for v in results.values() if isinstance(v, dict) and ("ok" in v or "configured" in v))
+                    else "One or more checks failed — see results above."})
+
+
 @pbh_api_bp.route("/test-voice", methods=["GET"])
 @login_required
 def test_voice():
