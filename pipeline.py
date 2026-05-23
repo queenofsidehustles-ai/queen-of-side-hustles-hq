@@ -176,25 +176,38 @@ def run_pipeline(content_id, emit_event):
         # ==================================================================
         # STAGE 7: TRANSCRIBE — speech-to-text via Groq Whisper
         # (only runs when the item has an uploaded video)
+        # Wrapped in try/except — a transcription failure must NOT kill voiceover
         # ==================================================================
         video_source = item.r2_video_url or item.video_url
         if video_source:
-            cost = stage_transcribe(content_id, item, emit_event)
-            total_cost += cost
-            item = db.session.get(ContentItem, content_id)
+            try:
+                cost = stage_transcribe(content_id, item, emit_event)
+                total_cost += cost
+                item = db.session.get(ContentItem, content_id)
+            except Exception as transcribe_err:
+                emit_event("transcribe", "warning",
+                           f"Transcription skipped ({str(transcribe_err)[:80]}) — continuing to voiceover.")
+                _add_log(content_id, "transcribe", "warning",
+                         f"Transcription error (non-fatal): {str(transcribe_err)[:200]}")
+                item = db.session.get(ContentItem, content_id)
 
             # ==============================================================
             # STAGE 8: OVERLAY — burn AI-generated text onto video via FFmpeg
             # (only runs when transcription succeeded)
             # ==============================================================
             if item.transcript:
-                cost = stage_overlay(content_id, item, emit_event)
-                total_cost += cost
-                item = db.session.get(ContentItem, content_id)
+                try:
+                    cost = stage_overlay(content_id, item, emit_event)
+                    total_cost += cost
+                    item = db.session.get(ContentItem, content_id)
+                except Exception as overlay_err:
+                    emit_event("overlay", "warning",
+                               f"Overlay skipped ({str(overlay_err)[:80]}) — continuing to voiceover.")
+                    item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
         # STAGE 9: VOICEOVER — ElevenLabs reads the script over the video
-        # (runs for any item that has a video asset and ElevenLabs configured)
+        # Always runs (voiceover does not depend on transcription succeeding)
         # ==================================================================
         cost = stage_voiceover(content_id, item, emit_event)
         total_cost += cost
