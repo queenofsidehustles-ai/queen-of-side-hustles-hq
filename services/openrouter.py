@@ -453,11 +453,18 @@ HOOK FORMULAS — lead with feeling, not features:
 PLATFORM: {platform} | Max: {char_limit} characters
 HASHTAGS (Instagram/TikTok only): #PartyBizHub #KidsPartyBusiness #PartyBusiness #PartyPlanner
 
+PLATFORM-SPECIFIC CALL TO ACTION — use the exact CTA for the platform, no exceptions:
+- TikTok:    "Comment PARTY BIZ for more details" + "DM me" + "Follow for more party biz tips" — NO external links, NO URLs (TikTok suppresses them)
+- Instagram: "Link in bio → partybizhub.com"
+- Facebook:  "Get started at partybizhub.com"
+- YouTube:   "Link in the description — partybizhub.com"
+
+IMPORTANT: Party Biz Hub does NOT have a free version. Never say "free trial", "try for free", or "start free". They visit the site and purchase directly.
+
 CRITICAL RULES:
-- Start with the FEELING, not the feature
+- Start with the PROBLEM, not a feature list
 - Do NOT write about undercharging, pricing strategy, or starting a business from scratch
-- Do NOT write coaching content — this is a software product post
-- Features (booking page, quote builder, contracts, etc.) are mentioned to prove the transformation, not as the lead{kb_section}
+- Do NOT write coaching content — this is a software product post{kb_section}
 
 OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or explanations."""
 
