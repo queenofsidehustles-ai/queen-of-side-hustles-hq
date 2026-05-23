@@ -404,8 +404,9 @@ function pbhPreview(id) {
     } else if (rawVideo) {
         mediaBox.innerHTML = `
             <div style="margin-bottom:6px;font-size:0.7rem;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.05em;">
-                Original video — voiceover will be added when ElevenLabs is active
+                Original video — voiceover processing failed or still in progress
             </div>
+            <div style="margin-bottom:8px;font-size:0.72rem;color:var(--text-muted);">Check the pipeline log for the exact error. Re-run the pipeline to retry.</div>
             <video src="${rawVideo}" controls playsinline style="width:100%;max-height:300px;border-radius:10px;background:#000;"></video>`;
     } else if (imageUrl) {
         mediaBox.innerHTML = `<img src="${imageUrl}" style="width:100%;max-height:300px;object-fit:cover;border-radius:10px;">`;
