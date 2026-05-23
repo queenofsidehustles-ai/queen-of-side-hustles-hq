@@ -321,6 +321,24 @@ def upload_asset():
     return jsonify(asset.to_dict())
 
 
+@pbh_api_bp.route("/assets/<int:asset_id>/thumb")
+@login_required
+def asset_thumb(asset_id):
+    """Proxy the asset image through Flask so R2 access issues don't break the picker."""
+    import requests as req
+    from flask import Response as FlaskResponse
+    asset = PBHAsset.query.get_or_404(asset_id)
+    if not asset.r2_url:
+        return "Not found", 404
+    try:
+        r = req.get(asset.r2_url, timeout=10, stream=True)
+        content_type = r.headers.get("Content-Type", "image/jpeg")
+        return FlaskResponse(r.iter_content(8192), content_type=content_type,
+                             headers={"Cache-Control": "public, max-age=3600"})
+    except Exception:
+        return "Could not load asset", 502
+
+
 @pbh_api_bp.route("/assets/<int:asset_id>", methods=["DELETE"])
 @login_required
 def delete_asset(asset_id):

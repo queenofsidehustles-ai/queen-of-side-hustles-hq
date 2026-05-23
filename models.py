@@ -362,8 +362,11 @@ class PBHAsset(db.Model):
     def to_dict(self):
         return {
             "id": self.id, "filename": self.filename,
-            "r2_url": self.r2_url, "tag": self.tag,
-            "tag_label": self.tag_label, "notes": self.notes,
+            "r2_url": self.r2_url,
+            "thumb_url": f"/pbh/api/assets/{self.id}/thumb",
+            "tag": self.tag, "tag_label": self.tag_label,
+            "file_type": self.file_type or "image",
+            "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
