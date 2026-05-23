@@ -128,7 +128,11 @@ def publish_post(content_item, platforms=None, emit_event=None):
             json=payload,
             timeout=90  # Video processing can take 60-90s
         )
-        response.raise_for_status()
+        if not response.ok:
+            body = response.text[:400]
+            err = f"GetLate {response.status_code}: {body}"
+            emit("publish", "error", err)
+            raise requests.exceptions.HTTPError(err, response=response)
         data = response.json()
 
         post_id = data.get("post", {}).get("_id") or data.get("id", data.get("post_id", "unknown"))

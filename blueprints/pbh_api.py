@@ -226,16 +226,21 @@ def publish(item_id):
         "scheduled_at": getattr(item, "scheduled_at", None),
     }
 
-    # Use the platform-specific caption if available
+    # Use the platform-specific caption — always resolve to a clean string
     if item.captions:
         try:
             captions_dict = json.loads(item.captions)
-            content_item["script"] = captions_dict.get(
-                item.platform,
-                captions_dict.get("default", item.script or "")
-            )
+            raw = captions_dict.get(item.platform) or captions_dict.get("default") or item.script or ""
+            # Handle nested dict (e.g. {"DREAMER": "...", "OPERATOR": "..."})
+            if isinstance(raw, dict):
+                raw = raw.get("DREAMER") or raw.get("dreamer") or next(iter(raw.values()), "")
+            content_item["script"] = str(raw).strip() if raw else (item.script or "")
         except (json.JSONDecodeError, AttributeError):
             pass
+
+    # GetLate rejects empty content — fall back to script if caption resolved to nothing
+    if not content_item["script"]:
+        content_item["script"] = item.script or ""
 
     body = request.get_json(silent=True) or {}
     scheduled_at_str = body.get("scheduled_at")
