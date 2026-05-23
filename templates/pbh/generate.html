@@ -117,8 +117,22 @@
 
         <!-- Custom angle -->
         <div class="card" style="margin-bottom:16px;">
-            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">4 — Custom Angle <span style="text-transform:none;font-weight:400;">(optional)</span></div>
-            <textarea x-model="customAngle" placeholder="E.g. 'Focus on balloon artists who lose bookings without contracts'"
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);">4 — Custom Angle <span style="text-transform:none;font-weight:400;">(optional)</span></div>
+                <button @click="toggleVoice()"
+                        :title="listening ? 'Stop recording' : 'Speak your idea'"
+                        :style="listening
+                            ? 'background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.5);color:#ef4444;'
+                            : 'background:none;border-color:var(--border);color:var(--text-muted);'"
+                        style="display:flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm-1 1.93V18H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
+                    </svg>
+                    <span x-text="listening ? 'Listening…' : 'Speak'"></span>
+                    <span x-show="listening" style="width:7px;height:7px;background:#ef4444;border-radius:50%;display:inline-block;animation:pulse 1s infinite;"></span>
+                </button>
+            </div>
+            <textarea x-model="customAngle" placeholder="E.g. 'Focus on balloon artists who lose bookings without contracts' — or tap Speak and say it"
                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;resize:vertical;min-height:60px;box-sizing:border-box;font-family:inherit;"></textarea>
         </div>
 
@@ -226,6 +240,7 @@
 
 <style>
 @keyframes spin { to { transform:rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 @media (max-width:900px) {
     div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr!important; }
 }
@@ -240,6 +255,8 @@ function pbhGenerator() {
         platform:    'tiktok',
         assetId:     null,
         customAngle: '',
+        listening:   false,
+        _recognition: null,
         uploadTag:   'dashboard',
         generating:  false,
         uploading:   false,
@@ -285,6 +302,42 @@ function pbhGenerator() {
                 this.assetId = data.id;
             }
             this.uploading = false;
+        },
+
+        toggleVoice() {
+            if (this.listening) {
+                this._recognition && this._recognition.stop();
+                this.listening = false;
+                return;
+            }
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                alert('Voice input is not supported in this browser. Try Chrome or Safari on your iPhone.');
+                return;
+            }
+            const rec = new SR();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+            let base = this.customAngle;
+            rec.onresult = (e) => {
+                let interim = '', final = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    const t = e.results[i][0].transcript;
+                    if (e.results[i].isFinal) final += t;
+                    else interim += t;
+                }
+                this.customAngle = base + (base && final ? ' ' : '') + final + interim;
+                if (final) { base = this.customAngle.replace(interim, '').trim(); }
+            };
+            rec.onerror = (e) => {
+                this.listening = false;
+                if (e.error !== 'aborted') alert('Microphone error: ' + e.error + '. Make sure your browser has mic permission.');
+            };
+            rec.onend = () => { this.listening = false; };
+            rec.start();
+            this._recognition = rec;
+            this.listening = true;
         },
 
         async generate() {
