@@ -503,22 +503,35 @@ def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | 
         with open(tmp_audio.name, "wb") as f:
             f.write(audio_bytes)
 
-        vid_dur   = _get_video_duration(tmp_video.name)
+        vid_dur      = _get_video_duration(tmp_video.name)
         vid_w, vid_h = _get_video_size(tmp_video.name)
-        vid_w = (vid_w // 2) * 2
-        vid_h = (vid_h // 2) * 2
 
-        emit("voiceover", "progress", f"Combining voice ({len(audio_bytes)//1024}KB) with video ({vid_dur:.0f}s)...")
+        # Cap at 1280px wide to avoid OOM kill on Railway
+        if vid_w > 1280:
+            scale_w = 1280
+            scale_h = int(1280 * vid_h / max(vid_w, 1))
+        else:
+            scale_w, scale_h = vid_w, vid_h
+        scale_w = (scale_w // 2) * 2
+        scale_h = (scale_h // 2) * 2
 
-        # Loop video if shorter than audio; -map 0:v -map 1:a forces original audio muted
+        est_audio_dur = len(audio_bytes) / 16000
+        use_loop = vid_dur > 0 and vid_dur < est_audio_dur
+        loop_flags = ["-stream_loop", "-1"] if use_loop else []
+
+        emit("voiceover", "progress",
+             f"Combining voice ({len(audio_bytes)//1024}KB) with video ({vid_dur:.0f}s → {scale_w}x{scale_h})...")
+
+        # -map 0:v:0 -map 1:a:0 mutes original video audio and uses ElevenLabs
         cmd = [
             "ffmpeg", "-y",
-            "-stream_loop", "-1", "-i", tmp_video.name,
+            *loop_flags, "-i", tmp_video.name,
             "-i", tmp_audio.name,
             "-map", "0:v:0", "-map", "1:a:0",
-            "-vf", f"scale={vid_w}:{vid_h},format=yuv420p",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-vf", f"scale={scale_w}:{scale_h},format=yuv420p",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
             "-c:a", "aac", "-b:a", "128k",
+            "-threads", "2",
             "-shortest",
             tmp_out.name,
         ]
@@ -593,22 +606,37 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
         with open(tmp_audio.name, "wb") as f:
             f.write(audio_bytes)
 
-        vid_dur   = _get_video_duration(tmp_video.name)
+        vid_dur      = _get_video_duration(tmp_video.name)
         vid_w, vid_h = _get_video_size(tmp_video.name)
-        vid_w = (vid_w // 2) * 2
-        vid_h = (vid_h // 2) * 2
 
-        emit("voiceover", "progress", f"Adding voice to video ({vid_dur:.0f}s, {vid_w}x{vid_h})...")
+        # Cap resolution at 1280px wide to avoid OOM on Railway (1920x1080 kills FFmpeg)
+        if vid_w > 1280:
+            scale_w = 1280
+            scale_h = int(1280 * vid_h / max(vid_w, 1))
+        else:
+            scale_w, scale_h = vid_w, vid_h
+        scale_w = (scale_w // 2) * 2
+        scale_h = (scale_h // 2) * 2
 
-        # 3. Combine video + audio; -map 0:v -map 1:a mutes original video audio
+        # Estimate audio duration (MP3 ~128kbps = 16KB/s); only loop if video is shorter
+        est_audio_dur = len(audio_bytes) / 16000
+        use_loop = vid_dur > 0 and vid_dur < est_audio_dur
+        loop_flags = ["-stream_loop", "-1"] if use_loop else []
+
+        emit("voiceover", "progress",
+             f"Adding voice to video ({vid_dur:.0f}s → {scale_w}x{scale_h}, "
+             f"audio ~{est_audio_dur:.0f}s, loop={use_loop})...")
+
+        # 3. Combine video + audio; -map 0:v:0 -map 1:a:0 mutes original video audio
         cmd = [
             "ffmpeg", "-y",
-            "-stream_loop", "-1", "-i", tmp_video.name,
+            *loop_flags, "-i", tmp_video.name,
             "-i", tmp_audio.name,
             "-map", "0:v:0", "-map", "1:a:0",
-            "-vf", f"scale={vid_w}:{vid_h},format=yuv420p",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-vf", f"scale={scale_w}:{scale_h},format=yuv420p",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
             "-c:a", "aac", "-b:a", "128k",
+            "-threads", "2",
             "-shortest", tmp_voiced.name,
         ]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
