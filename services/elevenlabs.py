@@ -56,8 +56,15 @@ def synthesize_with_timestamps(text: str) -> dict | None:
             },
             timeout=60,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            logger.error("ElevenLabs with-timestamps HTTP %s: %s", resp.status_code, resp.text[:300])
+            return None
         data = resp.json()
+
+        if "audio_base64" not in data:
+            logger.error("ElevenLabs response missing audio_base64. Keys: %s. Body: %s",
+                         list(data.keys()), str(data)[:300])
+            return None
 
         import base64
         audio_bytes = base64.b64decode(data["audio_base64"])

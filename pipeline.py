@@ -206,7 +206,9 @@ def run_pipeline(content_id, emit_event):
         total_duration = round(time.time() - pipeline_start, 1)
 
         item = db.session.get(ContentItem, content_id)
-        item.status = "ready"
+        # PBH items stay in "review" so Monica can preview before posting
+        if getattr(item, "brand", None) != "pbh":
+            item.status = "ready"
         item.cost_total = total_cost
         db.session.commit()
 
@@ -928,19 +930,28 @@ def stage_voiceover(content_id, item, emit_event):
         emit_event(stage, "skipped", "No script — skipping voiceover.")
         return 0.0
 
-    emit_event(stage, "progress", "Sending script to ElevenLabs — recording your cloned voice with word timestamps...")
+    emit_event(stage, "progress", "Sending script to ElevenLabs — recording your cloned voice...")
 
     result = synthesize_with_timestamps(script_text)
-    if not result:
-        emit_event(stage, "warning", "ElevenLabs returned no audio — skipping voiceover.")
-        return 0.0
+    caption_chunks = []
 
-    audio_bytes     = result["audio"]
-    words           = result["words"]
-    caption_chunks  = words_to_caption_chunks(words, chunk_size=4)
-
-    emit_event(stage, "progress",
-               f"Got {len(audio_bytes)//1024}KB audio, {len(words)} words → {len(caption_chunks)} caption chunks. Combining with video...")
+    if result:
+        audio_bytes    = result["audio"]
+        words          = result["words"]
+        caption_chunks = words_to_caption_chunks(words, chunk_size=4)
+        emit_event(stage, "progress",
+                   f"Got {len(audio_bytes)//1024}KB audio, {len(words)} words → {len(caption_chunks)} caption chunks. Combining with video...")
+    else:
+        # Fallback: try basic synthesis without timestamps
+        emit_event(stage, "progress", "Timestamps endpoint failed — trying basic voice synthesis...")
+        from services.elevenlabs import synthesize
+        audio_bytes = synthesize(script_text)
+        if not audio_bytes:
+            emit_event(stage, "warning",
+                       "ElevenLabs returned no audio. Check that ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID "
+                       "are correct in Railway Variables, and that your ElevenLabs account has credits.")
+            return 0.0
+        emit_event(stage, "progress", f"Basic voice synthesis succeeded ({len(audio_bytes)//1024}KB). Adding to video...")
 
     row = db.session.get(ContentItem, content_id)
     voiced_url = add_voiceover_with_captions(
