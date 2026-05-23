@@ -10,7 +10,7 @@ from datetime import datetime
 
 from flask import Blueprint, request, jsonify, Response, current_app
 from auth import login_required
-from models import ContentItem, PBHAsset, PipelineLog
+from models import ContentItem, PBHAsset, PipelineLog, PBHKnowledge
 from extensions import db
 
 pbh_api_bp = Blueprint("pbh_api", __name__)
@@ -380,4 +380,20 @@ def delete_asset(asset_id):
     asset = PBHAsset.query.get_or_404(asset_id)
     db.session.delete(asset)
     db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ── Knowledge Base ────────────────────────────────────────────────────────────
+
+@pbh_api_bp.route("/knowledge", methods=["GET"])
+@login_required
+def get_knowledge():
+    return jsonify({"content": PBHKnowledge.get()})
+
+
+@pbh_api_bp.route("/knowledge", methods=["POST"])
+@login_required
+def save_knowledge():
+    data = request.get_json() or {}
+    PBHKnowledge.save(data.get("content", ""))
     return jsonify({"ok": True})

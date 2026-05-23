@@ -409,10 +409,11 @@ Return ONLY the JSON object. No markdown, no nested keys, no explanations."""
 # ---------------------------------------------------------------------------
 # generate_pbh_script() — Party Biz Hub content (separate from KPPS)
 # ---------------------------------------------------------------------------
-def generate_pbh_script(input_text, platform="tiktok", emit_event=None):
+def generate_pbh_script(input_text, platform="tiktok", knowledge_base="", emit_event=None):
     """
     Generate a Party Biz Hub post from the structured prompt built by pbh_api._build_input_text().
     Uses a PBH-specific system prompt — completely separate from KPPS to avoid topic bleed.
+    knowledge_base: optional brand/avatar guide injected as source of truth.
     """
     emit = emit_event or (lambda *a, **kw: None)
     client = _get_client()
@@ -423,31 +424,36 @@ def generate_pbh_script(input_text, platform="tiktok", emit_event=None):
 
     char_limit = PLATFORM_LIMITS.get(platform, 2200)
 
-    system_prompt = f"""You are a social media copywriter for Party Biz Hub — a business management app built for kids party business owners.
+    kb_section = f"\n\nBRAND KNOWLEDGE BASE — use this as your source of truth for every post:\n{knowledge_base.strip()}" if knowledge_base and knowledge_base.strip() else ""
 
-WHAT PARTY BIZ HUB DOES: Replaces messy DMs, spreadsheets, and paper contracts with a polished back-office system. Features: online booking page, quote builder, contract templates, invoice + payment, AI content machine, client dashboard, automated reminders, custom branding.
+    system_prompt = f"""You are a social media copywriter for Party Biz Hub — a business management app for kids party business owners.
 
-TARGET AUDIENCE: Someone ALREADY running a kids party business (face painter, balloon artist, bounce house rental, princess entertainer, party planner). They are not starting from scratch — they have clients but are losing time to admin chaos.
+CORE CONTENT STRATEGY:
+People do NOT buy software because of features. They buy because of how they FEEL.
+Lead every post with the emotion and pain of the avatar's current reality — then show Party Biz Hub as the thing that brings order, professionalism, and relief.
+Features are mentioned only as proof points AFTER the emotional hook lands.
 
-THEIR PAIN POINTS:
-- Chasing clients to pay invoices
-- Looking unprofessional with handwritten quotes or text-message bookings
-- Losing track of upcoming events and client details
-- Spending hours on admin instead of doing parties
-- Worry that they'll accidentally double-book or forget a deposit
+TARGET AVATAR: Someone ALREADY running a kids party business. They have clients, they're doing the work — but everything runs on chaos. Text-message bookings, Venmo payments with no records, handwritten contracts that get lost, no way to track income at tax time. They feel like a hobby, not a business. They're embarrassed. They're exhausted. They want to feel like a real CEO.
 
-HOOK FORMULAS — pick the one that fits the content:
-• Problem-reveal:    "If you're still booking clients over text, this is for you."
-• Specificity:       "Send a professional quote in 60 seconds — clients pay on the spot."
-• Before/after:      "Before Party Biz Hub: 12 DMs to confirm one booking. After: done in 2 minutes."
-• Feature spotlight: "Your clients can book AND pay directly from your booking link."
-• Time/money saved:  "Stop chasing invoices. Party Biz Hub sends automatic payment reminders."
+EMOTIONAL TRANSFORMATION THIS CONTENT MUST DELIVER:
+FROM: Chaotic, disorganized, unprofessional, stressed at tax season, chasing invoices, afraid of double-booking
+TO: Polished back office, clients see a real business, contracts signed digitally, income tracked automatically, tax season handled, everything in one place
 
-TONE: Confident, practical, professional. No fluff. Speaks to a busy business owner, not a beginner.
+HOOK FORMULAS — lead with feeling, not features:
+• Chaos mirror:    "You run a real business. You just don't have a back office that shows it."
+• Embarrassment:  "Sending a quote over text isn't unprofessional — it's costing you bookings."
+• Tax season:     "When your accountant asks for your profit and loss... do you panic?"
+• Before/after:   "Before: 12 DMs to confirm one party. After: client books and pays in 2 minutes."
+• Relief:         "Imagine finishing a party weekend knowing every invoice, contract, and deposit is already handled."
+
 PLATFORM: {platform} | Max: {char_limit} characters
-HASHTAGS (Instagram/TikTok only): #PartyBizHub #KidsPartyBusiness #PartyBusiness #PartyPlanner #EventBusiness
+HASHTAGS (Instagram/TikTok only): #PartyBizHub #KidsPartyBusiness #PartyBusiness #PartyPlanner
 
-CRITICAL: Write ONLY about Party Biz Hub and its features. Do NOT write about pricing strategy, undercharging, starting a business, or personal coaching. This is a software product ad, not a coaching post.
+CRITICAL RULES:
+- Start with the FEELING, not the feature
+- Do NOT write about undercharging, pricing strategy, or starting a business from scratch
+- Do NOT write coaching content — this is a software product post
+- Features (booking page, quote builder, contracts, etc.) are mentioned to prove the transformation, not as the lead{kb_section}
 
 OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or explanations."""
 
@@ -485,7 +491,7 @@ OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or
 # ---------------------------------------------------------------------------
 # generate_pbh_captions() — PBH platform captions (separate from KPPS)
 # ---------------------------------------------------------------------------
-def generate_pbh_captions(script_text, platforms=None, emit_event=None):
+def generate_pbh_captions(script_text, platforms=None, knowledge_base="", emit_event=None):
     """
     Generate per-platform captions for a PBH post.
     Separate from generate_captions() to avoid KPPS system prompt leaking.

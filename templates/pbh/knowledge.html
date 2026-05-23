@@ -1,0 +1,138 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}PBH Brand Knowledge Base{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Everything the AI knows about Party Biz Hub — edit anytime and every new post will use it.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/pbh/" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);margin-right:8px;">← Content Queue</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:860px;margin:0 auto;">
+
+    <!-- What this is -->
+    <div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:18px 22px;margin-bottom:28px;">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px;">How this works</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.6;">
+            Every time you generate a Party Biz Hub post, the AI reads this guide first.
+            Write it like a brief for a copywriter — your avatar, their pain points, the emotional transformation, real feature details.
+            The more specific you are, the better the content.
+        </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-weight:700;font-size:0.95rem;color:var(--text-primary);">Brand Guide</div>
+            <div id="saveStatus" style="font-size:0.78rem;color:var(--text-muted);"></div>
+        </div>
+        <div style="padding:20px 22px;">
+            <textarea id="knowledgeContent"
+                      style="width:100%;min-height:520px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:16px;font-size:0.84rem;color:var(--text-primary);line-height:1.7;font-family:inherit;resize:vertical;box-sizing:border-box;"
+                      placeholder="Paste or type your Party Biz Hub brand guide here...">{{ content }}</textarea>
+        </div>
+        <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+            <button onclick="loadDefault()"
+                    style="padding:8px 16px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:0.8rem;cursor:pointer;">
+                Load starter template
+            </button>
+            <button onclick="saveKnowledge()"
+                    id="saveBtn"
+                    style="padding:10px 24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                Save Knowledge Base
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+const DEFAULT_KNOWLEDGE = `PARTY BIZ HUB — BRAND VOICE AND AVATAR GUIDE
+
+WHO THIS IS FOR (The Avatar):
+Someone already running a kids party business. They have clients, they are doing the work — but everything runs on chaos. Text-message bookings, Venmo payments with no records, handwritten contracts that get lost, no way to track income at tax time. They feel like a hobby, not a real business. They are embarrassed to send a quote because it is just a text message. They work hard but feel disorganized and unprofessional.
+
+WHAT THEY FEEL EVERY DAY:
+- Overwhelm from managing everything manually with no system
+- Embarrassment when clients see how unorganized the booking process is
+- Anxiety at tax season because there are no clean financial records
+- Fear of double-booking or forgetting a deposit
+- Exhaustion from chasing clients to pay
+- Frustration that they are working this hard and still look like an amateur
+- Desire to be taken seriously as a real business owner
+
+THE TRANSFORMATION PARTY BIZ HUB DELIVERS:
+FROM: Running a business that feels like a mess
+TO: A professional back office that runs like a real company
+
+Clients see a polished booking page, not a DM.
+Contracts are signed digitally, never lost.
+Invoices are paid online, automatically tracked.
+At tax time, download a clean profit and loss report.
+Every booking, payment, and client in one dashboard.
+They finally feel like the CEO they actually are.
+
+CONTENT STRATEGY — FEELINGS FIRST, FEATURES SECOND:
+People do not buy because of features. They buy because of how they feel.
+Lead every post with the emotion and pain of the avatar's current reality.
+Show the transformation emotionally, then mention features as the proof.
+Never lead with a feature list. Always lead with a feeling.
+
+APPROVED HOOK ANGLES:
+- The chaos mirror: show them a picture of their current disorganized reality
+- The embarrassment: the moment a client sees their unprofessional process
+- The tax season panic: scrambling to find income records and receipts
+- The relief: what their life looks like after everything is organized
+- The CEO identity: you run a real business, it is time your systems matched
+
+PARTY BIZ HUB FEATURES (use as proof points only, never as the lead):
+- Booking Page: clients book and pay directly from a link, no DMs needed
+- Quote Builder: send a professional quote in 60 seconds, client pays on the spot
+- Digital Contracts: e-signed contracts, never lost, always on file
+- Invoice and Payments: online payments, auto-tracked, no more chasing
+- Client Dashboard: every client, booking, payment, and event in one place
+- Financial Reports: download profit and loss statement for tax season
+- AI Content Machine: one-click social media posts for all platforms
+- Automated Reminders: payment and event reminders sent automatically
+- Custom Branding: looks like your business, not generic software
+- Mobile Friendly: manage everything from your phone between parties
+
+TONE: Confident, direct, speaks to a busy business owner. Warm but practical. No fluff. Not a coaching post — this is a software product for people who already have a business and need better systems.
+
+CALL TO ACTION: partybizhub.com — free to start`;
+
+async function saveKnowledge() {
+    const btn = document.getElementById('saveBtn');
+    const status = document.getElementById('saveStatus');
+    const content = document.getElementById('knowledgeContent').value;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+        const resp = await fetch('/pbh/api/knowledge', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ content })
+        });
+        if (resp.ok) {
+            status.textContent = 'Saved ✓';
+            status.style.color = 'var(--success)';
+            btn.textContent = 'Saved!';
+            setTimeout(() => {
+                status.textContent = '';
+                btn.textContent = 'Save Knowledge Base';
+                btn.disabled = false;
+            }, 2000);
+        }
+    } catch(e) {
+        status.textContent = 'Save failed — try again';
+        status.style.color = 'var(--danger)';
+        btn.disabled = false;
+        btn.textContent = 'Save Knowledge Base';
+    }
+}
+
+function loadDefault() {
+    if (document.getElementById('knowledgeContent').value.trim() &&
+        !confirm('Replace current content with the starter template?')) return;
+    document.getElementById('knowledgeContent').value = DEFAULT_KNOWLEDGE;
+}
+</script>
+{% endblock %}

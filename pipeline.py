@@ -305,9 +305,12 @@ def stage_script(content_id, item, emit_event):
     # PBH uses its own script generator — completely separate system prompt
     # to prevent KPPS hooks ("undercharging", pricing coaching) from bleeding in
     if getattr(item, "brand", None) == "pbh":
+        from models import PBHKnowledge
+        knowledge = PBHKnowledge.get()
         result = generate_pbh_script(
             source_text,
             platform=item.platform,
+            knowledge_base=knowledge,
             emit_event=emit_event,
         )
     else:
@@ -506,9 +509,12 @@ def stage_caption(content_id, item, emit_event):
 
     # PBH gets its own caption generator — separate from KPPS
     if getattr(item, "brand", None) == "pbh":
+        from models import PBHKnowledge
+        knowledge = PBHKnowledge.get()
         result = generate_pbh_captions(
             item.script or "",
             platforms=platforms,
+            knowledge_base=knowledge,
             emit_event=emit_event,
         )
     else:

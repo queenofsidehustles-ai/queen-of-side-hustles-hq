@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, jsonify
 from auth import login_required
+from models import PBHKnowledge
 
 pbh_dashboard_bp = Blueprint("pbh_dashboard", __name__)
 
@@ -157,3 +158,10 @@ def stats():
         "conv_rate":   conv_rate,
         "quiz_leads":  quiz_leads,
     })
+
+
+@pbh_dashboard_bp.route("/knowledge")
+@login_required
+def knowledge():
+    content = PBHKnowledge.get()
+    return render_template("pbh/knowledge.html", content=content)
