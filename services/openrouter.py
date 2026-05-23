@@ -407,6 +407,162 @@ Return ONLY the JSON object. No markdown, no nested keys, no explanations."""
 
 
 # ---------------------------------------------------------------------------
+# generate_pbh_script() — Party Biz Hub content (separate from KPPS)
+# ---------------------------------------------------------------------------
+def generate_pbh_script(input_text, platform="tiktok", emit_event=None):
+    """
+    Generate a Party Biz Hub post from the structured prompt built by pbh_api._build_input_text().
+    Uses a PBH-specific system prompt — completely separate from KPPS to avoid topic bleed.
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+    client = _get_client()
+
+    if not client:
+        emit("script", "progress", "No OpenRouter API key — using demo content.")
+        return _demo_response("Script generation requires an OpenRouter API key")
+
+    char_limit = PLATFORM_LIMITS.get(platform, 2200)
+
+    system_prompt = f"""You are a social media copywriter for Party Biz Hub — a business management app built for kids party business owners.
+
+WHAT PARTY BIZ HUB DOES: Replaces messy DMs, spreadsheets, and paper contracts with a polished back-office system. Features: online booking page, quote builder, contract templates, invoice + payment, AI content machine, client dashboard, automated reminders, custom branding.
+
+TARGET AUDIENCE: Someone ALREADY running a kids party business (face painter, balloon artist, bounce house rental, princess entertainer, party planner). They are not starting from scratch — they have clients but are losing time to admin chaos.
+
+THEIR PAIN POINTS:
+- Chasing clients to pay invoices
+- Looking unprofessional with handwritten quotes or text-message bookings
+- Losing track of upcoming events and client details
+- Spending hours on admin instead of doing parties
+- Worry that they'll accidentally double-book or forget a deposit
+
+HOOK FORMULAS — pick the one that fits the content:
+• Problem-reveal:    "If you're still booking clients over text, this is for you."
+• Specificity:       "Send a professional quote in 60 seconds — clients pay on the spot."
+• Before/after:      "Before Party Biz Hub: 12 DMs to confirm one booking. After: done in 2 minutes."
+• Feature spotlight: "Your clients can book AND pay directly from your booking link."
+• Time/money saved:  "Stop chasing invoices. Party Biz Hub sends automatic payment reminders."
+
+TONE: Confident, practical, professional. No fluff. Speaks to a busy business owner, not a beginner.
+PLATFORM: {platform} | Max: {char_limit} characters
+HASHTAGS (Instagram/TikTok only): #PartyBizHub #KidsPartyBusiness #PartyBusiness #PartyPlanner #EventBusiness
+
+CRITICAL: Write ONLY about Party Biz Hub and its features. Do NOT write about pricing strategy, undercharging, starting a business, or personal coaching. This is a software product ad, not a coaching post.
+
+OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or explanations."""
+
+    user_prompt = f"""Write a {platform} post following these exact instructions:\n\n{input_text}"""
+
+    emit("script", "progress", f"Generating Party Biz Hub {platform} post...")
+
+    try:
+        response = client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=800,
+            temperature=0.75,
+        )
+        text = response.choices[0].message.content.strip()
+        usage = response.usage
+        result = {
+            "text": text,
+            "model": DEFAULT_MODEL,
+            "tokens_in": usage.prompt_tokens if usage else 0,
+            "tokens_out": usage.completion_tokens if usage else 0,
+            "cost": _estimate_cost(usage.prompt_tokens, usage.completion_tokens) if usage else 0.0,
+            "demo": False
+        }
+        emit("script", "progress", f"PBH script done! {result['tokens_out']} tokens.")
+        return result
+    except Exception as e:
+        emit("script", "error", f"OpenRouter error: {str(e)}")
+        raise
+
+
+# ---------------------------------------------------------------------------
+# generate_pbh_captions() — PBH platform captions (separate from KPPS)
+# ---------------------------------------------------------------------------
+def generate_pbh_captions(script_text, platforms=None, emit_event=None):
+    """
+    Generate per-platform captions for a PBH post.
+    Separate from generate_captions() to avoid KPPS system prompt leaking.
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+    client = _get_client()
+    platforms = platforms or ["tiktok", "instagram", "facebook", "youtube"]
+
+    if not client:
+        return {"captions": {p: script_text for p in platforms}, "demo": True, "cost": 0.0}
+
+    platform_instructions = "\n".join([
+        f"- {p.upper()}: {PLATFORM_IDEAL.get(p, 'Keep it concise and punchy.')}"
+        for p in platforms
+    ])
+
+    system_prompt = f"""You are a social media copywriter adapting Party Biz Hub content for multiple platforms.
+
+Party Biz Hub is a business management app for kids party businesses — booking pages, quote builder, contracts, invoicing, AI content, client dashboard.
+
+AUDIENCE: Existing party business owners who need better systems. NOT beginners or people starting from scratch.
+
+TONE: Confident, direct, practical. No fluff. No undercharging or pricing coaching content.
+
+ADAPT the provided script for each platform below — keep the Party Biz Hub focus, adjust length and style:
+{platform_instructions}
+
+HASHTAGS (Instagram + TikTok only): #PartyBizHub #KidsPartyBusiness #PartyBusiness #PartyPlanner
+
+OUTPUT: Valid flat JSON only. Keys = platform names. Values = ONE caption string per platform.
+Example: {{"tiktok": "Book clients without the DM chaos...", "instagram": "..."}}
+Return ONLY the JSON. No markdown, no explanations."""
+
+    emit("caption", "progress", f"Writing PBH captions for {', '.join(platforms)}...")
+
+    try:
+        response = client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Adapt this Party Biz Hub script for each platform:\n\n{script_text}"}
+            ],
+            max_tokens=1200,
+            temperature=0.7,
+            timeout=45,
+        )
+
+        raw_text = response.choices[0].message.content.strip()
+        usage = response.usage
+
+        import re as _re
+        raw_text = _re.sub(r"^```(?:json)?\s*", "", raw_text, flags=_re.MULTILINE)
+        raw_text = _re.sub(r"\s*```\s*$", "", raw_text, flags=_re.MULTILINE)
+        raw_text = raw_text.strip()
+
+        try:
+            captions = json.loads(raw_text)
+        except json.JSONDecodeError:
+            captions = {p: raw_text for p in platforms}
+
+        result = {
+            "captions": captions,
+            "model": DEFAULT_MODEL,
+            "tokens_in": usage.prompt_tokens if usage else 0,
+            "tokens_out": usage.completion_tokens if usage else 0,
+            "cost": _estimate_cost(usage.prompt_tokens, usage.completion_tokens) if usage else 0.0,
+            "demo": False
+        }
+        emit("caption", "progress", f"Got PBH captions for {len(captions)} platforms!")
+        return result
+
+    except Exception as e:
+        emit("caption", "error", f"OpenRouter error: {str(e)}")
+        raise
+
+
+# ---------------------------------------------------------------------------
 # Cost estimation helper
 # Gemini 2.5 Flash pricing (approximate via OpenRouter)
 # ---------------------------------------------------------------------------

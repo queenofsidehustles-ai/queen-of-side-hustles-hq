@@ -26,7 +26,7 @@ from datetime import datetime
 from models import ContentItem, PipelineLog, Setting
 from extensions import db
 from services.firecrawl import scrape_url
-from services.openrouter import generate_script, generate_image_prompt, generate_captions
+from services.openrouter import generate_script, generate_image_prompt, generate_captions, generate_pbh_script, generate_pbh_captions
 from services.kie_ai import generate_image, generate_video, generate_video_with_reference
 from services.getlate import publish_post
 from services.r2_storage import upload_image as r2_upload_image, upload_video as r2_upload_video, is_configured as r2_is_configured
@@ -302,12 +302,21 @@ def stage_script(content_id, item, emit_event):
     source_text = item.article_text or item.input_text
     input_type = item.input_type
 
-    result = generate_script(
-        source_text,
-        platform=item.platform,
-        input_type=input_type,
-        emit_event=emit_event
-    )
+    # PBH uses its own script generator — completely separate system prompt
+    # to prevent KPPS hooks ("undercharging", pricing coaching) from bleeding in
+    if getattr(item, "brand", None) == "pbh":
+        result = generate_pbh_script(
+            source_text,
+            platform=item.platform,
+            emit_event=emit_event,
+        )
+    else:
+        result = generate_script(
+            source_text,
+            platform=item.platform,
+            input_type=input_type,
+            emit_event=emit_event,
+        )
 
     duration = round(time.time() - start, 1)
 
@@ -495,11 +504,19 @@ def stage_caption(content_id, item, emit_event):
     emit_event(stage, "started", f"Last step! Each social platform has different rules (character limits, hashtag styles, tone). We're asking AI to write custom captions for {', '.join(platforms)} so each one fits perfectly.")
     _add_log(content_id, stage, "started", "Calling OpenRouter for captions")
 
-    result = generate_captions(
-        item.script or "",
-        platforms=platforms,
-        emit_event=emit_event
-    )
+    # PBH gets its own caption generator — separate from KPPS
+    if getattr(item, "brand", None) == "pbh":
+        result = generate_pbh_captions(
+            item.script or "",
+            platforms=platforms,
+            emit_event=emit_event,
+        )
+    else:
+        result = generate_captions(
+            item.script or "",
+            platforms=platforms,
+            emit_event=emit_event,
+        )
 
     duration = round(time.time() - start, 1)
 
