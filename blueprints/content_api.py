@@ -295,19 +295,45 @@ def publish(item_id):
     return jsonify(result)
 
 
+@content_api_bp.route("/accounts", methods=["GET"])
+@login_required
+def list_accounts():
+    """Return connected Zernio social accounts so the UI can show a platform picker."""
+    from services.getlate import _get_headers, GETLATE_BASE_URL
+    import requests as req_lib
+    headers = _get_headers()
+    if not headers:
+        return jsonify({"accounts": [], "demo": True,
+                        "message": "Add your Zernio API key in Settings to see connected accounts."})
+    try:
+        r = req_lib.get(f"{GETLATE_BASE_URL}/accounts", headers=headers, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        raw = data if isinstance(data, list) else data.get("accounts", [])
+        simplified = [
+            {"id": a.get("_id", ""), "platform": a.get("platform", ""),
+             "username": a.get("username") or a.get("name") or ""}
+            for a in raw if a.get("_id")
+        ]
+        return jsonify({"accounts": simplified, "demo": False})
+    except Exception as e:
+        return jsonify({"accounts": [], "demo": False, "error": str(e)})
+
+
 @content_api_bp.route("/<int:item_id>/publish-all", methods=["POST"])
 @login_required
 def publish_all(item_id):
     """
-    Publish (or schedule) this content item to ALL connected social platforms.
-    Each platform gets its own platform-specific caption from the captions JSON.
-    Accepts optional { "scheduled_at": "2026-05-10T07:00" } in request body.
+    Publish (or schedule) this content item to connected social platforms.
+    Accepts optional { "scheduled_at": "...", "account_ids": ["id1","id2"] } in body.
+    If account_ids is provided, only those accounts receive the post.
     """
     item = ContentItem.query.get_or_404(item_id)
     from services.getlate import publish_to_all_platforms
 
     body = request.get_json(silent=True) or {}
     scheduled_at_str = body.get("scheduled_at")
+    account_ids = body.get("account_ids") or None  # None = post to all
 
     # Persist scheduled_at if provided
     if scheduled_at_str:
@@ -339,6 +365,7 @@ def publish_all(item_id):
             content_item=content_item,
             captions_dict=captions_dict,
             scheduled_at=scheduled_at_str,
+            allowed_account_ids=account_ids,
         )
     except Exception as e:
         return jsonify({"status": "error", "error": str(e), "platforms_published": [],

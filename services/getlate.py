@@ -161,7 +161,7 @@ def publish_post(content_item, platforms=None, emit_event=None):
 # ---------------------------------------------------------------------------
 # publish_to_all_platforms() — One click → every connected platform
 # ---------------------------------------------------------------------------
-def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None, emit_event=None):
+def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None, emit_event=None, allowed_account_ids=None):
     """
     Publish to ALL connected social accounts in one shot.
     Makes a separate Zernio call per platform so each gets its own caption.
@@ -225,6 +225,10 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
     platforms_failed = []
 
     for platform, account_id in account_map.items():
+        # Skip if caller passed a specific allow-list of account IDs
+        if allowed_account_ids and account_id not in allowed_account_ids:
+            continue
+
         # Use platform-specific caption, fall back to script
         raw_caption = captions_dict.get(platform)
 

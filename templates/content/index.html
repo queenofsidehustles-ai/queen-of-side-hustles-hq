@@ -235,11 +235,32 @@
 
                     <!-- Actions -->
                     <div x-show="!posted">
+                        <!-- Account selector -->
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;">Post to:</div>
+                            <div x-show="accountsLoading" style="font-size:0.78rem;color:var(--text-subtle);">Loading accounts…</div>
+                            <div x-show="!accountsLoading && accounts.length===0" style="font-size:0.78rem;color:var(--text-subtle);">
+                                All connected accounts <span style="font-size:0.7rem;opacity:0.6;">(connect more in Zernio Settings)</span>
+                            </div>
+                            <div x-show="!accountsLoading && accounts.length>0" style="display:flex;flex-wrap:wrap;gap:6px;">
+                                <template x-for="acc in accounts" :key="acc.id">
+                                    <button @click="toggleAccount(acc.id)"
+                                            :style="selectedAccountIds.includes(acc.id)
+                                                ? 'background:rgba(16,185,129,0.15);border-color:#10b981;color:#10b981;'
+                                                : 'background:var(--bg-primary);border-color:var(--border);color:var(--text-subtle);'"
+                                            style="padding:5px 12px;border:1px solid;border-radius:20px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;display:flex;align-items:center;gap:5px;">
+                                        <span x-text="platformEmoji(acc.platform)"></span>
+                                        <span x-text="acc.username || acc.platform"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
                         <button @click="postNow()" :disabled="posting"
                                 style="width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s;"
                                 :style="posting ? 'opacity:0.7;cursor:not-allowed;' : ''">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                            <span x-show="!posting">🚀 Post Now to All Platforms</span>
+                            <span x-show="!posting">🚀 Post Now</span>
                             <span x-show="posting">Posting…</span>
                         </button>
 
@@ -562,6 +583,30 @@
 </div><!-- /x-data -->
 
 
+<!-- ── Platform Picker Modal ──────────────────────────────────────── -->
+<div id="platform-picker-modal"
+     style="display:none;position:fixed;inset:0;z-index:1001;background:rgba(0,0,0,0.7);padding:20px;"
+     onclick="if(event.target===this)closePlatformPicker()">
+    <div style="max-width:420px;margin:80px auto;background:var(--card-bg);border-radius:16px;padding:24px;border:1px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h3 style="margin:0;font-size:0.95rem;font-weight:700;color:var(--text-primary);">Choose where to post</h3>
+            <button onclick="closePlatformPicker()" style="background:none;border:none;cursor:pointer;color:var(--text-subtle);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div id="picker-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+            <div style="color:var(--text-subtle);font-size:0.85rem;text-align:center;padding:12px;">Loading accounts…</div>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button onclick="closePlatformPicker()" style="flex:1;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:600;cursor:pointer;">Cancel</button>
+            <button id="picker-confirm-btn" onclick="confirmPlatformPost()"
+                    style="flex:2;padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">
+                🚀 Post to Selected
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ── Preview Modal ──────────────────────────────────────────────── -->
 <div id="preview-modal"
      style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.75);overflow-y:auto;padding:20px;"
@@ -665,6 +710,11 @@ function contentHub() {
         asisPosted: false,
         showScheduleAsis: false,
 
+        // Account selector
+        accounts: [],
+        accountsLoading: false,
+        selectedAccountIds: [],
+
         // Queue filter
         filter: 'all',
 
@@ -722,10 +772,39 @@ function contentHub() {
             this.postResult = '';
             this.showScheduleReview = false;
             this.skipVoiceover = false;
+            this.accounts = [];
+            this.selectedAccountIds = [];
             this.asisItemId = null;
             this.asisPosting = false;
             this.asisPosted = false;
             this.showScheduleAsis = false;
+        },
+
+        async loadAccounts() {
+            this.accountsLoading = true;
+            try {
+                const r = await fetch('/content/api/accounts');
+                const data = await r.json();
+                this.accounts = data.accounts || [];
+                // Default: all selected
+                this.selectedAccountIds = this.accounts.map(a => a.id);
+            } catch(e) {
+                this.accounts = [];
+            }
+            this.accountsLoading = false;
+        },
+
+        toggleAccount(id) {
+            if (this.selectedAccountIds.includes(id)) {
+                this.selectedAccountIds = this.selectedAccountIds.filter(x => x !== id);
+            } else {
+                this.selectedAccountIds.push(id);
+            }
+        },
+
+        platformEmoji(p) {
+            const map = { tiktok:'🎵', instagram:'📸', facebook:'📘', youtube:'▶️', linkedin:'💼', twitter:'🐦', x:'🐦' };
+            return map[(p||'').toLowerCase()] || '📱';
         },
 
         setReviewTime(offsetDays, hour) {
@@ -822,6 +901,7 @@ function contentHub() {
                                     } catch(e) {}
                                     this.generating = false;
                                     this.step = 'review';
+                                    this.loadAccounts();
                                 }
                                 if (evt.status === 'error' && evt.stage === 'pipeline') {
                                     this.generating = false;
@@ -849,8 +929,14 @@ function contentHub() {
         async postNow() {
             if (!this.contentId) return;
             this.posting = true;
+            const body = {};
+            if (this.selectedAccountIds.length > 0) body.account_ids = this.selectedAccountIds;
             try {
-                const resp = await fetch('/content/api/' + this.contentId + '/publish-all', { method: 'POST' });
+                const resp = await fetch('/content/api/' + this.contentId + '/publish-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
                 const data = await resp.json();
                 if (resp.ok && data.status !== 'error') {
                     const ok = (data.platforms_published || []).join(', ') || 'demo';
@@ -1035,7 +1121,7 @@ function toggleModalLog() {
 
 async function postFromModal() {
     if (!_modalItemId) return;
-    postToAll(_modalItemId, true);
+    openPlatformPicker(_modalItemId, true);
 }
 
 function toggleScheduler(id) {
@@ -1082,11 +1168,73 @@ async function schedulePost(id) {
     }
 }
 
-async function postToAll(id, fromModal) {
+// ── Platform picker modal (for queue tiles) ──────────────────────
+let _pickerItemId = null;
+let _pickerFromModal = false;
+let _pickerAccounts = [];
+
+const PLATFORM_EMOJI = { tiktok:'🎵', instagram:'📸', facebook:'📘', youtube:'▶️', linkedin:'💼', twitter:'🐦', x:'🐦' };
+
+async function openPlatformPicker(id, fromModal) {
+    _pickerItemId = id;
+    _pickerFromModal = fromModal || false;
+    const modal = document.getElementById('platform-picker-modal');
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    const listEl = document.getElementById('picker-accounts-list');
+    listEl.innerHTML = '<div style="color:var(--text-subtle);font-size:0.85rem;text-align:center;padding:12px;">Loading accounts…</div>';
+    _pickerAccounts = [];
+    try {
+        const r = await fetch('/content/api/accounts');
+        const data = await r.json();
+        _pickerAccounts = data.accounts || [];
+    } catch(e) {}
+
+    if (_pickerAccounts.length === 0) {
+        listEl.innerHTML = '<div style="color:var(--text-subtle);font-size:0.85rem;padding:8px 0;">No connected accounts found. Add them in Zernio Settings, then try again.</div>';
+        return;
+    }
+    listEl.innerHTML = _pickerAccounts.map(acc => {
+        const emoji = PLATFORM_EMOJI[(acc.platform||'').toLowerCase()] || '📱';
+        return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color 0.15s;"
+                       onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" checked data-account-id="${acc.id}" style="accent-color:#10b981;width:16px;height:16px;flex-shrink:0;">
+            <span style="font-size:1.1rem;">${emoji}</span>
+            <span style="font-size:0.85rem;font-weight:600;color:var(--text-primary);text-transform:capitalize;">${acc.platform}</span>
+            <span style="font-size:0.78rem;color:var(--text-subtle);margin-left:auto;">${acc.username || ''}</span>
+        </label>`;
+    }).join('');
+}
+
+function closePlatformPicker() {
+    document.getElementById('platform-picker-modal').style.display = 'none';
+    document.body.style.overflow = '';
+    _pickerItemId = null;
+}
+
+async function confirmPlatformPost() {
+    const checkboxes = document.querySelectorAll('#picker-accounts-list input[type="checkbox"]:checked');
+    const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.accountId).filter(Boolean);
+    closePlatformPicker();
+    if (!_pickerItemId) return;
+    await postToAll(_pickerItemId, _pickerFromModal, selectedIds);
+}
+
+async function postToAll(id, fromModal, accountIds) {
+    // If no accountIds passed, open the picker first (unless from modal which already went through picker)
+    if (!accountIds) {
+        openPlatformPicker(id, fromModal);
+        return;
+    }
     const btn = document.getElementById(fromModal ? 'modal-post-btn' : 'post-btn-' + id);
     if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px;"></span>Posting…'; }
     try {
-        const resp = await fetch('/content/api/' + id + '/publish-all', { method: 'POST' });
+        const body = accountIds && accountIds.length ? { account_ids: accountIds } : {};
+        const resp = await fetch('/content/api/' + id + '/publish-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
         const data = await resp.json();
         if (resp.ok && data.status !== 'error') {
             const ok  = (data.platforms_published || []).join(', ') || 'none';
