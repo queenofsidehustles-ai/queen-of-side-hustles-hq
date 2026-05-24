@@ -173,6 +173,14 @@ Platform: {platform} | Max: {char_limit} characters
 FORMATTING: 2-4 intentional emojis | short mobile paragraphs | ONE CTA only
 HASHTAGS (Instagram/TikTok only): #KidsPartyProfitSystem #KidsPartyBusiness #SideHustleMom #MomBoss #PartyBusinessCoach
 
+SPOKEN WORD RULES (this script will be read aloud by a voice clone — it must sound natural):
+- Write SHORT sentences. One idea per sentence. Maximum 15 words per sentence.
+- End every sentence with proper punctuation: period, exclamation point, or question mark.
+- No run-on sentences. No comma splices. No sentences joined with "and" three times.
+- Use commas for natural mid-sentence pauses only.
+- No ellipses (...). No em dashes (—). No parentheses.
+- Write how someone TALKS, not how someone types.
+
 OUTPUT: Return ONLY the post text. Start directly with the hook. No labels. No preamble. Just the post."""
 
     # ── User prompt — differs by input_type ───────────────────────────────────
