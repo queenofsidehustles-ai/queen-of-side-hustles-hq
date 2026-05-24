@@ -203,6 +203,25 @@ def _make_text_png(text: str, vid_w: int, vid_h: int,
 # ---------------------------------------------------------------------------
 # Core overlay burn: FFmpeg drawtext filter (single input, no PNG files)
 # ---------------------------------------------------------------------------
+def _wrap_text_lines(text: str, vid_w: int, fontsize: int) -> list:
+    """Split text into lines that fit within vid_w at the given fontsize."""
+    chars_per_line = max(8, int(vid_w / max(1, fontsize * 0.55)))
+    words = text.split()
+    lines, current, current_len = [], [], 0
+    for word in words:
+        extra = len(word) + (1 if current else 0)
+        if current_len + extra <= chars_per_line:
+            current.append(word)
+            current_len += extra
+        else:
+            if current:
+                lines.append(" ".join(current))
+            current, current_len = [word], len(word)
+    if current:
+        lines.append(" ".join(current))
+    return lines or [text]
+
+
 def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
     """
     Burn text overlays onto video using FFmpeg drawtext in filter_complex.
@@ -237,27 +256,40 @@ def burn_overlays(input_path: str, output_path: str, overlays: list) -> tuple:
         text = _sanitize(ov.get("text", ""))
         if not text:
             continue
-        fontsize   = int(ov.get("fontsize", 50))
+        # Scale fontsize proportionally to video width (calibrated for 1080px source)
+        fontsize   = max(20, int(int(ov.get("fontsize", 50)) * vid_w / 1080))
         start      = float(ov.get("start", 0))
         end        = float(ov.get("end", 3))
-        y_frac     = _Y_TOP_FRAC if ov.get("position") == "top" else _Y_BOTTOM_FRAC
-        out        = f"[t{drawn}]"
-        nodes.append(
-            f"{prev}drawtext="
-            f"fontfile={font_path}"
-            f":text='{text}'"
-            f":fontsize={fontsize}"
-            f":fontcolor=white"
-            f":x=(w-text_w)/2"
-            f":y=h*{y_frac}"
-            f":enable='between(t,{start},{end})'"
-            f":borderw={_STROKE_WIDTH}"
-            f":bordercolor=0xEC4899"
-            f"{out}"
-        )
-        prev = out
-        drawn += 1
-        logger.info("drawtext: %s | t=%s-%s", text, start, end)
+        is_top     = ov.get("position") == "top"
+        line_gap   = fontsize + 8
+
+        lines = _wrap_text_lines(text, vid_w, fontsize)
+        n_lines = len(lines)
+
+        for line_idx, line_text in enumerate(lines):
+            # Top: anchor first line at y_top, stack down
+            # Bottom: anchor last line at y_bottom, stack up
+            if is_top:
+                y_expr = f"h*{_Y_TOP_FRAC}+{line_idx * line_gap}"
+            else:
+                y_expr = f"h*{_Y_BOTTOM_FRAC}-{(n_lines - 1 - line_idx) * line_gap}"
+            out = f"[t{drawn}]"
+            nodes.append(
+                f"{prev}drawtext="
+                f"fontfile={font_path}"
+                f":text='{line_text}'"
+                f":fontsize={fontsize}"
+                f":fontcolor=white"
+                f":x=(w-text_w)/2"
+                f":y={y_expr}"
+                f":enable='between(t,{start},{end})'"
+                f":borderw={_STROKE_WIDTH}"
+                f":bordercolor=0xEC4899"
+                f"{out}"
+            )
+            prev = out
+            drawn += 1
+        logger.info("drawtext: %s (%d lines) | t=%s-%s", text, n_lines, start, end)
 
     if drawn == 0:
         import shutil

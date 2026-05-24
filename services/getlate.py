@@ -121,7 +121,7 @@ def publish_post(content_item, platforms=None, emit_event=None):
             parsed_time = _parse_scheduled_time(content_item["scheduled_at"])
             if parsed_time:
                 payload["scheduledFor"] = parsed_time
-                payload["timezone"] = "America/Los_Angeles"
+                payload["timezone"] = "America/New_York"
         else:
             # Publish immediately
             payload["publishNow"] = True
@@ -250,7 +250,7 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
         if scheduled_for:
             # scheduledFor = camelCase, required by Zernio API
             payload["scheduledFor"] = scheduled_for
-            payload["timezone"] = "America/Los_Angeles"
+            payload["timezone"] = "America/New_York"
         else:
             # Publish immediately
             payload["publishNow"] = True
