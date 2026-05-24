@@ -64,6 +64,83 @@ def dashboard():
     content_ready = ContentItem.query.filter_by(status="ReadyToPost").count()
     content_published = ContentItem.query.filter_by(status="published").count()
 
+    # ── "Your Move" action items ────────────────────────────────────────────
+    your_move = []
+
+    # Hot new leads (created in last 3 days, still in active-lead stages)
+    three_days_ago = datetime.utcnow() - timedelta(days=3)
+    hot_lead_count = Contact.query.filter(
+        Contact.status.in_(["Lead", "Warming Up", "Checklist Downloaded"]),
+        Contact.created_at >= three_days_ago,
+    ).count()
+    if hot_lead_count > 0:
+        your_move.append({
+            "emoji": "🔥",
+            "title": f"{hot_lead_count} hot lead{'s' if hot_lead_count != 1 else ''} this week",
+            "body": "These people showed interest recently — the window to convert is NOW.",
+            "cta": "DM them now",
+            "url": "/admin/contacts",
+            "accent": "#ef4444",
+            "bg": "rgba(239,68,68,0.07)",
+        })
+
+    # Overdue follow-ups (follow_up_date is in the past)
+    overdue_count = Contact.query.filter(
+        Contact.follow_up_date.isnot(None),
+        Contact.follow_up_date < today,
+    ).count()
+    if overdue_count > 0:
+        your_move.append({
+            "emoji": "⏰",
+            "title": f"{overdue_count} follow-up{'s' if overdue_count != 1 else ''} overdue",
+            "body": "You set a reminder for these contacts — don't let them go cold.",
+            "cta": "Follow up",
+            "url": "/admin/contacts",
+            "accent": "#f59e0b",
+            "bg": "rgba(245,158,11,0.07)",
+        })
+
+    # Ready content with no schedule date
+    ready_unscheduled = ContentItem.query.filter(
+        ContentItem.status.in_(["ready", "ReadyToPost", "complete"]),
+        ContentItem.scheduled_at.is_(None),
+    ).count()
+    if ready_unscheduled > 0:
+        your_move.append({
+            "emoji": "📱",
+            "title": f"{ready_unscheduled} post{'s' if ready_unscheduled != 1 else ''} ready to schedule",
+            "body": "Content is done and waiting. Schedule it so it goes out automatically.",
+            "cta": "Schedule now",
+            "url": "/content/?tab=queue",
+            "accent": "#c7a35a",
+            "bg": "rgba(199,163,90,0.07)",
+        })
+
+    # Days without a published post
+    last_pub = ContentItem.query.filter(
+        ContentItem.status == "published",
+        ContentItem.published_at.isnot(None),
+    ).order_by(ContentItem.published_at.desc()).first()
+    days_no_post = None
+    if last_pub and last_pub.published_at:
+        days_no_post = (datetime.utcnow() - last_pub.published_at).days
+    if days_no_post is None or days_no_post >= 3:
+        if days_no_post and days_no_post < 999:
+            post_title = f"{days_no_post} days without a post"
+            post_body = "The algorithm rewards consistency — pick a clip and post today."
+        else:
+            post_title = "You haven't posted yet"
+            post_body = "Pick a clip from your library and create your first post."
+        your_move.append({
+            "emoji": "🎬",
+            "title": post_title,
+            "body": post_body,
+            "cta": "Create a post",
+            "url": "/content/",
+            "accent": "#8b5cf6",
+            "bg": "rgba(139,92,246,0.07)",
+        })
+
     from datetime import datetime
     import json
 
@@ -141,6 +218,7 @@ def dashboard():
         platform_breakdown_json=platform_breakdown_json,
         revenue_weeks_json=revenue_weeks_json,
         won_deals_json=won_deals_json,
+        your_move=your_move,
     )
 
 
