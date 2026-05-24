@@ -251,9 +251,19 @@
                             </button>
                         </div>
                         <div x-show="showScheduleReview" style="margin-bottom:10px;padding:14px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border-subtle);">
-                            <div style="font-size:0.75rem;color:var(--text-subtle);margin-bottom:8px;">Pick date &amp; time (Eastern Time):</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">When? (Eastern Time)</div>
+                            <!-- Quick picks -->
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+                                <button @click="setReviewTime(0,18)" class="sched-quick">Today 6pm</button>
+                                <button @click="setReviewTime(0,20)" class="sched-quick">Today 8pm</button>
+                                <button @click="setReviewTime(1,9)"  class="sched-quick">Tomorrow 9am</button>
+                                <button @click="setReviewTime(1,12)" class="sched-quick">Tomorrow Noon</button>
+                                <button @click="setReviewTime(1,18)" class="sched-quick">Tomorrow 6pm</button>
+                                <button @click="setReviewTime(2,9)"  class="sched-quick">In 2 Days 9am</button>
+                            </div>
+                            <div style="font-size:0.72rem;color:var(--text-subtle);margin-bottom:6px;">Or pick a custom time:</div>
                             <input type="datetime-local" x-ref="reviewDt"
-                                   style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                                   style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;color-scheme:dark;">
                             <button @click="scheduleReview()" style="width:100%;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">⏰ Confirm Schedule</button>
                         </div>
 
@@ -510,11 +520,19 @@
                     {% if not is_published and not is_processing %}
                     <div id="scheduler-{{ item.id }}" style="display:none;margin-top:8px;padding:10px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-subtle);">
                         {% if item.scheduled_at %}
-                        <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:6px;font-weight:600;">⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET</div>
+                        <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:8px;font-weight:600;">⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET</div>
                         {% endif %}
-                        <div style="font-size:0.7rem;color:var(--text-subtle);margin-bottom:6px;">Pick date &amp; time (Eastern):</div>
+                        <div style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;">When? (Eastern)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;">
+                            <button onclick="quickScheduleQueue({{ item.id }},0,18)" class="sched-quick sched-quick-sm">Today 6pm</button>
+                            <button onclick="quickScheduleQueue({{ item.id }},0,20)" class="sched-quick sched-quick-sm">Today 8pm</button>
+                            <button onclick="quickScheduleQueue({{ item.id }},1,9)"  class="sched-quick sched-quick-sm">Tomorrow 9am</button>
+                            <button onclick="quickScheduleQueue({{ item.id }},1,12)" class="sched-quick sched-quick-sm">Tomorrow Noon</button>
+                            <button onclick="quickScheduleQueue({{ item.id }},1,18)" class="sched-quick sched-quick-sm">Tomorrow 6pm</button>
+                            <button onclick="quickScheduleQueue({{ item.id }},2,9)"  class="sched-quick sched-quick-sm">In 2 Days 9am</button>
+                        </div>
                         <input type="datetime-local" id="sched-dt-{{ item.id }}"
-                               style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;"
+                               style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;color-scheme:dark;"
                                {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
                         <button onclick="schedulePost({{ item.id }})"
                                 style="width:100%;padding:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
@@ -593,6 +611,13 @@
 }
 @keyframes spin  { to { transform:rotate(360deg); } }
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+.sched-quick {
+    padding:7px 6px;background:var(--bg-primary);border:1px solid var(--border);
+    border-radius:7px;cursor:pointer;font-size:0.78rem;font-weight:600;
+    color:var(--text-primary);transition:all 0.15s;text-align:center;
+}
+.sched-quick:hover { background:rgba(139,92,246,0.12);border-color:#8b5cf6;color:#a78bfa; }
+.sched-quick-sm { font-size:0.72rem;padding:5px 4px; }
 </style>
 {% endblock %}
 
@@ -701,6 +726,15 @@ function contentHub() {
             this.asisPosting = false;
             this.asisPosted = false;
             this.showScheduleAsis = false;
+        },
+
+        setReviewTime(offsetDays, hour) {
+            const d = new Date();
+            d.setDate(d.getDate() + offsetDays);
+            d.setHours(hour, 0, 0, 0);
+            const pad = n => String(n).padStart(2, '0');
+            const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(hour)}:00`;
+            if (this.$refs.reviewDt) this.$refs.reviewDt.value = val;
         },
 
         toggleVoice() {
@@ -1008,6 +1042,16 @@ function toggleScheduler(id) {
     const el = document.getElementById('scheduler-' + id);
     if (!el) return;
     el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function quickScheduleQueue(id, offsetDays, hour) {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    d.setHours(hour, 0, 0, 0);
+    const pad = n => String(n).padStart(2, '0');
+    const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(hour)}:00`;
+    const input = document.getElementById('sched-dt-' + id);
+    if (input) { input.value = val; input.style.borderColor = '#8b5cf6'; }
 }
 
 async function schedulePost(id) {
