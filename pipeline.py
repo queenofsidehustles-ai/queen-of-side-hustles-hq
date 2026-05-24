@@ -1021,9 +1021,22 @@ def stage_voiceover(content_id, item, emit_event):
         emit_event(stage, "skipped", "No script — skipping voiceover.")
         return 0.0
 
-    # Strip hashtags before TTS — they sound terrible when read aloud (#partybizhub → silence)
+    # Strip production notes before TTS — AI sometimes adds stage directions that sound awful when read aloud
     import re
-    script_text = re.sub(r'#\w+', '', raw_script)
+    script_text = raw_script
+    # Remove [bracketed stage directions] like [Hook:], [Transition], [CTA], [Note: ...]
+    script_text = re.sub(r'\[.*?\]', '', script_text, flags=re.DOTALL)
+    # Remove (parenthetical notes) — producer notes like (pause here), (cut to demo)
+    script_text = re.sub(r'\(.*?\)', '', script_text, flags=re.DOTALL)
+    # Remove lines that are just labels: "Hook:", "CTA:", "Transition:", "Note:", "VO:", "Scene:"
+    script_text = re.sub(r'(?im)^\s*(hook|cta|transition|note|vo|scene|caption|text on screen|on screen|visual|b-?roll)\s*:.*$', '', script_text)
+    # Strip hashtags — they sound terrible when read aloud (#partybizhub → silence or robotic spelling)
+    script_text = re.sub(r'#\w+', '', script_text)
+    # Strip URLs
+    script_text = re.sub(r'https?://\S+', '', script_text)
+    # Strip emoji characters that ElevenLabs may pronounce oddly
+    script_text = re.sub(r'[^\x00-\x7FÀ-ɏḀ-ỿ]', '', script_text)
+    # Clean up whitespace
     script_text = re.sub(r'[ \t]+', ' ', script_text)
     script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
 
