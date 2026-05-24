@@ -105,6 +105,27 @@
                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;resize:vertical;min-height:80px;box-sizing:border-box;font-family:inherit;transition:border-color 0.2s;"></textarea>
         </div>
 
+        <!-- Skip AI voiceover toggle — shown only when a clip is selected -->
+        <template x-if="clipId">
+        <div style="margin-bottom:12px;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;width:100%;">
+                <div style="position:relative;flex-shrink:0;">
+                    <input type="checkbox" x-model="skipVoice" style="width:0;height:0;opacity:0;position:absolute;">
+                    <div :style="skipVoice ? 'background:#8b5cf6;border-color:#8b5cf6;' : 'background:var(--bg-primary);border-color:var(--border);'"
+                         style="width:36px;height:20px;border-radius:10px;border:2px solid;transition:all 0.2s;cursor:pointer;"
+                         @click="skipVoice=!skipVoice">
+                        <div :style="skipVoice ? 'transform:translateX(16px);' : 'transform:translateX(0px);'"
+                             style="width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">I already recorded my voice</div>
+                    <div style="font-size:0.7rem;color:var(--text-subtle);">Skip AI voiceover — post my clip with its original audio</div>
+                </div>
+            </label>
+        </div>
+        </template>
+
         <!-- Generate button -->
         <button @click="generate()" :disabled="generating"
                 style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),#e8a844);color:#2d1f3d;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;transition:opacity 0.15s;"
@@ -245,6 +266,7 @@ function kppsGenerator() {
         hook:        '',
         clipId:      null,
         selectedClip: null,
+        skipVoice:   false,
         clips:       [],
         listening:   false,
         _recognition: null,
@@ -339,10 +361,11 @@ function kppsGenerator() {
                 const hookText = this.hook.trim();
                 const inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
                 const draftBody = {
-                    input_text:  inputText,
-                    input_type:  'idea',
-                    platform:    this.platform,
-                    clip_id:     this.clipId,
+                    input_text:     inputText,
+                    input_type:     'idea',
+                    platform:       this.platform,
+                    clip_id:        this.clipId,
+                    skip_voiceover: this.skipVoice,
                 };
                 const draftRes = await fetch('/content/api/create-draft', {
                     method: 'POST',

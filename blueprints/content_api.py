@@ -93,12 +93,15 @@ def create():
 def create_draft():
     """Create a content item without running the pipeline. Returns JSON with item id."""
     data = request.get_json() or {}
+    # as_ready=True used by "Post As-Is" flow — skip pipeline, mark ready immediately
+    status = "ready" if data.get("as_ready") else "draft"
     item = ContentItem(
         input_text=data.get("input_text", ""),
         input_type=data.get("input_type", "idea"),
         platform=data.get("platform", "tiktok"),
         include_video=data.get("include_video", False),
-        status="draft",
+        skip_voiceover=bool(data.get("skip_voiceover", False)),
+        status=status,
     )
     db.session.add(item)
     db.session.commit()

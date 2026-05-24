@@ -1000,6 +1000,10 @@ def stage_voiceover(content_id, item, emit_event):
     stage = "voiceover"
     start = time.time()
 
+    if getattr(item, 'skip_voiceover', False):
+        emit_event(stage, "skipped", "Skipping AI voiceover — your recorded voice will be used as-is.")
+        return 0.0
+
     if not is_configured():
         emit_event(stage, "skipped", "ElevenLabs not configured — add ELEVENLABS_API_KEY to Railway to enable voiceover.")
         return 0.0

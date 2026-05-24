@@ -446,6 +446,7 @@ class ContentItem(db.Model):
     stage_costs     = db.Column(db.Text)          # JSON string
     r2_image_url    = db.Column(db.Text)
     r2_video_url    = db.Column(db.Text)
+    skip_voiceover  = db.Column(db.Boolean, default=False)
     scheduled_at    = db.Column(db.DateTime)
     published_at    = db.Column(db.DateTime)
     created_at      = db.Column(db.DateTime, default=datetime.utcnow)
@@ -478,6 +479,7 @@ class ContentItem(db.Model):
             "stage_costs":     self.stage_costs,
             "r2_image_url":    self.r2_image_url,
             "r2_video_url":    self.r2_video_url,
+            "skip_voiceover":  self.skip_voiceover,
             "scheduled_at":    self.scheduled_at.isoformat() if self.scheduled_at else None,
             "published_at":    self.published_at.isoformat() if self.published_at else None,
             "created_at":      self.created_at.isoformat() if self.created_at else None,

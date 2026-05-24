@@ -1,273 +1,568 @@
 {% extends "base_admin.html" %}
-
-{% block page_title %}Content Queue{% endblock %}
-{% block page_subtitle %}<p class="page-subtitle">Review, preview, and post your AI-generated clips to all platforms.</p>{% endblock %}
+{% block page_title %}Content{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Pick a clip. AI makes the post. You approve. Done.</p>{% endblock %}
 
 {% block page_actions %}
-<a href="/admin/library" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);margin-right:8px;">
+<a href="/admin/library" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:5px;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-    Video Library
-</a>
-<a href="/content/create" class="btn btn-primary">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Create Content
+    My Library
 </a>
 {% endblock %}
 
 {% block content %}
-<div x-data="contentQueue()">
+<div x-data="contentHub()">
 
-    <!-- Stats Row -->
-    <div class="grid-4" style="margin-bottom:24px;">
-        <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(99,102,241,0.1);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-            </div>
-            <div>
-                <div class="stat-value">{{ items|length }}</div>
-                <div class="stat-label">Total Items</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(245,158,11,0.1);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            </div>
-            <div>
-                <div class="stat-value">{{ items|selectattr('status','in',['processing','scraping','scripting','imaging','videoing','uploading'])|list|length }}</div>
-                <div class="stat-label">In Progress</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon" style="background:var(--gold-tint);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            </div>
-            <div>
-                <div class="stat-value">{{ items|selectattr('status','in',['ready','ReadyToPost','review','complete'])|list|length }}</div>
-                <div class="stat-label">Ready to Post</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(34,197,94,0.1);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </div>
-            <div>
-                <div class="stat-value">{{ items|selectattr('status','equalto','published')|list|length }}</div>
-                <div class="stat-label">Published</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filter + Clear row -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="btn btn-sm" :class="filter==='all' ? 'btn-secondary' : 'btn-outline'" @click="filter='all'">
-                All <span style="opacity:0.7;margin-left:4px;">{{ items|length }}</span>
-            </button>
-            <button class="btn btn-sm" :class="filter==='ready' ? 'btn-secondary' : 'btn-outline'" @click="filter='ready'">
-                Ready
-                {% set ready_count = items|selectattr('status','in',['ready','ReadyToPost','review','complete'])|list|length %}
-                {% if ready_count > 0 %}
-                <span style="display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#2d1f3d;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ ready_count }}</span>
-                {% endif %}
-            </button>
-            <button class="btn btn-sm" :class="filter==='processing' ? 'btn-secondary' : 'btn-outline'" @click="filter='processing'">Processing</button>
-            <button class="btn btn-sm" :class="filter==='published' ? 'btn-secondary' : 'btn-outline'" @click="filter='published'">Published</button>
-        </div>
-        <button onclick="clearAllAiClips()"
-                style="font-size:0.75rem;padding:5px 12px;background:none;border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:8px;cursor:pointer;white-space:nowrap;">
-            🗑 Clear Batch AI Clips
+    <!-- ── TAB BAR ─────────────────────────────────────────── -->
+    <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:28px;">
+        <button @click="tab='create'"
+                :style="tab==='create' ? 'border-bottom:3px solid var(--gold);color:var(--text-primary);' : 'color:var(--text-subtle);'"
+                style="padding:10px 24px;background:none;border:none;border-bottom:3px solid transparent;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s;margin-bottom:-2px;">
+            + Create Post
+        </button>
+        <button @click="tab='queue'"
+                :style="tab==='queue' ? 'border-bottom:3px solid var(--gold);color:var(--text-primary);' : 'color:var(--text-subtle);'"
+                style="padding:10px 24px;background:none;border:none;border-bottom:3px solid transparent;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s;margin-bottom:-2px;display:flex;align-items:center;gap:6px;">
+            My Queue
+            {% set q_count = items|selectattr('status','in',['ready','ReadyToPost','review','complete','draft','scheduled'])|list|length %}
+            {% if q_count > 0 %}
+            <span style="display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#2d1f3d;font-size:0.65rem;font-weight:700;width:18px;height:18px;border-radius:50%;">{{ q_count }}</span>
+            {% endif %}
         </button>
     </div>
 
-    <!-- Content Grid -->
-    {% if items|length > 0 %}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
-        {% for item in items %}
-        {% set is_processing = item.status in ['processing','scraping','scripting','imaging','videoing','uploading'] %}
-        {% set is_published  = item.status == 'published' %}
-        {% set is_ready      = item.status in ['ready','ReadyToPost','review','complete','draft','scheduled'] and not is_processing %}
-        <div class="card"
-             id="content-card-{{ item.id }}"
-             style="overflow:hidden;transition:border-color 0.2s;display:flex;flex-direction:column;"
-             x-show="filterMatch('{{ item.status }}')"
-             x-transition>
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!--  CREATE TAB                                            -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div x-show="tab==='create'">
 
-            <!-- Thumbnail -->
-            <div style="background:var(--bg-secondary);overflow:hidden;border-bottom:1px solid var(--border-light);position:relative;cursor:pointer;"
-                 @click="openPreview({{ item.id }})">
-                {% set vid = item.r2_video_url or item.video_url %}
-                {% if vid %}
-                <video src="{{ vid }}" preload="metadata" muted playsinline
-                       style="width:100%;aspect-ratio:9/16;max-height:220px;object-fit:cover;display:block;"></video>
-                {% if is_published %}
-                <div style="position:absolute;top:8px;left:8px;background:rgba(34,197,94,0.85);color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:5px;">✓ Posted</div>
-                {% else %}
-                <div style="position:absolute;top:8px;left:8px;background:rgba(199,163,90,0.9);color:#2d1f3d;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:5px;">Clip</div>
-                {% endif %}
-                {% elif item.image_url %}
-                <img src="{{ item.image_url }}" alt="" loading="lazy" style="width:100%;height:160px;object-fit:cover;display:block;">
-                {% else %}
-                <div style="height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
-                    {% if is_processing %}
-                    <span class="spinner spinner-sm"></span>
-                    <span style="font-size:0.75rem;color:var(--text-subtle);">{{ item.status|capitalize }}…</span>
-                    {% else %}
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="opacity:0.3;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                    {% endif %}
-                </div>
-                {% endif %}
-                <!-- Hover play hint -->
-                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;background:rgba(0,0,0,0.3);"
-                     onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
-                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#2d1f3d"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    </div>
-                </div>
+        <!-- ── STEP 1: PICK A CLIP ─────────────────────────── -->
+        <div x-show="step==='pick'">
+            <div style="text-align:center;margin-bottom:28px;">
+                <div style="font-size:1.25rem;font-weight:800;color:var(--text-primary);margin-bottom:6px;">Step 1 — Pick a clip from your library</div>
+                <div style="color:var(--text-subtle);font-size:0.875rem;">Tap any clip to select it, then choose what to do next.</div>
             </div>
 
-            <!-- Script preview -->
-            {% if item.script %}
-            <div style="padding:10px 14px 0;font-size:0.75rem;color:var(--text-subtle);line-height:1.5;font-style:italic;flex:1;">
-                "{{ item.script[:100] }}{% if item.script|length > 100 %}…{% endif %}"
+            <!-- Loading -->
+            <div x-show="!clipsLoaded" style="text-align:center;padding:48px;color:var(--text-subtle);">
+                <span class="spinner spinner-sm" style="margin-bottom:10px;"></span><br>Loading your clips…
             </div>
-            {% endif %}
 
-            <!-- Body -->
-            <div style="padding:12px 14px;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                    <span class="badge" style="font-size:0.68rem;">{{ (item.platform or 'tiktok')|capitalize }}</span>
-                    {% if is_published %}
-                    <span class="badge" style="background:rgba(34,197,94,0.15);color:var(--success);font-size:0.68rem;">Published</span>
-                    {% elif is_processing %}
-                    <span class="badge" style="background:rgba(245,158,11,0.15);color:var(--warning);font-size:0.68rem;">Processing</span>
-                    {% elif item.status == 'scheduled' %}
-                    <span class="badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:0.68rem;">⏰ Scheduled{% if item.scheduled_at %} · {{ item.scheduled_at.strftime('%-m/%-d %-I:%M%p') }}{% endif %}</span>
-                    {% elif item.status == 'error' %}
-                    <span class="badge" style="background:rgba(239,68,68,0.15);color:var(--danger);font-size:0.68rem;">Error</span>
-                    {% elif is_ready %}
-                    <span class="badge" style="background:var(--gold-tint);color:var(--gold);font-size:0.68rem;">Ready</span>
-                    {% endif %}
-                    <span style="color:var(--text-subtle);font-size:0.7rem;">{{ item.created_at.strftime('%b %d') if item.created_at else '' }}</span>
-                </div>
+            <!-- Empty -->
+            <div x-show="clipsLoaded && clips.length===0" class="card" style="text-align:center;padding:48px;max-width:480px;margin:0 auto;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" style="opacity:0.4;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                <div style="font-size:1rem;font-weight:700;margin-bottom:8px;color:var(--text-primary);">No clips yet</div>
+                <div style="font-size:0.85rem;color:var(--text-subtle);margin-bottom:20px;">Upload your videos to the library first, then come back here to create posts.</div>
+                <a href="/admin/library" class="btn btn-primary">Go Upload Clips →</a>
+            </div>
 
-                <!-- Action buttons -->
-                <div style="display:flex;gap:6px;align-items:center;">
-                    {% if is_published %}
-                    <button id="post-btn-{{ item.id }}"
-                            onclick="postToAll({{ item.id }})"
-                            style="flex:1;padding:7px 10px;background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.3);border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all 0.15s;"
-                            onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.12)'">
-                        ↺ Repost
-                    </button>
-                    {% elif is_processing %}
-                    <span style="flex:1;text-align:center;font-size:0.75rem;color:var(--text-subtle);">Processing…</span>
-                    {% else %}
-                    <button id="post-btn-{{ item.id }}"
-                            onclick="postToAll({{ item.id }})"
-                            style="flex:1;padding:7px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:opacity 0.15s;">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        Post Now
-                    </button>
-                    <!-- Schedule button (clock icon) -->
-                    <button onclick="toggleScheduler({{ item.id }})"
-                            id="sched-toggle-{{ item.id }}"
-                            title="Schedule for later"
-                            style="padding:7px 9px;background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);display:flex;align-items:center;transition:all 0.15s;"
-                            onmouseover="this.style.color='#8b5cf6';this.style.borderColor='#8b5cf6'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    </button>
-                    {% endif %}
-                </div>
-
-                <!-- Inline scheduler — hidden by default -->
-                {% if not is_published and not is_processing %}
-                <div id="scheduler-{{ item.id }}" style="display:none;margin-top:8px;padding:10px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-subtle);">
-                    {% if item.scheduled_at %}
-                    <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:6px;font-weight:600;">
-                        ⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET
+            <!-- Clip grid -->
+            <div x-show="clipsLoaded && clips.length>0" class="content-grid">
+                <template x-for="clip in clips" :key="clip.id">
+                    <div class="card content-card"
+                         @click="pickClip(clip)"
+                         style="cursor:pointer;transition:border-color 0.2s,transform 0.15s;padding:0;"
+                         onmouseover="this.style.borderColor='var(--gold)';this.style.transform='translateY(-2px)'"
+                         onmouseout="this.style.borderColor='';this.style.transform=''">
+                        <div style="position:relative;background:#000;overflow:hidden;">
+                            <video :src="clip.r2_url" preload="metadata" muted playsinline
+                                   style="width:100%;aspect-ratio:9/16;max-height:220px;object-fit:cover;display:block;"></video>
+                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0);transition:background 0.2s;"
+                                 onmouseover="this.style.background='rgba(0,0,0,0.3)'" onmouseout="this.style.background='rgba(0,0,0,0)'">
+                                <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#2d1f3d"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between;">
+                            <span class="badge" style="font-size:0.68rem;" x-text="clip.tag_label || clip.tag"></span>
+                            <span style="font-size:0.7rem;color:var(--text-subtle);" x-text="clip.duration ? Math.round(clip.duration) + 's' : ''"></span>
+                        </div>
                     </div>
-                    {% endif %}
-                    <div style="font-size:0.7rem;color:var(--text-subtle);margin-bottom:6px;">Pick date &amp; time (Eastern):</div>
-                    <input type="datetime-local" id="sched-dt-{{ item.id }}"
-                           style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;"
-                           {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
-                    <button onclick="schedulePost({{ item.id }})"
-                            style="width:100%;padding:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
-                        ⏰ Confirm Schedule
-                    </button>
-                </div>
-                {% endif %}
+                </template>
+            </div>
+        </div>
 
-                    <button onclick="openPreview({{ item.id }})"
-                            style="background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);padding:7px 10px;display:flex;align-items:center;font-size:0.72rem;gap:3px;transition:all 0.15s;"
-                            title="Preview"
-                            onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--border)'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <!-- ── STEP 2: CHOOSE PATH ──────────────────────────── -->
+        <div x-show="step==='path'">
+            <button @click="step='pick'; selectedClip=null"
+                    style="background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:0.85rem;margin-bottom:24px;display:flex;align-items:center;gap:6px;padding:0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                Pick a different clip
+            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:880px;margin:0 auto;align-items:start;">
+                <!-- Preview -->
+                <div style="border-radius:14px;overflow:hidden;background:#000;">
+                    <video :src="selectedClip ? selectedClip.r2_url : ''" controls playsinline muted
+                           style="width:100%;max-height:400px;object-fit:contain;display:block;"></video>
+                </div>
+                <!-- Choice -->
+                <div>
+                    <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);margin-bottom:6px;">Step 2 — What do you want to do?</div>
+                    <div style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:24px;">Pick a path. We'll handle the rest.</div>
+
+                    <button @click="choosePath('ai')"
+                            style="width:100%;text-align:left;padding:22px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:14px;cursor:pointer;margin-bottom:14px;transition:all 0.15s;"
+                            onmouseover="this.style.borderColor='var(--gold)';this.style.background='rgba(199,163,90,0.08)'"
+                            onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg-secondary)'">
+                        <div style="font-size:1.8rem;margin-bottom:10px;">🤖</div>
+                        <div style="font-weight:800;font-size:1rem;color:var(--text-primary);margin-bottom:6px;">AI Makes It</div>
+                        <div style="font-size:0.82rem;color:var(--text-subtle);line-height:1.5;">AI writes a script, reads it in your voice, and adds captions. You review before it goes out.</div>
                     </button>
-                    <button onclick="deleteContentItem({{ item.id }})"
-                            style="background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);padding:7px 8px;display:flex;font-size:0.72rem;align-items:center;transition:all 0.15s;"
-                            onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.4)'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+
+                    <button @click="choosePath('asis')"
+                            style="width:100%;text-align:left;padding:22px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:14px;cursor:pointer;transition:all 0.15s;"
+                            onmouseover="this.style.borderColor='#8b5cf6';this.style.background='rgba(139,92,246,0.08)'"
+                            onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg-secondary)'">
+                        <div style="font-size:1.8rem;margin-bottom:10px;">📤</div>
+                        <div style="font-weight:800;font-size:1rem;color:var(--text-primary);margin-bottom:6px;">Post As-Is</div>
+                        <div style="font-size:0.82rem;color:var(--text-subtle);line-height:1.5;">You already recorded your voice. Post your clip exactly as-is — no AI audio added.</div>
                     </button>
                 </div>
             </div>
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="card">
-        <div class="empty-state">
-            <div class="empty-state-icon">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="opacity:0.4;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            </div>
-            <h3 class="empty-state-heading">No content yet</h3>
-            <p class="empty-state-description">
-                Pick a clip from your library or create a post from scratch.
-            </p>
-            <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;">
-                <a href="/admin/library" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);">Browse Library</a>
-                <a href="/content/create" class="btn btn-primary">Create Content</a>
+
+        <!-- ── STEP 3A: AI GENERATE (settings) ─────────────── -->
+        <div x-show="step==='generate' && !generating">
+            <button @click="step='path'"
+                    style="background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:0.85rem;margin-bottom:24px;display:flex;align-items:center;gap:6px;padding:0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:880px;margin:0 auto;align-items:start;">
+                <!-- Clip preview -->
+                <div style="border-radius:14px;overflow:hidden;background:#000;">
+                    <video :src="selectedClip ? selectedClip.r2_url : ''" muted playsinline controls
+                           style="width:100%;max-height:400px;object-fit:contain;display:block;"></video>
+                </div>
+                <!-- Settings -->
+                <div>
+                    <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);margin-bottom:22px;">Step 3 — Set it up, then generate</div>
+
+                    <!-- Post type -->
+                    <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px;">Post Type</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:18px;">
+                        <template x-for="t in types" :key="t.id">
+                            <button @click="contentType=t.id"
+                                    :style="contentType===t.id ? 'background:var(--gold);color:#2d1f3d;border-color:transparent;' : 'background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);'"
+                                    style="padding:8px 10px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;text-align:left;transition:all 0.15s;">
+                                <span x-text="t.emoji + ' ' + t.label"></span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Platform -->
+                    <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px;">Platform</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;">
+                        <template x-for="p in platforms" :key="p.id">
+                            <button @click="platform=p.id"
+                                    :style="platform===p.id ? 'background:var(--gold);color:#2d1f3d;border-color:transparent;' : 'background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);'"
+                                    style="padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;" x-text="p.label">
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Hook / angle -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);">Your Angle <span style="text-transform:none;font-weight:400;">(optional)</span></div>
+                        <button @click="toggleVoice()"
+                                :style="listening ? 'background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.5);color:#ef4444;' : 'background:none;border-color:var(--border);color:var(--text-muted);'"
+                                style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid;border-radius:8px;cursor:pointer;font-size:0.73rem;font-weight:600;transition:all 0.15s;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm-1 1.93V18H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/></svg>
+                            <span x-text="listening ? 'Listening…' : 'Speak'"></span>
+                            <span x-show="listening" style="width:6px;height:6px;background:#ef4444;border-radius:50%;animation:pulse 1s infinite;display:inline-block;"></span>
+                        </button>
+                    </div>
+                    <textarea x-model="hook"
+                              placeholder="E.g. 'Parents always ask me how to keep kids busy during cocktail hour…' — AI builds off YOUR words."
+                              :style="listening ? 'border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,0.15);' : ''"
+                              style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;resize:vertical;min-height:80px;box-sizing:border-box;font-family:inherit;transition:border-color 0.2s;"></textarea>
+
+                    <button @click="generate()"
+                            style="width:100%;margin-top:14px;padding:14px;background:linear-gradient(135deg,var(--gold),#e8a844);color:#2d1f3d;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;transition:opacity 0.15s;">
+                        ⚡ Generate
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-    {% endif %}
 
-</div>
+        <!-- ── PIPELINE RUNNING ─────────────────────────────── -->
+        <div x-show="generating" class="card" style="max-width:680px;margin:0 auto;min-height:220px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">AI is making your post…</div>
+            <div x-ref="logFeed" style="max-height:360px;overflow-y:auto;">
+                <template x-for="(entry,i) in log" :key="i">
+                    <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:8px;">
+                        <span :style="entry.status==='complete'?'color:#22c55e;':entry.status==='error'?'color:#ef4444;':'color:var(--gold);'"
+                              style="font-size:0.7rem;font-weight:700;text-transform:uppercase;min-width:70px;flex-shrink:0;" x-text="entry.stage||'info'"></span>
+                        <span style="font-size:0.78rem;color:var(--text-primary);line-height:1.5;" x-text="entry.message"></span>
+                    </div>
+                </template>
+            </div>
+            <div style="margin-top:14px;display:flex;align-items:center;gap:8px;">
+                <span style="width:12px;height:12px;border:2px solid rgba(199,163,90,0.3);border-top-color:var(--gold);border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
+                <span style="font-size:0.8rem;color:var(--text-subtle);" x-text="statusMsg"></span>
+            </div>
+        </div>
+
+        <!-- ── STEP 4A: REVIEW AI RESULT ─────────────────────── -->
+        <div x-show="step==='review' && !generating">
+            <div style="text-align:center;margin-bottom:28px;">
+                <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);margin-bottom:6px;">Step 4 — Review your post</div>
+                <div style="color:var(--text-subtle);font-size:0.875rem;">Watch the video, read the caption. Approve it when you're happy.</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:880px;margin:0 auto;align-items:start;">
+                <!-- Video -->
+                <div style="border-radius:14px;overflow:hidden;background:#000;">
+                    <video :src="result.r2_video_url || result.video_url || (selectedClip ? selectedClip.r2_url : '')"
+                           controls playsinline style="width:100%;max-height:420px;object-fit:contain;display:block;"></video>
+                </div>
+                <!-- Caption + actions -->
+                <div>
+                    <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;">Caption</div>
+                    <div style="background:var(--bg-secondary);border-radius:10px;padding:14px;font-size:0.85rem;color:var(--text-primary);line-height:1.6;max-height:180px;overflow-y:auto;margin-bottom:20px;white-space:pre-wrap;" x-text="result.script || '(generating…)'"></div>
+
+                    <!-- Success banner -->
+                    <div x-show="posted" style="margin-bottom:16px;padding:14px;background:rgba(34,197,94,0.1);border-radius:10px;border:1px solid rgba(34,197,94,0.3);text-align:center;">
+                        <div style="font-size:1.5rem;margin-bottom:4px;">🎉</div>
+                        <div style="font-weight:700;color:#22c55e;font-size:0.9rem;margin-bottom:10px;" x-text="postResult"></div>
+                        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                            <button @click="resetCreate()" style="padding:8px 16px;background:linear-gradient(135deg,var(--gold),#e8a844);color:#2d1f3d;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.8rem;">Create Another</button>
+                            <button @click="tab='queue'" style="padding:8px 16px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:600;cursor:pointer;font-size:0.8rem;">View Queue</button>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div x-show="!posted">
+                        <button @click="postNow()" :disabled="posting"
+                                style="width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s;"
+                                :style="posting ? 'opacity:0.7;cursor:not-allowed;' : ''">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            <span x-show="!posting">🚀 Post Now to All Platforms</span>
+                            <span x-show="posting">Posting…</span>
+                        </button>
+
+                        <div x-show="!showScheduleReview" style="margin-bottom:10px;">
+                            <button @click="showScheduleReview=true"
+                                    style="width:100%;padding:12px;background:none;border:2px solid #8b5cf6;border-radius:12px;color:#8b5cf6;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s;"
+                                    onmouseover="this.style.background='rgba(139,92,246,0.08)'" onmouseout="this.style.background='none'">
+                                📅 Schedule for Later
+                            </button>
+                        </div>
+                        <div x-show="showScheduleReview" style="margin-bottom:10px;padding:14px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border-subtle);">
+                            <div style="font-size:0.75rem;color:var(--text-subtle);margin-bottom:8px;">Pick date &amp; time (Eastern Time):</div>
+                            <input type="datetime-local" x-ref="reviewDt"
+                                   style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                            <button @click="scheduleReview()" style="width:100%;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">⏰ Confirm Schedule</button>
+                        </div>
+
+                        <button @click="deleteReview()"
+                                style="width:100%;padding:11px;background:none;border:1px solid rgba(239,68,68,0.35);border-radius:12px;color:#ef4444;font-weight:600;font-size:0.85rem;cursor:pointer;transition:all 0.15s;"
+                                onmouseover="this.style.background='rgba(239,68,68,0.06)'" onmouseout="this.style.background='none'">
+                            🗑 Delete — Start Over
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── STEP 3B/4B: POST AS-IS ──────────────────────── -->
+        <div x-show="step==='asis'">
+            <button @click="step='path'"
+                    style="background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:0.85rem;margin-bottom:24px;display:flex;align-items:center;gap:6px;padding:0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:880px;margin:0 auto;align-items:start;">
+                <div style="border-radius:14px;overflow:hidden;background:#000;">
+                    <video :src="selectedClip ? selectedClip.r2_url : ''" controls playsinline
+                           style="width:100%;max-height:420px;object-fit:contain;display:block;"></video>
+                </div>
+                <div>
+                    <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);margin-bottom:6px;">Ready to post</div>
+                    <div style="font-size:0.85rem;color:var(--text-subtle);margin-bottom:24px;line-height:1.6;">Your clip will go out exactly as you recorded it — no AI audio added.</div>
+
+                    <!-- Platform -->
+                    <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px;">Platform</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;">
+                        <template x-for="p in platforms" :key="p.id">
+                            <button @click="platform=p.id"
+                                    :style="platform===p.id ? 'background:var(--gold);color:#2d1f3d;border-color:transparent;' : 'background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);'"
+                                    style="padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;" x-text="p.label">
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Success banner -->
+                    <div x-show="asisPosted" style="margin-bottom:16px;padding:14px;background:rgba(34,197,94,0.1);border-radius:10px;border:1px solid rgba(34,197,94,0.3);text-align:center;">
+                        <div style="font-size:1.5rem;margin-bottom:4px;">🎉</div>
+                        <div style="font-weight:700;color:#22c55e;margin-bottom:10px;">Posted!</div>
+                        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                            <button @click="resetCreate()" style="padding:8px 16px;background:linear-gradient(135deg,var(--gold),#e8a844);color:#2d1f3d;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.8rem;">Post Another</button>
+                            <button @click="tab='queue'" style="padding:8px 16px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:600;cursor:pointer;font-size:0.8rem;">View Queue</button>
+                        </div>
+                    </div>
+
+                    <div x-show="!asisPosted">
+                        <button @click="postAsIs()" :disabled="asisPosting"
+                                style="width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;"
+                                :style="asisPosting ? 'opacity:0.7;cursor:not-allowed;' : ''">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            <span x-show="!asisPosting">🚀 Post Now to All Platforms</span>
+                            <span x-show="asisPosting">Posting…</span>
+                        </button>
+
+                        <div x-show="!showScheduleAsis" style="margin-bottom:10px;">
+                            <button @click="showScheduleAsis=true"
+                                    style="width:100%;padding:12px;background:none;border:2px solid #8b5cf6;border-radius:12px;color:#8b5cf6;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s;"
+                                    onmouseover="this.style.background='rgba(139,92,246,0.08)'" onmouseout="this.style.background='none'">
+                                📅 Schedule for Later
+                            </button>
+                        </div>
+                        <div x-show="showScheduleAsis" style="margin-bottom:10px;padding:14px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border-subtle);">
+                            <div style="font-size:0.75rem;color:var(--text-subtle);margin-bottom:8px;">Pick date &amp; time (Eastern Time):</div>
+                            <input type="datetime-local" x-ref="asisDt"
+                                   style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                            <button @click="scheduleAsIs()" style="width:100%;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">⏰ Confirm Schedule</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /CREATE TAB -->
+
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!--  QUEUE TAB                                             -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div x-show="tab==='queue'">
+
+        <!-- Stats row -->
+        <div class="grid-4" style="margin-bottom:24px;">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(99,102,241,0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value">{{ items|length }}</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(245,158,11,0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value">{{ items|selectattr('status','in',['processing','scraping','scripting','imaging','videoing','uploading'])|list|length }}</div>
+                    <div class="stat-label">In Progress</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:var(--gold-tint);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value">{{ items|selectattr('status','in',['ready','ReadyToPost','review','complete','draft','scheduled'])|list|length }}</div>
+                    <div class="stat-label">Ready</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(34,197,94,0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </div>
+                <div>
+                    <div class="stat-value">{{ items|selectattr('status','equalto','published')|list|length }}</div>
+                    <div class="stat-label">Published</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter + Clear -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-sm" :class="filter==='all'?'btn-secondary':'btn-outline'" @click="filter='all'">
+                    All <span style="opacity:0.7;margin-left:4px;">{{ items|length }}</span>
+                </button>
+                <button class="btn btn-sm" :class="filter==='ready'?'btn-secondary':'btn-outline'" @click="filter='ready'">
+                    Ready
+                    {% set rc = items|selectattr('status','in',['ready','ReadyToPost','review','complete','draft','scheduled'])|list|length %}
+                    {% if rc > 0 %}<span style="display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#2d1f3d;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ rc }}</span>{% endif %}
+                </button>
+                <button class="btn btn-sm" :class="filter==='processing'?'btn-secondary':'btn-outline'" @click="filter='processing'">Processing</button>
+                <button class="btn btn-sm" :class="filter==='published'?'btn-secondary':'btn-outline'" @click="filter='published'">Published</button>
+            </div>
+            <button onclick="clearAllAiClips()"
+                    style="font-size:0.75rem;padding:5px 12px;background:none;border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:8px;cursor:pointer;white-space:nowrap;">
+                🗑 Clear Batch AI Clips
+            </button>
+        </div>
+
+        <!-- Queue tiles -->
+        {% if items|length > 0 %}
+        <div class="content-grid">
+            {% for item in items %}
+            {% set is_processing = item.status in ['processing','scraping','scripting','imaging','videoing','uploading'] %}
+            {% set is_published  = item.status == 'published' %}
+            {% set is_ready      = item.status in ['ready','ReadyToPost','review','complete','draft','scheduled'] and not is_processing %}
+            <div class="card content-card"
+                 id="content-card-{{ item.id }}"
+                 x-show="filterMatch('{{ item.status }}')"
+                 x-transition.opacity>
+
+                <!-- Thumbnail -->
+                <div style="background:var(--bg-secondary);overflow:hidden;border-bottom:1px solid var(--border-light);position:relative;cursor:pointer;"
+                     @click="openPreview({{ item.id }})">
+                    {% set vid = item.r2_video_url or item.video_url %}
+                    {% if vid %}
+                    <video src="{{ vid }}" preload="metadata" muted playsinline
+                           style="width:100%;aspect-ratio:9/16;max-height:220px;object-fit:cover;display:block;"></video>
+                    {% if is_published %}
+                    <div style="position:absolute;top:8px;left:8px;background:rgba(34,197,94,0.85);color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:5px;">✓ Posted</div>
+                    {% else %}
+                    <div style="position:absolute;top:8px;left:8px;background:rgba(199,163,90,0.9);color:#2d1f3d;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:5px;">Clip</div>
+                    {% endif %}
+                    {% elif item.image_url %}
+                    <img src="{{ item.image_url }}" alt="" loading="lazy" style="width:100%;height:160px;object-fit:cover;display:block;">
+                    {% else %}
+                    <div style="height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+                        {% if is_processing %}
+                        <span class="spinner spinner-sm"></span>
+                        <span style="font-size:0.75rem;color:var(--text-subtle);">{{ item.status|capitalize }}…</span>
+                        {% else %}
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="opacity:0.3;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;background:rgba(0,0,0,0.3);"
+                         onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+                        <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="#2d1f3d"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Script preview -->
+                {% if item.script %}
+                <div style="padding:10px 14px 0;font-size:0.75rem;color:var(--text-subtle);line-height:1.5;font-style:italic;flex:1;">
+                    "{{ item.script[:90] }}{% if item.script|length > 90 %}…{% endif %}"
+                </div>
+                {% endif %}
+
+                <!-- Card body -->
+                <div style="padding:10px 14px 12px;">
+                    <!-- Status badges -->
+                    <div style="display:flex;align-items:center;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
+                        <span class="badge" style="font-size:0.68rem;">{{ (item.platform or 'tiktok')|capitalize }}</span>
+                        {% if is_published %}
+                        <span class="badge" style="background:rgba(34,197,94,0.15);color:var(--success);font-size:0.68rem;">Published</span>
+                        {% elif is_processing %}
+                        <span class="badge" style="background:rgba(245,158,11,0.15);color:var(--warning);font-size:0.68rem;">Processing</span>
+                        {% elif item.status == 'scheduled' %}
+                        <span class="badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:0.68rem;">⏰ Scheduled{% if item.scheduled_at %} · {{ item.scheduled_at.strftime('%-m/%-d %-I:%M%p') }}{% endif %}</span>
+                        {% elif item.status == 'error' %}
+                        <span class="badge" style="background:rgba(239,68,68,0.15);color:var(--danger);font-size:0.68rem;">Error</span>
+                        {% elif is_ready %}
+                        <span class="badge" style="background:var(--gold-tint);color:var(--gold);font-size:0.68rem;">Ready</span>
+                        {% endif %}
+                        <span style="color:var(--text-subtle);font-size:0.7rem;">{{ item.created_at.strftime('%b %d') if item.created_at else '' }}</span>
+                    </div>
+
+                    <!-- Action buttons — all in one row -->
+                    <div style="display:flex;gap:5px;align-items:center;">
+                        {% if is_published %}
+                        <button id="post-btn-{{ item.id }}" onclick="postToAll({{ item.id }})"
+                                style="flex:1;padding:7px 10px;background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.3);border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all 0.15s;"
+                                onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.12)'">
+                            ↺ Repost
+                        </button>
+                        {% elif is_processing %}
+                        <span style="flex:1;text-align:center;font-size:0.75rem;color:var(--text-subtle);">Processing…</span>
+                        {% else %}
+                        <button id="post-btn-{{ item.id }}" onclick="postToAll({{ item.id }})"
+                                style="flex:1;padding:7px 8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.73rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;transition:opacity 0.15s;">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            Post Now
+                        </button>
+                        <!-- Clock -->
+                        <button onclick="toggleScheduler({{ item.id }})" id="sched-toggle-{{ item.id }}" title="Schedule for later"
+                                style="padding:7px 8px;background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);display:flex;align-items:center;flex-shrink:0;transition:all 0.15s;"
+                                onmouseover="this.style.color='#8b5cf6';this.style.borderColor='#8b5cf6'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </button>
+                        {% endif %}
+                        <!-- Eye -->
+                        <button onclick="openPreview({{ item.id }})" title="Preview"
+                                style="padding:7px 8px;background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);display:flex;align-items:center;flex-shrink:0;transition:all 0.15s;"
+                                onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--border)'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                        <!-- Trash -->
+                        <button onclick="deleteContentItem({{ item.id }})"
+                                style="padding:7px 7px;background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);display:flex;align-items:center;flex-shrink:0;transition:all 0.15s;"
+                                onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.4)'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Inline scheduler -->
+                    {% if not is_published and not is_processing %}
+                    <div id="scheduler-{{ item.id }}" style="display:none;margin-top:8px;padding:10px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-subtle);">
+                        {% if item.scheduled_at %}
+                        <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:6px;font-weight:600;">⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET</div>
+                        {% endif %}
+                        <div style="font-size:0.7rem;color:var(--text-subtle);margin-bottom:6px;">Pick date &amp; time (Eastern):</div>
+                        <input type="datetime-local" id="sched-dt-{{ item.id }}"
+                               style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;"
+                               {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
+                        <button onclick="schedulePost({{ item.id }})"
+                                style="width:100%;padding:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                            ⏰ Confirm Schedule
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" style="opacity:0.4;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                </div>
+                <h3 class="empty-state-heading">Queue is empty</h3>
+                <p class="empty-state-description">Go to Create Post and pick a clip to get started.</p>
+                <button @click="tab='create'" class="btn btn-primary" style="margin-top:16px;">+ Create Post</button>
+            </div>
+        </div>
+        {% endif %}
+
+    </div><!-- /QUEUE TAB -->
+
+</div><!-- /x-data -->
+
 
 <!-- ── Preview Modal ──────────────────────────────────────────────── -->
 <div id="preview-modal"
      style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.75);overflow-y:auto;padding:20px;"
      onclick="if(event.target===this) closePreview()">
     <div style="max-width:600px;margin:20px auto;background:var(--card-bg);border-radius:16px;overflow:hidden;">
-
-        <!-- Modal header -->
         <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
             <h3 style="margin:0;font-size:0.95rem;font-weight:700;color:var(--text-primary);">Preview</h3>
             <button onclick="closePreview()" style="background:none;border:none;cursor:pointer;color:var(--text-subtle);padding:4px;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-
-        <!-- Video -->
         <div id="modal-video-wrap" style="background:#000;"></div>
-
-        <!-- Script -->
         <div id="modal-script-wrap" style="padding:16px 20px;display:none;">
-            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Script</div>
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Caption</div>
             <div id="modal-script" style="font-size:0.85rem;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
         </div>
-
-        <!-- Pipeline Log toggle -->
         <div style="padding:0 20px 8px;">
             <button onclick="toggleModalLog()" style="font-size:0.75rem;color:var(--text-subtle);background:none;border:none;cursor:pointer;padding:4px 0;text-decoration:underline;">View pipeline log</button>
         </div>
         <div id="modal-log" style="display:none;padding:0 20px 16px;max-height:220px;overflow-y:auto;font-family:monospace;font-size:0.75rem;line-height:1.7;"></div>
-
-        <!-- Modal actions -->
         <div style="padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;">
-            <button onclick="closePreview()" style="flex:1;padding:10px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-primary);border-radius:8px;font-weight:600;cursor:pointer;">
-                Close
-            </button>
+            <button onclick="closePreview()" style="flex:1;padding:10px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-primary);border-radius:8px;font-weight:600;cursor:pointer;">Close</button>
             <button id="modal-post-btn" onclick="postFromModal()"
                     style="flex:2;padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">
                 🚀 Post to All Platforms
@@ -277,22 +572,357 @@
 </div>
 
 <style>
-@media (max-width:1024px) {
-    div[style*="grid-template-columns:repeat(3"] { grid-template-columns:repeat(2,1fr)!important; }
+.content-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
 }
-@media (max-width:640px) {
-    div[style*="grid-template-columns:repeat(3"] { grid-template-columns:1fr!important; }
+.content-card {
+    overflow: hidden;
+    transition: border-color 0.2s;
+    display: flex !important;
+    flex-direction: column;
 }
-@keyframes spin { to { transform:rotate(360deg); } }
+@media (max-width:1100px) { .content-grid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width:680px)  { .content-grid { grid-template-columns: 1fr; } }
+@media (max-width:700px)  {
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr!important; }
+}
+@keyframes spin  { to { transform:rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 </style>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-function contentQueue() {
+function contentHub() {
     return {
+        // Tab
+        tab: 'create',
+
+        // Create flow step machine
+        step: 'pick',  // pick | path | generate | review | asis
+
+        // Library clips
+        clips: [],
+        clipsLoaded: false,
+        selectedClip: null,
+
+        // Settings
+        contentType: 'party_highlight',
+        platform: 'tiktok',
+        hook: '',
+
+        // Voice input
+        listening: false,
+        _recognition: null,
+
+        // Pipeline
+        generating: false,
+        statusMsg: 'Working…',
+        log: [],
+        contentId: null,
+        result: {},
+
+        // Review state
+        posting: false,
+        posted: false,
+        postResult: '',
+        showScheduleReview: false,
+
+        // Post-as-is state
+        asisItemId: null,
+        asisPosting: false,
+        asisPosted: false,
+        showScheduleAsis: false,
+
+        // Queue filter
         filter: 'all',
+
+        // Content types
+        types: [
+            { id:'party_highlight', emoji:'🎉', label:'Party Highlight' },
+            { id:'party_tip',       emoji:'💡', label:'Party Tip'       },
+            { id:'vendor_spotlight',emoji:'🎈', label:'Vendor Spotlight'},
+            { id:'hook_post',       emoji:'🎯', label:'Hook Post'       },
+            { id:'call_to_action',  emoji:'📣', label:'Call to Action'  },
+        ],
+        platforms: [
+            { id:'tiktok',    label:'TikTok'    },
+            { id:'instagram', label:'Instagram'  },
+            { id:'facebook',  label:'Facebook'   },
+            { id:'youtube',   label:'YouTube'    },
+        ],
+
+        async init() {
+            try {
+                const r = await fetch('/admin/library/clips');
+                this.clips = await r.json();
+            } catch(e) {}
+            this.clipsLoaded = true;
+
+            // If URL has ?tab=queue, switch to queue
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('tab') === 'queue') this.tab = 'queue';
+        },
+
+        pickClip(clip) {
+            this.selectedClip = clip;
+            this.step = 'path';
+        },
+
+        choosePath(path) {
+            if (path === 'ai') {
+                this.step = 'generate';
+            } else {
+                this.step = 'asis';
+            }
+        },
+
+        resetCreate() {
+            this.step = 'pick';
+            this.selectedClip = null;
+            this.hook = '';
+            this.log = [];
+            this.result = {};
+            this.contentId = null;
+            this.generating = false;
+            this.posting = false;
+            this.posted = false;
+            this.postResult = '';
+            this.showScheduleReview = false;
+            this.asisItemId = null;
+            this.asisPosting = false;
+            this.asisPosted = false;
+            this.showScheduleAsis = false;
+        },
+
+        toggleVoice() {
+            if (this.listening) {
+                this._recognition && this._recognition.stop();
+                this.listening = false;
+                return;
+            }
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) { alert('Voice input not supported — try Chrome or Safari on iPhone.'); return; }
+            const rec = new SR();
+            rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
+            let base = this.hook;
+            rec.onresult = (e) => {
+                let interim = '', final = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    const t = e.results[i][0].transcript;
+                    if (e.results[i].isFinal) final += t; else interim += t;
+                }
+                this.hook = base + (base && final ? ' ' : '') + final + interim;
+                if (final) base = this.hook.replace(interim,'').trim();
+            };
+            rec.onerror = (e) => { this.listening = false; };
+            rec.onend   = () => { this.listening = false; };
+            rec.start();
+            this._recognition = rec;
+            this.listening = true;
+        },
+
+        async generate() {
+            this.generating = true;
+            this.log = [];
+            this.result = {};
+            this.contentId = null;
+            this.statusMsg = 'Creating draft…';
+
+            try {
+                const hookText = this.hook.trim();
+                const inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
+                const draftRes = await fetch('/content/api/create-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        input_text:  inputText,
+                        input_type:  'idea',
+                        platform:    this.platform,
+                        clip_id:     this.selectedClip ? this.selectedClip.id : null,
+                    }),
+                });
+                if (!draftRes.ok) throw new Error('Could not create draft');
+                const { id: itemId } = await draftRes.json();
+                this.contentId = itemId;
+
+                this.statusMsg = 'Writing script…';
+                const response = await fetch('/content/api/' + itemId + '/run-pipeline', { method: 'POST' });
+                if (!response.ok) throw new Error('Pipeline failed to start');
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        try {
+                            const evt = JSON.parse(line.slice(6));
+                            if (evt.stage) {
+                                this.log.push(evt);
+                                this.statusMsg = evt.message || 'Working…';
+                                this.$nextTick(() => {
+                                    const el = this.$refs.logFeed;
+                                    if (el) el.scrollTop = el.scrollHeight;
+                                });
+                                if (evt.status === 'complete' && evt.stage === 'pipeline') {
+                                    // Fetch the finished item
+                                    try {
+                                        const r2 = await fetch('/content/api/' + itemId);
+                                        this.result = await r2.json();
+                                    } catch(e) {}
+                                    this.generating = false;
+                                    this.step = 'review';
+                                }
+                                if (evt.status === 'error' && evt.stage === 'pipeline') {
+                                    this.generating = false;
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                }
+                // Fallback if stream ended without explicit pipeline complete
+                if (this.generating) {
+                    try {
+                        const r2 = await fetch('/content/api/' + itemId);
+                        this.result = await r2.json();
+                    } catch(e) {}
+                    this.generating = false;
+                    this.step = 'review';
+                }
+
+            } catch(err) {
+                this.log.push({ stage:'error', status:'error', message: err.message });
+                this.generating = false;
+            }
+        },
+
+        async postNow() {
+            if (!this.contentId) return;
+            this.posting = true;
+            try {
+                const resp = await fetch('/content/api/' + this.contentId + '/publish-all', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok && data.status !== 'error') {
+                    const ok = (data.platforms_published || []).join(', ') || 'demo';
+                    this.postResult = data.status === 'demo'
+                        ? 'Demo mode — add Zernio key in Settings to post for real.'
+                        : 'Posted to: ' + ok + '!';
+                    this.posted = true;
+                } else {
+                    alert(data.error || 'Posting failed — check your Zernio connections in Settings.');
+                }
+            } catch(e) {
+                alert('Connection error — please try again.');
+            }
+            this.posting = false;
+        },
+
+        async scheduleReview() {
+            if (!this.contentId) return;
+            const dt = this.$refs.reviewDt ? this.$refs.reviewDt.value : null;
+            if (!dt) { alert('Pick a date and time first.'); return; }
+            try {
+                const resp = await fetch('/content/api/' + this.contentId + '/publish-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scheduled_at: dt }),
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    const d = new Date(dt);
+                    const label = d.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'America/New_York' });
+                    this.postResult = 'Scheduled for ' + label + ' ET!';
+                    this.posted = true;
+                } else {
+                    alert(data.error || 'Scheduling failed.');
+                }
+            } catch(e) { alert('Connection error.'); }
+        },
+
+        async deleteReview() {
+            if (!this.contentId) return;
+            if (!confirm('Delete this post? This cannot be undone.')) return;
+            await fetch('/content/api/' + this.contentId, { method: 'DELETE' });
+            this.resetCreate();
+        },
+
+        async postAsIs() {
+            if (!this.selectedClip) return;
+            this.asisPosting = true;
+            try {
+                // Create draft and mark as ready
+                const draftRes = await fetch('/content/api/create-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clip_id:        this.selectedClip.id,
+                        skip_voiceover: true,
+                        as_ready:       true,
+                        platform:       this.platform,
+                    }),
+                });
+                if (!draftRes.ok) throw new Error('Could not create draft');
+                const { id: itemId } = await draftRes.json();
+                this.asisItemId = itemId;
+
+                // Publish immediately
+                const resp = await fetch('/content/api/' + itemId + '/publish-all', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok && data.status !== 'error') {
+                    this.asisPosted = true;
+                } else {
+                    alert(data.error || 'Posting failed — check your Zernio connections in Settings.');
+                }
+            } catch(e) {
+                alert('Error: ' + e.message);
+            }
+            this.asisPosting = false;
+        },
+
+        async scheduleAsIs() {
+            if (!this.selectedClip) return;
+            const dt = this.$refs.asisDt ? this.$refs.asisDt.value : null;
+            if (!dt) { alert('Pick a date and time first.'); return; }
+            this.asisPosting = true;
+            try {
+                const draftRes = await fetch('/content/api/create-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clip_id:        this.selectedClip.id,
+                        skip_voiceover: true,
+                        as_ready:       true,
+                        platform:       this.platform,
+                    }),
+                });
+                if (!draftRes.ok) throw new Error('Could not create draft');
+                const { id: itemId } = await draftRes.json();
+                this.asisItemId = itemId;
+
+                const resp = await fetch('/content/api/' + itemId + '/publish-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scheduled_at: dt }),
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    this.asisPosted = true;
+                } else {
+                    alert(data.error || 'Scheduling failed.');
+                }
+            } catch(e) { alert('Error: ' + e.message); }
+            this.asisPosting = false;
+        },
+
         filterMatch(status) {
             if (this.filter === 'all') return true;
             if (this.filter === 'ready') return ['ready','ReadyToPost','review','complete','draft'].includes(status);
@@ -302,7 +932,8 @@ function contentQueue() {
     };
 }
 
-// ── Preview modal ──────────────────────────────────────────────────
+// ── Queue standalone functions (work on server-rendered elements) ──
+
 let _modalItemId = null;
 
 async function openPreview(id) {
@@ -310,54 +941,39 @@ async function openPreview(id) {
     const modal = document.getElementById('preview-modal');
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
-
-    // Reset modal content
     document.getElementById('modal-video-wrap').innerHTML = '';
     document.getElementById('modal-script').textContent = '';
     document.getElementById('modal-script-wrap').style.display = 'none';
     document.getElementById('modal-log').innerHTML = '';
     document.getElementById('modal-log').style.display = 'none';
-
     const btn = document.getElementById('modal-post-btn');
-    btn.disabled = false;
-    btn.textContent = '🚀 Post to All Platforms';
-
+    btn.disabled = false; btn.textContent = '🚀 Post to All Platforms';
     try {
         const r = await fetch('/content/api/' + id);
         const data = await r.json();
-
         const vid = data.r2_video_url || data.video_url;
         const img = data.r2_image_url || data.image_url;
-
         if (vid) {
-            document.getElementById('modal-video-wrap').innerHTML =
-                '<video src="' + vid + '" controls playsinline style="width:100%;max-height:360px;object-fit:contain;display:block;background:#000;"></video>';
+            document.getElementById('modal-video-wrap').innerHTML = '<video src="' + vid + '" controls playsinline style="width:100%;max-height:360px;object-fit:contain;display:block;background:#000;"></video>';
         } else if (img) {
-            document.getElementById('modal-video-wrap').innerHTML =
-                '<img src="' + img + '" style="width:100%;max-height:300px;object-fit:cover;display:block;">';
+            document.getElementById('modal-video-wrap').innerHTML = '<img src="' + img + '" style="width:100%;max-height:300px;object-fit:cover;display:block;">';
         }
-
         if (data.script) {
             document.getElementById('modal-script').textContent = data.script;
             document.getElementById('modal-script-wrap').style.display = 'block';
         }
-
-        // Update post button for already-published items
         if (data.status === 'published') {
             btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
             btn.textContent = '↺ Repost to All Platforms';
         }
-
-        // Load pipeline log
         const logs = data.logs || [];
         if (logs.length > 0) {
             const logEl = document.getElementById('modal-log');
             logEl.innerHTML = logs.map(l => {
-                const color = l.status === 'complete' ? '#22c55e' : l.status === 'error' ? '#ef4444' : 'var(--gold)';
-                return '<div><span style="color:' + color + ';font-weight:700;margin-right:8px;">[' + (l.stage || 'info') + ']</span><span style="color:var(--text-primary);">' + (l.message || '') + '</span></div>';
+                const color = l.status==='complete' ? '#22c55e' : l.status==='error' ? '#ef4444' : 'var(--gold)';
+                return '<div><span style="color:'+color+';font-weight:700;margin-right:8px;">['+( l.stage||'info')+']</span><span style="color:var(--text-primary);">'+(l.message||'')+'</span></div>';
             }).join('');
         }
-
     } catch(e) {
         document.getElementById('modal-video-wrap').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-subtle);">Could not load preview</div>';
     }
@@ -366,7 +982,6 @@ async function openPreview(id) {
 function closePreview() {
     document.getElementById('preview-modal').style.display = 'none';
     document.body.style.overflow = '';
-    // Pause any playing video
     const vid = document.querySelector('#preview-modal video');
     if (vid) vid.pause();
     _modalItemId = null;
@@ -382,7 +997,6 @@ async function postFromModal() {
     postToAll(_modalItemId, true);
 }
 
-// ── Scheduler ──────────────────────────────────────────────────────
 function toggleScheduler(id) {
     const el = document.getElementById('scheduler-' + id);
     if (!el) return;
@@ -398,16 +1012,14 @@ async function schedulePost(id) {
         const resp = await fetch('/content/api/' + id + '/publish-all', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scheduled_at: dtInput.value })
+            body: JSON.stringify({ scheduled_at: dtInput.value }),
         });
         const data = await resp.json();
         if (resp.ok) {
+            const dt = new Date(dtInput.value);
+            const label = dt.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'America/New_York' });
             const schedEl = document.getElementById('scheduler-' + id);
-            if (schedEl) {
-                const dt = new Date(dtInput.value);
-                const label = dt.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'America/New_York' });
-                schedEl.innerHTML = '<div style="font-size:0.75rem;color:#8b5cf6;font-weight:700;text-align:center;padding:4px 0;">⏰ Scheduled for ' + label + ' ET</div>';
-            }
+            if (schedEl) schedEl.innerHTML = '<div style="font-size:0.75rem;color:#8b5cf6;font-weight:700;text-align:center;padding:4px 0;">⏰ Scheduled for ' + label + ' ET</div>';
             showToast && showToast('Scheduled!', 'success');
         } else {
             alert('Schedule failed: ' + (data.error || 'unknown error'));
@@ -419,19 +1031,15 @@ async function schedulePost(id) {
     }
 }
 
-// ── Post to All ────────────────────────────────────────────────────
 async function postToAll(id, fromModal) {
     const btn = document.getElementById(fromModal ? 'modal-post-btn' : 'post-btn-' + id);
     if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px;"></span>Posting…'; }
-
     try {
         const resp = await fetch('/content/api/' + id + '/publish-all', { method: 'POST' });
         const data = await resp.json();
-
         if (resp.ok && data.status !== 'error') {
             const ok  = (data.platforms_published || []).join(', ') || 'none';
             const bad = data.platforms_failed || [];
-
             if (btn) {
                 if (data.status === 'demo') {
                     btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
@@ -441,40 +1049,24 @@ async function postToAll(id, fromModal) {
                     btn.innerHTML = '✓ Posted to: ' + ok + (bad.length ? ' · ⚠ Failed: ' + bad.join(', ') : '');
                 }
             }
-
             showToast && showToast(data.status === 'demo' ? 'Demo mode — add Zernio key in Settings.' : 'Posted to ' + ok + '!', 'success');
-
-            // Update the card button to show Repost
-            const cardBtn = document.getElementById('post-btn-' + id);
-            if (cardBtn && data.status !== 'demo') {
-                cardBtn.innerHTML = '↺ Repost';
-                cardBtn.style.background = 'rgba(34,197,94,0.12)';
-                cardBtn.style.color = '#22c55e';
-                cardBtn.style.border = '1px solid rgba(34,197,94,0.3)';
-                cardBtn.disabled = false;
-                cardBtn.onmouseover = () => cardBtn.style.background = 'rgba(34,197,94,0.2)';
-                cardBtn.onmouseout  = () => cardBtn.style.background = 'rgba(34,197,94,0.12)';
-            }
-
         } else {
             const msg = data.error || 'Posting failed — check your Zernio connections in Settings.';
-            if (btn) { btn.disabled = false; btn.innerHTML = fromModal ? '🚀 Post to All Platforms' : 'Post to All'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = fromModal ? '🚀 Post to All Platforms' : 'Post Now'; }
             alert(msg);
         }
-
     } catch(e) {
-        if (btn) { btn.disabled = false; btn.innerHTML = fromModal ? '🚀 Post to All Platforms' : 'Post to All'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = fromModal ? '🚀 Post to All Platforms' : 'Post Now'; }
         alert('Connection error — please try again.');
     }
 }
 
-// ── Utility ────────────────────────────────────────────────────────
 async function clearAllAiClips() {
-    if (!confirm('Delete ALL batch AI-generated clips (library type) from your queue? Clips you created manually will NOT be deleted.')) return;
+    if (!confirm('Delete ALL batch AI-generated clips (library type) from your queue? Manually created clips will NOT be deleted.')) return;
     const resp = await fetch('/content/api/clear-ai-clips', { method: 'POST' });
     const data = await resp.json();
-    if (data.ok) { window.location.reload(); }
-    else { alert('Something went wrong. Please try again.'); }
+    if (data.ok) window.location.reload();
+    else alert('Something went wrong. Please try again.');
 }
 
 async function deleteContentItem(id) {
@@ -488,7 +1080,6 @@ async function deleteContentItem(id) {
     }
 }
 
-// Close modal on escape key
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
 </script>
 {% endblock %}
