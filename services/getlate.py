@@ -235,10 +235,11 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
                            or raw_caption.get("dreamer")
                            or next(iter(raw_caption.values()), None))
 
-        caption = raw_caption or content_item.get("script", "")
-        if not caption or not isinstance(caption, str):
-            caption = content_item.get("script", "")
-        if not caption:
+        caption = raw_caption or content_item.get("script", "") or ""
+        if not isinstance(caption, str):
+            caption = ""
+        # Only skip if there's nothing to post at all (no caption AND no media)
+        if not caption and not best_url:
             continue
 
         payload = {
