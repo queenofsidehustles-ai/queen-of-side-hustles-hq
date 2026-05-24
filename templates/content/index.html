@@ -85,7 +85,7 @@
         {% for item in items %}
         {% set is_processing = item.status in ['processing','scraping','scripting','imaging','videoing','uploading'] %}
         {% set is_published  = item.status == 'published' %}
-        {% set is_ready      = item.status in ['ready','ReadyToPost','review','complete','draft'] and not is_processing %}
+        {% set is_ready      = item.status in ['ready','ReadyToPost','review','complete','draft','scheduled'] and not is_processing %}
         <div class="card"
              id="content-card-{{ item.id }}"
              style="overflow:hidden;transition:border-color 0.2s;display:flex;flex-direction:column;"
@@ -140,6 +140,8 @@
                     <span class="badge" style="background:rgba(34,197,94,0.15);color:var(--success);font-size:0.68rem;">Published</span>
                     {% elif is_processing %}
                     <span class="badge" style="background:rgba(245,158,11,0.15);color:var(--warning);font-size:0.68rem;">Processing</span>
+                    {% elif item.status == 'scheduled' %}
+                    <span class="badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:0.68rem;">⏰ Scheduled{% if item.scheduled_at %} · {{ item.scheduled_at.strftime('%-m/%-d %-I:%M%p') }}{% endif %}</span>
                     {% elif item.status == 'error' %}
                     <span class="badge" style="background:rgba(239,68,68,0.15);color:var(--danger);font-size:0.68rem;">Error</span>
                     {% elif is_ready %}
@@ -164,9 +166,37 @@
                             onclick="postToAll({{ item.id }})"
                             style="flex:1;padding:7px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:opacity 0.15s;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        Post to All
+                        Post Now
+                    </button>
+                    <!-- Schedule button (clock icon) -->
+                    <button onclick="toggleScheduler({{ item.id }})"
+                            id="sched-toggle-{{ item.id }}"
+                            title="Schedule for later"
+                            style="padding:7px 9px;background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);display:flex;align-items:center;transition:all 0.15s;"
+                            onmouseover="this.style.color='#8b5cf6';this.style.borderColor='#8b5cf6'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </button>
                     {% endif %}
+                </div>
+
+                <!-- Inline scheduler — hidden by default -->
+                {% if not is_published and not is_processing %}
+                <div id="scheduler-{{ item.id }}" style="display:none;margin-top:8px;padding:10px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-subtle);">
+                    {% if item.scheduled_at %}
+                    <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:6px;font-weight:600;">
+                        ⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET
+                    </div>
+                    {% endif %}
+                    <div style="font-size:0.7rem;color:var(--text-subtle);margin-bottom:6px;">Pick date &amp; time (Eastern):</div>
+                    <input type="datetime-local" id="sched-dt-{{ item.id }}"
+                           style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;"
+                           {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
+                    <button onclick="schedulePost({{ item.id }})"
+                            style="width:100%;padding:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                        ⏰ Confirm Schedule
+                    </button>
+                </div>
+                {% endif %}
 
                     <button onclick="openPreview({{ item.id }})"
                             style="background:none;border:1px solid var(--border-subtle);border-radius:7px;cursor:pointer;color:var(--text-subtle);padding:7px 10px;display:flex;align-items:center;font-size:0.72rem;gap:3px;transition:all 0.15s;"
@@ -350,6 +380,43 @@ function toggleModalLog() {
 async function postFromModal() {
     if (!_modalItemId) return;
     postToAll(_modalItemId, true);
+}
+
+// ── Scheduler ──────────────────────────────────────────────────────
+function toggleScheduler(id) {
+    const el = document.getElementById('scheduler-' + id);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function schedulePost(id) {
+    const dtInput = document.getElementById('sched-dt-' + id);
+    if (!dtInput || !dtInput.value) { alert('Please pick a date and time first.'); return; }
+    const btn = document.querySelector('#scheduler-' + id + ' button');
+    if (btn) { btn.disabled = true; btn.textContent = 'Scheduling…'; }
+    try {
+        const resp = await fetch('/content/api/' + id + '/publish-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scheduled_at: dtInput.value })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            const schedEl = document.getElementById('scheduler-' + id);
+            if (schedEl) {
+                const dt = new Date(dtInput.value);
+                const label = dt.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'America/New_York' });
+                schedEl.innerHTML = '<div style="font-size:0.75rem;color:#8b5cf6;font-weight:700;text-align:center;padding:4px 0;">⏰ Scheduled for ' + label + ' ET</div>';
+            }
+            showToast && showToast('Scheduled!', 'success');
+        } else {
+            alert('Schedule failed: ' + (data.error || 'unknown error'));
+            if (btn) { btn.disabled = false; btn.textContent = '⏰ Confirm Schedule'; }
+        }
+    } catch(e) {
+        alert('Error: ' + e.message);
+        if (btn) { btn.disabled = false; btn.textContent = '⏰ Confirm Schedule'; }
+    }
 }
 
 // ── Post to All ────────────────────────────────────────────────────
