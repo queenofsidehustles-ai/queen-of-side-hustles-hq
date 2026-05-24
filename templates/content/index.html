@@ -109,13 +109,13 @@
                         <div style="font-size:0.82rem;color:var(--text-subtle);line-height:1.5;">AI writes a script, reads it in your voice, and adds captions. You review before it goes out.</div>
                     </button>
 
-                    <button @click="choosePath('asis')"
+                    <button @click="choosePath('facecam')"
                             style="width:100%;text-align:left;padding:22px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:14px;cursor:pointer;transition:all 0.15s;"
                             onmouseover="this.style.borderColor='#8b5cf6';this.style.background='rgba(139,92,246,0.08)'"
                             onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg-secondary)'">
-                        <div style="font-size:1.8rem;margin-bottom:10px;">📤</div>
-                        <div style="font-weight:800;font-size:1rem;color:var(--text-primary);margin-bottom:6px;">Post As-Is</div>
-                        <div style="font-size:0.82rem;color:var(--text-subtle);line-height:1.5;">You already recorded your voice. Post your clip exactly as-is — no AI audio added.</div>
+                        <div style="font-size:1.8rem;margin-bottom:10px;">🎥</div>
+                        <div style="font-weight:800;font-size:1rem;color:var(--text-primary);margin-bottom:6px;">Face-Cam Post</div>
+                        <div style="font-size:0.82rem;color:var(--text-subtle);line-height:1.5;">You already recorded your voice. AI writes a caption for the post — no AI audio added over your video.</div>
                     </button>
                 </div>
             </div>
@@ -136,7 +136,10 @@
                 </div>
                 <!-- Settings -->
                 <div>
-                    <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);margin-bottom:22px;">Step 3 — Set it up, then generate</div>
+                    <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);margin-bottom:12px;">Step 3 — Set it up, then generate</div>
+                    <div x-show="skipVoiceover" style="margin-bottom:18px;padding:10px 14px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:10px;font-size:0.8rem;color:#a78bfa;font-weight:600;">
+                        🎥 Face-Cam mode — AI writes the caption. Your voice stays on the video.
+                    </div>
 
                     <!-- Post type -->
                     <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px;">Post Type</div>
@@ -601,7 +604,8 @@ function contentHub() {
         tab: 'create',
 
         // Create flow step machine
-        step: 'pick',  // pick | path | generate | review | asis
+        step: 'pick',  // pick | path | generate | review
+        skipVoiceover: false,
 
         // Library clips
         clips: [],
@@ -672,11 +676,12 @@ function contentHub() {
         },
 
         choosePath(path) {
-            if (path === 'ai') {
-                this.step = 'generate';
+            if (path === 'facecam') {
+                this.skipVoiceover = true;
             } else {
-                this.step = 'asis';
+                this.skipVoiceover = false;
             }
+            this.step = 'generate';
         },
 
         resetCreate() {
@@ -691,6 +696,7 @@ function contentHub() {
             this.posted = false;
             this.postResult = '';
             this.showScheduleReview = false;
+            this.skipVoiceover = false;
             this.asisItemId = null;
             this.asisPosting = false;
             this.asisPosted = false;
@@ -738,10 +744,11 @@ function contentHub() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        input_text:  inputText,
-                        input_type:  'idea',
-                        platform:    this.platform,
-                        clip_id:     this.selectedClip ? this.selectedClip.id : null,
+                        input_text:     inputText,
+                        input_type:     'idea',
+                        platform:       this.platform,
+                        clip_id:        this.selectedClip ? this.selectedClip.id : null,
+                        skip_voiceover: this.skipVoiceover,
                     }),
                 });
                 if (!draftRes.ok) throw new Error('Could not create draft');
