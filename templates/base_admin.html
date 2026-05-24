@@ -69,9 +69,9 @@
                 <span x-show="sidebarOpen">Analytics</span>
             </a>
 
-            <!-- MARKETING -->
+            <!-- KPPS -->
             <div class="sidebar-section">
-                <span class="sidebar-label" x-show="sidebarOpen">MARKETING</span>
+                <span class="sidebar-label" x-show="sidebarOpen">KPPS</span>
             </div>
             <a href="/admin/library" class="sidebar-link {% if request.path.startswith('/admin/library') %}active{% endif %}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m10 8 5 3-5 3V8z"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
@@ -94,19 +94,15 @@
             </div>
             <a href="/pbh/dashboard" class="sidebar-link {% if request.path.startswith('/pbh/dashboard') %}active{% endif %}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                <span x-show="sidebarOpen">PBH Dashboard</span>
-            </a>
-            <a href="/pbh" class="sidebar-link {% if request.path == '/pbh' %}active{% endif %}">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                <span x-show="sidebarOpen">Content Engine</span>
-            </a>
-            <a href="/pbh/generate" class="sidebar-link {% if request.path == '/pbh/generate' %}active{% endif %}">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                <span x-show="sidebarOpen">Generate Post</span>
+                <span x-show="sidebarOpen">Dashboard</span>
             </a>
             <a href="/pbh/assets" class="sidebar-link {% if request.path == '/pbh/assets' %}active{% endif %}">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="12" rx="2"/><path d="M3 20h18"/></svg>
-                <span x-show="sidebarOpen">App Screenshots</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m10 8 5 3-5 3V8z"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+                <span x-show="sidebarOpen">Video Library</span>
+            </a>
+            <a href="/pbh" class="sidebar-link {% if request.path.startswith('/pbh') and not request.path.startswith('/pbh/dashboard') and not request.path.startswith('/pbh/assets') %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                <span x-show="sidebarOpen">Content</span>
             </a>
 
             <!-- TOOLS -->

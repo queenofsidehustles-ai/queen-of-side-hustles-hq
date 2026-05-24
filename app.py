@@ -165,12 +165,15 @@ def _migrate_columns():
     from sqlalchemy import text as sa_text
 
     migrations = [
-        ("content_items", "transcript",    "TEXT"),
-        ("content_items", "brand",         "VARCHAR(10) DEFAULT 'kpps'"),
-        ("pbh_assets",    "file_type",     "VARCHAR(10) DEFAULT 'image'"),
-        ("contacts",      "tiktok_handle", "VARCHAR(100)"),
-        ("contacts",      "follow_up_date","DATE"),
-        ("contacts",      "notes_quick",   "TEXT"),
+        ("content_items", "transcript",      "TEXT"),
+        ("content_items", "brand",           "VARCHAR(10) DEFAULT 'kpps'"),
+        ("content_items", "scheduled_at",    "TIMESTAMP"),
+        ("content_items", "published_at",    "TIMESTAMP"),
+        ("content_items", "skip_voiceover",  "BOOLEAN DEFAULT FALSE"),
+        ("pbh_assets",    "file_type",       "VARCHAR(10) DEFAULT 'image'"),
+        ("contacts",      "tiktok_handle",   "VARCHAR(100)"),
+        ("contacts",      "follow_up_date",  "DATE"),
+        ("contacts",      "notes_quick",     "TEXT"),
     ]
     for table, col, col_type in migrations:
         try:
