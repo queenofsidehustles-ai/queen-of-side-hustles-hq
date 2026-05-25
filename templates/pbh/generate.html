@@ -136,6 +136,26 @@
                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;resize:vertical;min-height:60px;box-sizing:border-box;font-family:inherit;"></textarea>
         </div>
 
+        <!-- Skip voiceover toggle (only for video assets) -->
+        <template x-if="assetId && assets.find(a=>a.id===assetId)?.file_type==='video'">
+        <div style="margin-bottom:14px;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border-subtle);cursor:pointer;"
+             @click="skipVoiceover=!skipVoiceover">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="flex-shrink:0;">
+                    <div :style="skipVoiceover ? 'background:#6366f1;border-color:#6366f1;' : 'background:var(--bg-primary);border-color:var(--border);'"
+                         style="width:36px;height:20px;border-radius:10px;border:2px solid;transition:all 0.2s;">
+                        <div :style="skipVoiceover ? 'transform:translateX(16px);' : 'transform:translateX(0);'"
+                             style="width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">I already recorded my voice</div>
+                    <div style="font-size:0.7rem;color:var(--text-subtle);">Skip AI voiceover — post my clip with its original audio</div>
+                </div>
+            </div>
+        </div>
+        </template>
+
         <!-- Generate button -->
         <button @click="generate()" :disabled="generating"
                 style="width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;"
@@ -251,23 +271,24 @@
 <script>
 function pbhGenerator() {
     return {
-        contentType: 'party_tip',
-        platform:    'tiktok',
-        assetId:     null,
-        customAngle: '',
-        listening:   false,
-        _recognition: null,
-        uploadTag:   'dashboard',
-        generating:  false,
-        uploading:   false,
-        done:        false,
-        posting:     false,
-        posted:      false,
-        postError:   '',
-        contentId:   null,
-        log:         [],
-        result:      {},
-        assets:      [],
+        contentType:   'party_tip',
+        platform:      'tiktok',
+        assetId:       null,
+        skipVoiceover: false,
+        customAngle:   '',
+        listening:     false,
+        _recognition:  null,
+        uploadTag:     'dashboard',
+        generating:    false,
+        uploading:     false,
+        done:          false,
+        posting:       false,
+        posted:        false,
+        postError:     '',
+        contentId:     null,
+        log:           [],
+        result:        {},
+        assets:        [],
 
         types: [
             { id:'party_tip',   emoji:'💡', label:'Party Tip',      desc:'Advice leading to Party Biz Hub' },
@@ -286,6 +307,16 @@ function pbhGenerator() {
         async init() {
             const resp = await fetch('/pbh/api/assets');
             this.assets = await resp.json();
+            // Pre-select asset if ?asset_id= is in the URL
+            const params = new URLSearchParams(window.location.search);
+            const assetIdParam = params.get('asset_id');
+            if (assetIdParam) {
+                const found = this.assets.find(a => String(a.id) === assetIdParam);
+                if (found) {
+                    this.assetId = found.id;
+                    if (found.file_type === 'video') this.skipVoiceover = true;
+                }
+            }
         },
 
         async quickUpload() {
@@ -350,10 +381,11 @@ function pbhGenerator() {
                 method: 'POST',
                 headers: { 'Content-Type':'application/json' },
                 body: JSON.stringify({
-                    content_type: this.contentType,
-                    platform:     this.platform,
-                    asset_id:     this.assetId,
-                    custom_angle: this.customAngle,
+                    content_type:   this.contentType,
+                    platform:       this.platform,
+                    asset_id:       this.assetId,
+                    custom_angle:   this.customAngle,
+                    skip_voiceover: this.skipVoiceover,
                 }),
             });
 
@@ -421,13 +453,14 @@ function pbhGenerator() {
         },
 
         resetForm() {
-            this.done      = false;
-            this.posting   = false;
-            this.posted    = false;
-            this.postError = '';
-            this.contentId = null;
-            this.log       = [];
-            this.result    = {};
+            this.done          = false;
+            this.posting       = false;
+            this.posted        = false;
+            this.postError     = '';
+            this.contentId     = null;
+            this.log           = [];
+            this.result        = {};
+            this.skipVoiceover = false;
         }
     };
 }

@@ -109,30 +109,37 @@ def _build_input_text(content_type, platform, custom_angle=""):
 def generate():
     data = request.get_json() or {}
 
-    content_type = data.get("content_type", "party_tip")
-    platform     = data.get("platform", "tiktok")
-    custom_angle = data.get("custom_angle", "")
-    asset_id     = data.get("asset_id")
+    content_type   = data.get("content_type", "party_tip")
+    platform       = data.get("platform", "tiktok")
+    custom_angle   = data.get("custom_angle", "")
+    asset_id       = data.get("asset_id")
+    skip_voiceover = bool(data.get("skip_voiceover", False))
 
     input_text = _build_input_text(content_type, platform, custom_angle)
 
     item = ContentItem(
-        brand=       "pbh",
-        input_text=  input_text,
-        input_type=  "idea",
-        platform=    platform,
-        include_video= False,
-        status=      "draft",
+        brand=          "pbh",
+        input_text=     input_text,
+        input_type=     "idea",
+        platform=       platform,
+        include_video=  False,
+        skip_voiceover= skip_voiceover,
+        status=         "draft",
     )
     db.session.add(item)
     db.session.commit()
 
-    # Attach asset URL as reference image if one was chosen
+    # Attach asset: video clips go to r2_video_url, screenshots go to r2_image_url
     if asset_id:
         asset = PBHAsset.query.get(asset_id)
         if asset:
-            item.image_url    = asset.r2_url
-            item.r2_image_url = asset.r2_url
+            if asset.file_type == "video":
+                item.r2_video_url = asset.r2_url
+                item.video_url    = asset.r2_url
+                item.input_type   = "video"
+            else:
+                item.image_url    = asset.r2_url
+                item.r2_image_url = asset.r2_url
             db.session.commit()
 
     content_id = item.id

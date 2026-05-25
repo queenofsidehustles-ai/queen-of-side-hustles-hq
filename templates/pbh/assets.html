@@ -69,6 +69,12 @@
                 {% if asset.notes %}
                 <div style="font-size:0.77rem;color:var(--text-muted);margin-bottom:8px;">{{ asset.notes }}</div>
                 {% endif %}
+                {% if asset.file_type == 'video' %}
+                <a href="/pbh/generate?asset_id={{ asset.id }}"
+                   style="display:block;text-align:center;padding:8px 12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-radius:8px;font-weight:700;font-size:0.8rem;text-decoration:none;margin-bottom:6px;">
+                    ✨ Use This Clip
+                </a>
+                {% endif %}
                 <button onclick="deleteAsset({{ asset.id }})"
                         style="font-size:0.75rem;padding:5px 12px;background:none;border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:7px;cursor:pointer;width:100%;">
                     Remove
