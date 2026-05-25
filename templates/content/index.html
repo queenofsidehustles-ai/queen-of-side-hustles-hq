@@ -1215,9 +1215,11 @@ function closePlatformPicker() {
 async function confirmPlatformPost() {
     const checkboxes = document.querySelectorAll('#picker-accounts-list input[type="checkbox"]:checked');
     const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.accountId).filter(Boolean);
+    const itemId = _pickerItemId;
+    const fromModal = _pickerFromModal;
     closePlatformPicker();
-    if (!_pickerItemId) return;
-    await postToAll(_pickerItemId, _pickerFromModal, selectedIds);
+    if (!itemId) return;
+    await postToAll(itemId, fromModal, selectedIds);
 }
 
 async function postToAll(id, fromModal, accountIds) {
@@ -1246,6 +1248,20 @@ async function postToAll(id, fromModal, accountIds) {
                 } else {
                     btn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
                     btn.innerHTML = '✓ Posted to: ' + ok + (bad.length ? ' · ⚠ Failed: ' + bad.join(', ') : '');
+                }
+            }
+            // Show per-platform Zernio detail in a toast/alert so we can diagnose if needed
+            if (data.status !== 'demo' && data.results && data.results.length) {
+                const detail = data.results.map(r => {
+                    const zs = r.zernio_status ? ` [${r.zernio_status}]` : '';
+                    const pid = r.post_id ? ` #${r.post_id}` : '';
+                    return r.status === 'error'
+                        ? `❌ ${r.platform}: ${r.error || 'failed'}`
+                        : `✅ ${r.platform}${zs}${pid}`;
+                }).join('\n');
+                console.log('Zernio publish detail:\n' + detail);
+                if (bad.length || data.results.some(r => r.zernio_status && r.zernio_status !== 'published')) {
+                    showToast && showToast('Check console for Zernio post details.', 'info');
                 }
             }
             showToast && showToast(data.status === 'demo' ? 'Demo mode — add Zernio key in Settings.' : 'Posted to ' + ok + '!', 'success');

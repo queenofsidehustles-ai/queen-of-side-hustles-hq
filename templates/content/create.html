@@ -107,22 +107,19 @@
 
         <!-- Skip AI voiceover toggle — shown only when a clip is selected -->
         <template x-if="clipId">
-        <div style="margin-bottom:12px;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;width:100%;">
-                <div style="position:relative;flex-shrink:0;">
-                    <input type="checkbox" x-model="skipVoice" style="width:0;height:0;opacity:0;position:absolute;">
-                    <div :style="skipVoice ? 'background:#8b5cf6;border-color:#8b5cf6;' : 'background:var(--bg-primary);border-color:var(--border);'"
-                         style="width:36px;height:20px;border-radius:10px;border:2px solid;transition:all 0.2s;cursor:pointer;"
-                         @click="skipVoice=!skipVoice">
-                        <div :style="skipVoice ? 'transform:translateX(16px);' : 'transform:translateX(0px);'"
-                             style="width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
-                    </div>
+        <div style="margin-bottom:12px;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;cursor:pointer;"
+             @click="skipVoice=!skipVoice">
+            <div style="position:relative;flex-shrink:0;">
+                <div :style="skipVoice ? 'background:#8b5cf6;border-color:#8b5cf6;' : 'background:var(--bg-primary);border-color:var(--border);'"
+                     style="width:36px;height:20px;border-radius:10px;border:2px solid;transition:all 0.2s;">
+                    <div :style="skipVoice ? 'transform:translateX(16px);' : 'transform:translateX(0px);'"
+                         style="width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
                 </div>
-                <div>
-                    <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">I already recorded my voice</div>
-                    <div style="font-size:0.7rem;color:var(--text-subtle);">Skip AI voiceover — post my clip with its original audio</div>
-                </div>
-            </label>
+            </div>
+            <div>
+                <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">I already recorded my voice</div>
+                <div style="font-size:0.7rem;color:var(--text-subtle);">Skip AI voiceover — post my clip with its original audio</div>
+            </div>
         </div>
         </template>
 

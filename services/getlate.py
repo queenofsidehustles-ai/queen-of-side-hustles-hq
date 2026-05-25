@@ -275,11 +275,19 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
                 data = resp.json()
             except Exception:
                 data = {}
-            post_id = data.get("id", data.get("post_id", "ok"))
-            emit("publish", "progress", f"{platform.capitalize()} — sent! Post ID: {post_id}")
+            post_id = (data.get("post", {}).get("_id")
+                       or data.get("id") or data.get("post_id", ""))
+            post_status = (data.get("post", {}).get("status")
+                           or data.get("status", ""))
+            emit("publish", "progress", f"{platform.capitalize()} — sent! Post ID: {post_id or '(unknown)'}")
             platforms_published.append(platform)
-            results.append({"platform": platform, "post_id": post_id, "status": "published",
-                             "raw": raw_body})
+            results.append({
+                "platform": platform,
+                "post_id": post_id,
+                "zernio_status": post_status,
+                "status": "published",
+                "raw": raw_body,
+            })
         except Exception as e:
             emit("publish", "progress", f"{platform.capitalize()} — error: {str(e)[:80]}")
             platforms_failed.append(platform)
