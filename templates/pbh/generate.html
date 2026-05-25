@@ -314,7 +314,7 @@ function pbhGenerator() {
                 const found = this.assets.find(a => String(a.id) === assetIdParam);
                 if (found) {
                     this.assetId = found.id;
-                    if (found.file_type === 'video') this.skipVoiceover = true;
+                    // Don't auto-enable skipVoiceover — let Monica choose explicitly
                 }
             }
         },
