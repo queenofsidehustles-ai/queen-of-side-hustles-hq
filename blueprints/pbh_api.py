@@ -294,6 +294,27 @@ def approve(item_id):
     return jsonify({"ok": True})
 
 
+@pbh_api_bp.route("/items/<int:item_id>/schedule", methods=["POST"])
+@login_required
+def schedule_item(item_id):
+    """Set a scheduled_at time on a PBH or PBH-user content item."""
+    item = ContentItem.query.filter(
+        ContentItem.id == item_id,
+        ContentItem.brand.in_(["pbh", "pbh_user"])
+    ).first_or_404()
+    body = request.get_json(silent=True) or {}
+    scheduled_at_str = body.get("scheduled_at", "")
+    if not scheduled_at_str:
+        return jsonify({"error": "scheduled_at is required"}), 400
+    try:
+        item.scheduled_at = datetime.fromisoformat(scheduled_at_str)
+        item.status = "scheduled"
+        db.session.commit()
+        return jsonify({"ok": True, "scheduled_at": item.scheduled_at.isoformat()})
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": f"Invalid datetime: {e}"}), 400
+
+
 @pbh_api_bp.route("/items/<int:item_id>/publish", methods=["POST"])
 @login_required
 def publish(item_id):

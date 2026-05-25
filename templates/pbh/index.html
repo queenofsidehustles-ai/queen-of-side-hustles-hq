@@ -151,7 +151,9 @@
             <div style="padding:12px 14px;">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
                     <span class="badge" style="font-size:0.68rem;background:rgba(99,102,241,0.12);color:#6366f1;">{{ (item.platform or 'tiktok')|capitalize }}</span>
-                    {% if item.status in ['review','ReadyToPost','captioned','transcribed','overlaid'] %}
+                    {% if item.status == 'scheduled' %}
+                    <span class="badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:0.68rem;">⏰ Scheduled{% if item.scheduled_at %} · {{ item.scheduled_at.strftime('%-m/%-d %-I:%M%p') }}{% endif %}</span>
+                    {% elif item.status in ['review','ReadyToPost','captioned','transcribed','overlaid'] %}
                     <span class="badge" style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:0.68rem;">Review</span>
                     {% elif item.status in ['approved','ready','complete'] %}
                     <span class="badge" style="background:rgba(99,102,241,0.12);color:#6366f1;font-size:0.68rem;">Approved</span>
@@ -165,7 +167,7 @@
                     <span style="color:var(--text-subtle);font-size:0.72rem;margin-left:auto;">{{ item.created_at.strftime('%b %d') if item.created_at else '' }}</span>
                 </div>
                 <div style="display:flex;gap:6px;">
-                    <!-- Preview button always visible -->
+                    <!-- Preview -->
                     <button onclick="pbhPreview({{ item.id }})"
                             style="padding:7px 10px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-muted);white-space:nowrap;">
                         Preview
@@ -177,11 +179,18 @@
                         ↺ Repost
                     </button>
                     {% elif item.status not in ['processing','scraping','scripting','imaging','videoing','captioning','draft'] %}
+                    <!-- Post Now -->
                     <button id="pbh-post-{{ item.id }}"
                             onclick="pbhPostNow({{ item.id }}, '{{ item.platform or 'tiktok' }}')"
                             style="flex:1;padding:7px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        Post to All
+                        Post Now
+                    </button>
+                    <!-- Clock / Schedule -->
+                    <button onclick="pbhToggleScheduler({{ item.id }})" id="pbh-sched-toggle-{{ item.id }}" title="Schedule for later"
+                            style="padding:7px 8px;background:none;border:1px solid var(--border-subtle);border-radius:8px;cursor:pointer;color:var(--text-subtle);display:flex;align-items:center;flex-shrink:0;"
+                            onmouseover="this.style.color='#8b5cf6';this.style.borderColor='#8b5cf6'" onmouseout="this.style.color='var(--text-subtle)';this.style.borderColor='var(--border-subtle)'">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </button>
                     {% endif %}
                     <button onclick="pbhDelete({{ item.id }})"
@@ -191,6 +200,30 @@
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                     </button>
                 </div>
+                <!-- Inline scheduler (hidden until clock clicked) -->
+                {% if item.status not in ['published','processing','scraping','scripting','imaging','videoing','captioning','draft'] %}
+                <div id="pbh-scheduler-{{ item.id }}" style="display:none;margin-top:8px;padding:10px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-subtle);">
+                    {% if item.scheduled_at %}
+                    <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:8px;font-weight:600;">⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET</div>
+                    {% endif %}
+                    <div style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;">When? (Eastern)</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;">
+                        <button onclick="pbhQuickSchedule({{ item.id }},0,18)" style="padding:5px 4px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:6px;font-size:0.7rem;cursor:pointer;color:var(--text-primary);">Today 6pm</button>
+                        <button onclick="pbhQuickSchedule({{ item.id }},0,20)" style="padding:5px 4px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:6px;font-size:0.7rem;cursor:pointer;color:var(--text-primary);">Today 8pm</button>
+                        <button onclick="pbhQuickSchedule({{ item.id }},1,9)"  style="padding:5px 4px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:6px;font-size:0.7rem;cursor:pointer;color:var(--text-primary);">Tomorrow 9am</button>
+                        <button onclick="pbhQuickSchedule({{ item.id }},1,12)" style="padding:5px 4px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:6px;font-size:0.7rem;cursor:pointer;color:var(--text-primary);">Tomorrow Noon</button>
+                        <button onclick="pbhQuickSchedule({{ item.id }},1,18)" style="padding:5px 4px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:6px;font-size:0.7rem;cursor:pointer;color:var(--text-primary);">Tomorrow 6pm</button>
+                        <button onclick="pbhQuickSchedule({{ item.id }},2,9)"  style="padding:5px 4px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:6px;font-size:0.7rem;cursor:pointer;color:var(--text-primary);">In 2 Days 9am</button>
+                    </div>
+                    <input type="datetime-local" id="pbh-sched-dt-{{ item.id }}"
+                           style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;color-scheme:dark;"
+                           {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
+                    <button onclick="pbhSchedulePost({{ item.id }})"
+                            style="width:100%;padding:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                        ⏰ Confirm Schedule
+                    </button>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -532,6 +565,48 @@ async function loadPipelineLog(itemId) {
         </div>` + lines.join('');
     } catch(e) {
         box.innerHTML = '<span style="color:#f59e0b;">Could not load log: ' + e.message + '</span>';
+    }
+}
+
+// ── Scheduling ──────────────────────────────────────────────────────────────
+function pbhToggleScheduler(id) {
+    const el = document.getElementById('pbh-scheduler-' + id);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function pbhQuickSchedule(id, daysFromNow, hour) {
+    const dt = new Date();
+    dt.setDate(dt.getDate() + daysFromNow);
+    dt.setHours(hour, 0, 0, 0);
+    const pad = n => String(n).padStart(2, '0');
+    const val = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(hour)}:00`;
+    const input = document.getElementById('pbh-sched-dt-' + id);
+    if (input) input.value = val;
+    pbhSchedulePost(id);
+}
+
+async function pbhSchedulePost(id) {
+    const input = document.getElementById('pbh-sched-dt-' + id);
+    if (!input || !input.value) { alert('Pick a date and time first.'); return; }
+    const btn = document.querySelector(`#pbh-scheduler-${id} button:last-child`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Scheduling…'; }
+    try {
+        const resp = await fetch(`/pbh/api/items/${id}/schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scheduled_at: input.value })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert('Schedule failed: ' + (data.error || 'unknown error'));
+            if (btn) { btn.disabled = false; btn.textContent = '⏰ Confirm Schedule'; }
+        }
+    } catch(e) {
+        alert('Connection error. Try again.');
+        if (btn) { btn.disabled = false; btn.textContent = '⏰ Confirm Schedule'; }
     }
 }
 </script>
