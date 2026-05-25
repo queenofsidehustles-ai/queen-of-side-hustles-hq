@@ -65,9 +65,9 @@
         <!-- STEP 3: Upload or pick a clip/photo -->
         <div class="card" style="margin-bottom:16px;">
             <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">
-                Step 3 — Add a video clip or photo
+                Step 3 — Add a video clip or photo <span style="font-weight:500;color:#a78bfa;text-transform:none;letter-spacing:0;">(Optional)</span>
             </div>
-            <div style="font-size:0.75rem;color:var(--text-subtle);margin-bottom:14px;">Optional, but makes your post way more engaging. Upload new or pick one you already have.</div>
+            <div style="font-size:0.75rem;color:var(--text-subtle);margin-bottom:14px;">Skip this and you'll get a text post. Add a clip or photo and the AI will build a video with your voiceover on it.</div>
 
             <!-- Upload zone -->
             <div style="border:2px dashed rgba(99,102,241,0.3);border-radius:10px;padding:14px;background:rgba(99,102,241,0.03);margin-bottom:12px;">
@@ -165,6 +165,7 @@
         <div class="card" style="margin-bottom:16px;">
             <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Step 5 — Whose voice goes on this video?</div>
 
+            {% if settings.has_elevenlabs %}
             <div @click="skipVoiceover=false"
                  :style="!skipVoiceover ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.05);' : 'border:1px solid var(--border);background:var(--card-bg);'"
                  style="padding:12px 16px;border-radius:10px;cursor:pointer;margin-bottom:8px;transition:all 0.15s;">
@@ -174,13 +175,22 @@
                         <div x-show="!skipVoiceover" style="width:8px;height:8px;background:#fff;border-radius:50%;"></div>
                     </div>
                     <div>
-                        <div style="font-size:0.85rem;font-weight:700;color:var(--text-primary);">
-                            🤖 Use AI voice{% if settings.has_elevenlabs %} (your ElevenLabs clone){% endif %}
-                        </div>
+                        <div style="font-size:0.85rem;font-weight:700;color:var(--text-primary);">🤖 Use AI voice (your ElevenLabs clone)</div>
                         <div style="font-size:0.72rem;color:var(--text-subtle);margin-top:2px;">AI reads the script aloud and burns the captions right onto the video</div>
                     </div>
                 </div>
             </div>
+            {% else %}
+            <div style="padding:12px 16px;border-radius:10px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);margin-bottom:8px;">
+                <div style="display:flex;align-items:flex-start;gap:10px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <div>
+                        <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">🤖 AI Voice not set up yet</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;line-height:1.5;">Add your free ElevenLabs API key in Settings to unlock AI voiceover. <a href="/pbh/settings" style="color:#6366f1;font-weight:700;">Go to Settings →</a></div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <div @click="skipVoiceover=true"
                  :style="skipVoiceover ? 'border:2px solid #8b5cf6;background:rgba(139,92,246,0.05);' : 'border:1px solid var(--border);background:var(--card-bg);'"
@@ -247,6 +257,15 @@
 
         <!-- ─── RESULT ──────────────────────────────────────────────── -->
         <div x-show="done" x-transition>
+
+            <!-- 🎉 Success celebration -->
+            <div style="margin-bottom:16px;padding:14px 18px;background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(99,102,241,0.06));border:1px solid rgba(34,197,94,0.25);border-radius:14px;display:flex;align-items:center;gap:12px;">
+                <div style="font-size:1.5rem;line-height:1;">🎉</div>
+                <div>
+                    <div style="font-size:0.88rem;font-weight:800;color:var(--text-primary);">Your post is ready!</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Preview it below, copy your caption, and post it today.</div>
+                </div>
+            </div>
 
             <!-- VIDEO PREVIEW — big and obvious -->
             <template x-if="result.r2_video_url || result.video_url">
@@ -326,6 +345,7 @@ function studio() {
         copied:        false,
         listening:     false,
         _recognition:  null,
+        _manualStop:   false,
 
         // Upload state
         uploadTag:    'party_clip',
@@ -455,6 +475,7 @@ function studio() {
 
         toggleMic() {
             if (this.listening) {
+                this._manualStop = true;
                 this._recognition?.stop();
                 this.listening = false;
                 return;
@@ -471,7 +492,20 @@ function studio() {
                         this.customAngle += (this.customAngle ? ' ' : '') + e.results[i][0].transcript;
                 }
             };
-            this._recognition.onend = () => { this.listening = false; };
+            this._recognition.onend = () => {
+                if (!this._manualStop && this.listening) {
+                    try { this._recognition.start(); } catch(e) { this.listening = false; }
+                } else {
+                    this.listening = false;
+                }
+            };
+            this._recognition.onerror = (e) => {
+                if (e.error !== 'aborted') {
+                    console.warn('Speech error:', e.error);
+                    this.listening = false;
+                }
+            };
+            this._manualStop = false;
             this._recognition.start();
             this.listening = true;
         },
@@ -481,5 +515,12 @@ function studio() {
 <style>
 @keyframes spin     { to { transform: rotate(360deg); } }
 @keyframes micPulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+/* Mobile layout — stack form above result */
+@media (max-width: 768px) {
+    div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
 </style>
 {% endblock %}

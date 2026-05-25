@@ -92,27 +92,21 @@
     </div>
 
     <!-- Filter Tabs -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-sm" :class="filter==='all'?'btn-secondary':'btn-outline'" @click="filter='all'">
-                All <span style="opacity:0.7;margin-left:4px;">{{ items|length }}</span>
-            </button>
-            <button class="btn btn-sm" :class="filter==='review'?'btn-secondary':'btn-outline'" @click="filter='review'">
-                Review
-                {% set rc = items|selectattr('status','in',['review','ReadyToPost','captioned','transcribed','overlaid'])|list|length %}
-                {% if rc > 0 %}<span style="display:inline-flex;align-items:center;justify-content:center;background:#f59e0b;color:#fff;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ rc }}</span>{% endif %}
-            </button>
-            <button class="btn btn-sm" :class="filter==='approved'?'btn-secondary':'btn-outline'" @click="filter='approved'">
-                Approved
-                {% set ac = items|selectattr('status','in',['approved','ready','complete'])|list|length %}
-                {% if ac > 0 %}<span style="display:inline-flex;align-items:center;justify-content:center;background:#6366f1;color:#fff;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ ac }}</span>{% endif %}
-            </button>
-            <button class="btn btn-sm" :class="filter==='published'?'btn-secondary':'btn-outline'" @click="filter='published'">Published</button>
-        </div>
-        <button onclick="clearAll()"
-                style="font-size:0.75rem;padding:5px 12px;background:none;border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:8px;cursor:pointer;">
-            Clear All
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+        <button class="btn btn-sm" :class="filter==='all'?'btn-secondary':'btn-outline'" @click="filter='all'">
+            All <span style="opacity:0.7;margin-left:4px;">{{ items|length }}</span>
         </button>
+        <button class="btn btn-sm" :class="filter==='review'?'btn-secondary':'btn-outline'" @click="filter='review'">
+            Review
+            {% set rc = items|selectattr('status','in',['review','ReadyToPost','captioned','transcribed','overlaid'])|list|length %}
+            {% if rc > 0 %}<span style="display:inline-flex;align-items:center;justify-content:center;background:#f59e0b;color:#fff;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ rc }}</span>{% endif %}
+        </button>
+        <button class="btn btn-sm" :class="filter==='approved'?'btn-secondary':'btn-outline'" @click="filter='approved'">
+            Approved
+            {% set ac = items|selectattr('status','in',['approved','ready','complete'])|list|length %}
+            {% if ac > 0 %}<span style="display:inline-flex;align-items:center;justify-content:center;background:#6366f1;color:#fff;font-size:0.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;margin-left:5px;">{{ ac }}</span>{% endif %}
+        </button>
+        <button class="btn btn-sm" :class="filter==='published'?'btn-secondary':'btn-outline'" @click="filter='published'">Published</button>
     </div>
 
     <!-- Grid -->
@@ -207,12 +201,22 @@
             <div class="empty-state-icon">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="opacity:0.4;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
             </div>
-            <h3 class="empty-state-heading">No PBH content yet</h3>
-            <p class="empty-state-description">Generate your first Party Biz Hub post to get started.</p>
-            <a href="/pbh/generate" class="btn" style="margin-top:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;">
-                Generate First Post
+            <h3 class="empty-state-heading">Nothing here yet</h3>
+            <p class="empty-state-description">Head to the Studio to create your first post — pick a content type, add a clip, and let the AI write it for you.</p>
+            <a href="/pbh/studio" class="btn" style="margin-top:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;">
+                Go to Studio →
             </a>
         </div>
+    </div>
+    {% endif %}
+
+    <!-- Danger zone — subtle, at the bottom -->
+    {% if items|length > 0 %}
+    <div style="margin-top:40px;padding-top:20px;border-top:1px solid var(--border-subtle);text-align:center;">
+        <button onclick="clearAll()"
+                style="font-size:0.72rem;padding:4px 12px;background:none;border:none;color:var(--text-subtle);cursor:pointer;text-decoration:underline;opacity:0.6;">
+            Clear all content
+        </button>
     </div>
     {% endif %}
 

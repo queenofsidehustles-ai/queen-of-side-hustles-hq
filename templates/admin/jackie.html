@@ -227,6 +227,7 @@ function genesisChat() {
         loading: false,
         listening: false,
         _recognition: null,
+        _manualStop: false,
 
         init() {
             const saved = localStorage.getItem('genesis-chat-history');
@@ -305,6 +306,7 @@ function genesisChat() {
 
         toggleMic() {
             if (this.listening) {
+                this._manualStop = true;
                 this._recognition?.stop();
                 this.listening = false;
                 return;
@@ -326,11 +328,20 @@ function genesisChat() {
                     }
                 }
             };
-            this._recognition.onend = () => { this.listening = false; };
-            this._recognition.onerror = (e) => {
-                this.listening = false;
-                if (e.error !== 'aborted') console.warn('Speech error:', e.error);
+            this._recognition.onend = () => {
+                if (!this._manualStop && this.listening) {
+                    try { this._recognition.start(); } catch(e) { this.listening = false; }
+                } else {
+                    this.listening = false;
+                }
             };
+            this._recognition.onerror = (e) => {
+                if (e.error !== 'aborted') {
+                    console.warn('Speech error:', e.error);
+                    this.listening = false;
+                }
+            };
+            this._manualStop = false;
             this._recognition.start();
             this.listening = true;
         },
