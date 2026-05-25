@@ -3,7 +3,7 @@ from extensions import db
 from auth import login_required, check_credentials
 from models import Contact, Deal, Note, ActivityLog, Purchase
 from sqlalchemy import func
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 admin_bp = Blueprint("admin", __name__)
 
