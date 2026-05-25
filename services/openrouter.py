@@ -548,11 +548,11 @@ OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or
 # ---------------------------------------------------------------------------
 # generate_party_owner_script() — content FOR a party biz owner's own social media
 # ---------------------------------------------------------------------------
-def generate_party_owner_script(input_text, platform="tiktok", emit_event=None):
+def generate_party_owner_script(input_text, platform="tiktok", image_url=None, emit_event=None):
     """
     Generate social media content for a party biz owner to market their OWN business.
-    NOT about Party Biz Hub — this is their TikTok/Instagram content about their parties.
-    input_text is built by the Studio form: business name, type, content angle.
+    When image_url is provided (screenshot of the app), the vision model reads what's
+    on screen and writes a caption ABOUT that specific feature — not a generic tip.
     """
     emit = emit_event or (lambda *a, **kw: None)
     client = _get_client()
@@ -562,8 +562,42 @@ def generate_party_owner_script(input_text, platform="tiktok", emit_event=None):
         return _demo_response("Script generation requires an OpenRouter API key")
 
     char_limit = PLATFORM_LIMITS.get(platform, 2200)
+    has_screenshot = bool(image_url)
 
-    system_prompt = f"""You are a social media copywriter helping a kids party business owner attract more bookings.
+    if has_screenshot:
+        system_prompt = f"""You are a social media copywriter for a party business owner who is showing a screenshot of their Party Biz Hub app on social media.
+
+YOUR JOB: Look at the screenshot carefully. Write a caption that talks SPECIFICALLY about what is visible on screen — the exact feature, tool, or moment being shown. Do NOT write a generic "run your business" post. Be specific.
+
+WHAT TO DO:
+- Describe what the viewer is seeing ("This is my quote builder", "Look at how I just scheduled 3 posts in 60 seconds", "This is my client list — 47 clients in one place")
+- Show the BENEFIT of that specific feature ("no more back-and-forth texting", "I never forget a follow-up anymore", "quotes go out in 2 minutes flat")
+- Make party biz owners feel like they're missing out if they don't have this
+
+THE AUDIENCE: Party business owners (balloon artists, entertainers, decorators, face painters) who are tired of running their business from their notes app and DMs. They want systems that save time.
+
+CONTENT FORMULA:
+1. HOOK — name what they're looking at ("POV: your quote builder does the math for you")
+2. SPECIFIC VALUE — what does this particular screen/feature do for them?
+3. CTA — "Comment PARTY if you want this" or "DM me PARTY"
+
+TONE: Excited, specific, real. Like you just found a hack and can't believe you used to do it the hard way.
+
+PLATFORM: {platform} | Max: {char_limit} characters
+
+VOICEOVER (read aloud by voice clone — write how someone talks):
+- Flowing, conversational phrases. Vary sentence length.
+- No ellipses, em dashes, parentheses, or hashtags in the spoken text.
+
+OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."""
+
+        user_content = [
+            {"type": "image_url", "image_url": {"url": image_url}},
+            {"type": "text", "text": f"Write a {platform} post about what you see in this screenshot.\n\nBusiness context:\n{input_text}\n\nBe specific about what is shown on screen. Don't write a generic party tip — react to exactly what is visible."}
+        ]
+        emit("script", "progress", f"Reading your screenshot and writing a specific {platform} caption about what's on screen...")
+    else:
+        system_prompt = f"""You are a social media copywriter helping a kids party business owner attract more bookings.
 
 YOUR JOB: Write content that makes parents stop scrolling, feel excited, and want to book this person.
 
@@ -591,16 +625,15 @@ VOICEOVER DELIVERY (this will be read aloud by a voice clone — make it sound n
 
 OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."""
 
-    user_prompt = f"""Write a {platform} post for this party business:\n\n{input_text}"""
-
-    emit("script", "progress", f"Writing your {platform} post...")
+        user_content = f"Write a {platform} post for this party business:\n\n{input_text}"
+        emit("script", "progress", f"Writing your {platform} post...")
 
     try:
         response = client.chat.completions.create(
             model=DEFAULT_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_content}
             ],
             max_tokens=800,
             temperature=0.78,

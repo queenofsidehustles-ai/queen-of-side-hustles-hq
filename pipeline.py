@@ -320,9 +320,12 @@ def stage_script(content_id, item, emit_event):
     # Route to the right script generator based on brand
     if getattr(item, "brand", None) == "pbh_user":
         # Party biz owner creating content about their OWN business (not PBH marketing)
+        # Pass the screenshot URL so the AI reads what's on screen instead of writing generic tips
+        screenshot_url = item.r2_image_url or item.image_url or None
         result = generate_party_owner_script(
             source_text,
             platform=item.platform,
+            image_url=screenshot_url,
             emit_event=emit_event,
         )
     elif getattr(item, "brand", None) == "pbh":
