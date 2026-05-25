@@ -109,6 +109,19 @@
         cursor:pointer; transition:opacity 0.2s; flex-shrink:0;
     }
     .genesis-input-bar button[type="submit"]:disabled { opacity:0.4; cursor:not-allowed; }
+    .genesis-mic-btn {
+        background:transparent; border:1px solid var(--border); border-radius:10px;
+        width:42px; height:42px; display:flex; align-items:center; justify-content:center;
+        cursor:pointer; transition:all 0.2s; flex-shrink:0; color:var(--text-subtle);
+    }
+    .genesis-mic-btn.active {
+        background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.5); color:#ef4444;
+        animation:micPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes micPulse {
+        0%,100% { box-shadow:0 0 0 0 rgba(239,68,68,0.3); }
+        50%      { box-shadow:0 0 0 6px rgba(239,68,68,0); }
+    }
     .genesis-bubble p { margin:0 0 8px; }
     .genesis-bubble p:last-child { margin-bottom:0; }
     .genesis-bubble ul,.genesis-bubble ol { padding-left:18px; margin:6px 0; }
@@ -127,7 +140,7 @@
     <div class="genesis-orb-section">
         <div class="genesis-orb" :class="{ 'loading': loading }"></div>
         <span class="genesis-orb-label"
-              x-text="loading ? 'thinking...' : (messages.length === 0 ? 'ready when you are' : 'listening...')"></span>
+              x-text="loading ? 'thinking...' : listening ? 'hearing you...' : (messages.length === 0 ? 'ready when you are' : 'ready')"></span>
         <div class="genesis-controls">
             <button type="button" @click="clearHistory()">Clear</button>
         </div>
@@ -177,9 +190,23 @@
     <!-- INPUT BAR -->
     <div class="genesis-input-bar">
         <form @submit.prevent="send()">
+            <!-- Mic button -->
+            <button type="button"
+                    @click="toggleMic()"
+                    :class="{ active: listening }"
+                    class="genesis-mic-btn"
+                    :title="listening ? 'Stop listening' : 'Speak to Genesis'">
+                <svg x-show="!listening" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm-1 1.93V18H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
+                </svg>
+                <svg x-show="listening" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16" rx="1"/>
+                    <rect x="14" y="4" width="4" height="16" rx="1"/>
+                </svg>
+            </button>
             <input type="text"
                    x-model="input"
-                   placeholder="Ask Genesis anything — scripts, emails, strategy, captions..."
+                   :placeholder="listening ? 'Listening — speak now…' : 'Ask Genesis anything — or tap the mic'"
                    autocomplete="off"
                    :disabled="loading">
             <button type="submit" :disabled="loading || !input.trim()">
@@ -198,6 +225,8 @@ function genesisChat() {
         messages: [],
         input: '',
         loading: false,
+        listening: false,
+        _recognition: null,
 
         init() {
             const saved = localStorage.getItem('genesis-chat-history');
@@ -272,6 +301,38 @@ function genesisChat() {
         formatTime(iso) {
             if (!iso) return '';
             return new Date(iso).toLocaleTimeString('en-US',{ hour:'numeric', minute:'2-digit' });
+        },
+
+        toggleMic() {
+            if (this.listening) {
+                this._recognition?.stop();
+                this.listening = false;
+                return;
+            }
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                alert('Voice input requires Chrome or Edge. Try opening Genesis in Chrome.');
+                return;
+            }
+            this._recognition = new SpeechRec();
+            this._recognition.continuous     = true;
+            this._recognition.interimResults  = false;
+            this._recognition.lang            = 'en-US';
+            this._recognition.onresult = (e) => {
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    if (e.results[i].isFinal) {
+                        const transcript = e.results[i][0].transcript.trim();
+                        this.input += (this.input ? ' ' : '') + transcript;
+                    }
+                }
+            };
+            this._recognition.onend = () => { this.listening = false; };
+            this._recognition.onerror = (e) => {
+                this.listening = false;
+                if (e.error !== 'aborted') console.warn('Speech error:', e.error);
+            };
+            this._recognition.start();
+            this.listening = true;
         },
     };
 }
