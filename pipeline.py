@@ -1049,10 +1049,7 @@ def stage_voiceover(content_id, item, emit_event):
     script_text = re.sub(r'\.{2,}', '.', script_text)
     # Em dash / double dash → comma pause (reads more naturally than a hard stop)
     script_text = re.sub(r'\s*—\s*|\s*--\s*', ', ', script_text)
-    # Ensure sentences ending without punctuation get a period before the next capital
-    script_text = re.sub(r'([a-z])\s+([A-Z])', r'\1. \2', script_text)
     # Clean up any excessive newlines — let ElevenLabs read punctuation naturally
-    # (do NOT force a newline after every period — that makes delivery choppy)
     script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
 
     # Auto-shorten script to match video duration so the voice never outlasts the clip.
