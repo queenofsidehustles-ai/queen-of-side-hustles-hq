@@ -173,13 +173,13 @@ Platform: {platform} | Max: {char_limit} characters
 FORMATTING: 2-4 intentional emojis | short mobile paragraphs | ONE CTA only
 HASHTAGS (Instagram/TikTok only): #KidsPartyProfitSystem #KidsPartyBusiness #SideHustleMom #MomBoss #PartyBusinessCoach
 
-SPOKEN WORD RULES (this script will be read aloud by a voice clone — it must sound natural):
-- Write SHORT sentences. One idea per sentence. Maximum 15 words per sentence.
-- End every sentence with proper punctuation: period, exclamation point, or question mark.
-- No run-on sentences. No comma splices. No sentences joined with "and" three times.
-- Use commas for natural mid-sentence pauses only.
-- No ellipses (...). No em dashes (—). No parentheses.
-- Write how someone TALKS, not how someone types.
+VOICEOVER DELIVERY (this script will be read aloud by a voice clone — it must sound natural):
+- Write in flowing, conversational phrases — the way someone speaks when they're excited and confident, not choppy bullet-point sentences.
+- Use commas to connect related thoughts and create a natural mid-sentence rhythm. Not every idea needs its own hard stop.
+- Vary sentence length: a short punchy line for emphasis, then longer flowing phrases to build momentum. Mix it up.
+- End thoughts with periods, exclamation points, or question marks — but only when it's a real stop, not just the end of a clause.
+- No ellipses (...). No em dashes (—). No parentheses. No hashtags inside the spoken script.
+- Write how someone TALKS — smooth, energetic, real.
 
 OUTPUT: Return ONLY the post text. Start directly with the hook. No labels. No preamble. Just the post."""
 
@@ -504,6 +504,13 @@ CRITICAL RULES:
 - Start with the PROBLEM, not a feature list
 - Do NOT write about undercharging, pricing strategy, or starting a business from scratch
 - Do NOT write coaching content — this is a software product post{kb_section}
+
+VOICEOVER DELIVERY (this script will be read aloud by a voice clone — it must sound natural):
+- Write in flowing, conversational phrases — the way someone speaks when they're confident and real, not choppy short sentences.
+- Use commas to connect related thoughts and create a natural mid-sentence rhythm. Not every idea needs its own hard stop.
+- Vary sentence length: a short punchy line to land the point, then a longer flowing phrase to build the feeling.
+- No ellipses (...). No em dashes (—). No parentheses. No hashtags inside the spoken script.
+- Write how someone TALKS — smooth, warm, and direct.
 
 OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or explanations."""
 
