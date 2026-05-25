@@ -19,23 +19,23 @@ ELEVENLABS_BASE = "https://api.elevenlabs.io/v1"
 DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"
 
 
-def is_configured() -> bool:
-    return bool(os.getenv("ELEVENLABS_API_KEY"))
+def is_configured(api_key: str = None) -> bool:
+    return bool(api_key or os.getenv("ELEVENLABS_API_KEY"))
 
 
-def synthesize_with_timestamps(text: str) -> dict | None:
+def synthesize_with_timestamps(text: str, api_key: str = None, voice_id: str = None) -> dict | None:
     """
     Convert text to audio AND get word-level timestamps.
     Returns {"audio": bytes, "words": [{"word": str, "start": float, "end": float}]}
-    or None on failure.
+    or None on failure. Pass api_key/voice_id to use a user's own ElevenLabs account.
     """
-    api_key  = os.getenv("ELEVENLABS_API_KEY", "")
-    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "") or DEFAULT_VOICE_ID
+    api_key  = api_key or os.getenv("ELEVENLABS_API_KEY", "")
+    voice_id = voice_id or os.getenv("ELEVENLABS_VOICE_ID", "") or DEFAULT_VOICE_ID
 
     if not api_key:
         return None
 
-    model = "eleven_multilingual_v2" if os.getenv("ELEVENLABS_VOICE_ID") else "eleven_monolingual_v1"
+    model = "eleven_multilingual_v2" if voice_id != DEFAULT_VOICE_ID else "eleven_monolingual_v1"
 
     try:
         resp = requests.post(
@@ -115,20 +115,19 @@ def words_to_caption_chunks(words: list, chunk_size: int = 4) -> list:
     return chunks
 
 
-def synthesize(text: str) -> bytes | None:
+def synthesize(text: str, api_key: str = None, voice_id: str = None) -> bytes | None:
     """
-    Convert text to MP3 audio bytes using Monica's cloned voice.
+    Convert text to MP3 audio bytes using Monica's cloned voice (or a user's own key/voice).
     Returns None if no API key is set.
     """
-    api_key  = os.getenv("ELEVENLABS_API_KEY", "")
-    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "") or DEFAULT_VOICE_ID
+    api_key  = api_key or os.getenv("ELEVENLABS_API_KEY", "")
+    voice_id = voice_id or os.getenv("ELEVENLABS_VOICE_ID", "") or DEFAULT_VOICE_ID
 
     if not api_key:
         logger.info("ElevenLabs not configured — skipping TTS")
         return None
 
-    # eleven_multilingual_v2 is the highest-quality model for cloned voices
-    model = "eleven_multilingual_v2" if os.getenv("ELEVENLABS_VOICE_ID") else "eleven_monolingual_v1"
+    model = "eleven_multilingual_v2" if voice_id != DEFAULT_VOICE_ID else "eleven_monolingual_v1"
 
     try:
         resp = requests.post(

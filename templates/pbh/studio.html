@@ -1,0 +1,372 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Content Studio{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Create social media posts for your party business — AI writes the script, you add your voice, done.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/pbh/assets" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);margin-right:8px;">
+    ← Library
+</a>
+<a href="/pbh/settings" class="btn" style="background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);">
+    Settings
+</a>
+{% endblock %}
+
+{% block content %}
+
+{% if not settings.business_name and not settings.business_type %}
+<!-- Setup nudge -->
+<div style="margin-bottom:20px;padding:14px 18px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:12px;display:flex;align-items:center;gap:12px;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span style="font-size:0.82rem;color:var(--text-primary);">Set up your business profile first so the AI writes in your voice. <a href="/pbh/settings" style="color:#6366f1;font-weight:700;">Go to Settings →</a></span>
+</div>
+{% endif %}
+
+<div x-data="studio()" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+
+    <!-- ── LEFT: The form ──────────────────────────────────────────────── -->
+    <div>
+
+        <!-- Step 1: What kind of post? -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">1 — What kind of post?</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <template x-for="t in contentTypes" :key="t.id">
+                    <div @click="contentType = t.id"
+                         :style="contentType===t.id ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.07);' : 'border:1px solid var(--border);'"
+                         style="border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.15s;">
+                        <div style="font-size:1.1rem;" x-text="t.emoji"></div>
+                        <div style="font-weight:700;font-size:0.82rem;color:var(--text-primary);margin-top:4px;" x-text="t.label"></div>
+                        <div style="font-size:0.71rem;color:var(--text-muted);margin-top:2px;line-height:1.3;" x-text="t.desc"></div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Step 2: Platform -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">2 — Platform</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <template x-for="p in platforms" :key="p.id">
+                    <button @click="platform=p.id"
+                            :style="platform===p.id ? 'background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;' : 'background:var(--card-bg);color:var(--text-primary);border:1px solid var(--border);'"
+                            style="padding:7px 16px;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;"
+                            x-text="p.label"></button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Step 3: Pick a clip or photo -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">3 — Add a clip or photo <span style="text-transform:none;font-weight:400;color:var(--text-subtle)">(optional)</span></div>
+
+            <div x-show="assetId !== null" style="margin-bottom:10px;padding:8px 12px;background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.2);border-radius:8px;display:flex;align-items:center;gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style="font-size:0.8rem;font-weight:600;color:#6366f1;" x-text="assets.find(a=>a.id===assetId)?.filename || 'Selected'"></span>
+                <button @click="assetId=null;skipVoiceover=false" style="margin-left:auto;background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:0.75rem;">✕</button>
+            </div>
+
+            <div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;">
+                <div @click="assetId=null;skipVoiceover=false"
+                     :style="assetId===null ? 'background:rgba(99,102,241,0.07);' : ''"
+                     style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);">
+                    <span style="font-size:0.78rem;color:var(--text-muted);">Text / image post only — no clip</span>
+                </div>
+                <template x-for="a in assets" :key="a.id">
+                    <div @click="assetId=a.id"
+                         :style="assetId===a.id ? 'background:rgba(99,102,241,0.07);' : ''"
+                         style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);">
+                        <div style="width:32px;height:32px;border-radius:6px;background:var(--bg-secondary);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                            <template x-if="a.file_type === 'video'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                            </template>
+                            <template x-if="a.file_type !== 'video'">
+                                <img :src="a.thumb_url || a.r2_url" style="width:100%;height:100%;object-fit:cover;">
+                            </template>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:0.78rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="a.filename"></div>
+                            <div style="font-size:0.68rem;color:var(--text-muted);" x-text="a.file_type === 'video' ? 'video clip' : 'photo'"></div>
+                        </div>
+                        <div x-show="assetId===a.id" style="color:#6366f1;flex-shrink:0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="assets.length === 0" style="padding:14px;text-align:center;font-size:0.77rem;color:var(--text-subtle);">
+                    No clips yet — <a href="/pbh/assets" style="color:#6366f1;font-weight:600;">upload from your Library</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Your angle (optional) -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);">4 — Your angle <span style="text-transform:none;font-weight:400;">(optional)</span></div>
+                <button @click="toggleMic()"
+                        :style="listening ? 'background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.4);color:#ef4444;' : 'background:none;border-color:var(--border);color:var(--text-muted);'"
+                        style="display:flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid;border-radius:8px;cursor:pointer;font-size:0.74rem;font-weight:600;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm-1 1.93V18H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
+                    </svg>
+                    <span x-text="listening ? 'Listening…' : 'Speak it'"></span>
+                    <span x-show="listening" style="width:6px;height:6px;background:#ef4444;border-radius:50%;display:inline-block;animation:pulse 1s infinite;"></span>
+                </button>
+            </div>
+            <textarea x-model="customAngle"
+                      placeholder="e.g. 'Focus on how balloon garlands make the whole room look different' — or tap Speak and say it"
+                      style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;resize:vertical;min-height:56px;box-sizing:border-box;font-family:inherit;"></textarea>
+        </div>
+
+        <!-- Step 5: Voice choice (only when video clip selected) -->
+        <template x-if="assetId && assets.find(a=>a.id===assetId)?.file_type==='video'">
+        <div style="margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">5 — Voice</div>
+
+            <!-- AI voice option -->
+            <div @click="skipVoiceover=false"
+                 :style="!skipVoiceover ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.05);' : 'border:1px solid var(--border);'"
+                 style="padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:8px;transition:all 0.15s;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div :style="!skipVoiceover ? 'background:#6366f1;border-color:#6366f1;' : 'background:var(--card-bg);border:2px solid var(--border);'"
+                         style="width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                        <div x-show="!skipVoiceover" style="width:8px;height:8px;background:#fff;border-radius:50%;"></div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">
+                            {% if settings.has_elevenlabs %}Use my ElevenLabs voice{% else %}AI voiceover (add key in Settings){% endif %}
+                        </div>
+                        <div style="font-size:0.71rem;color:var(--text-subtle);">AI reads the script in your cloned voice and burns captions onto the video</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My own audio -->
+            <div @click="skipVoiceover=true"
+                 :style="skipVoiceover ? 'border:2px solid #8b5cf6;background:rgba(139,92,246,0.05);' : 'border:1px solid var(--border);'"
+                 style="padding:12px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div :style="skipVoiceover ? 'background:#8b5cf6;border-color:#8b5cf6;' : 'background:var(--card-bg);border:2px solid var(--border);'"
+                         style="width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                        <div x-show="skipVoiceover" style="width:8px;height:8px;background:#fff;border-radius:50%;"></div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">I already recorded my voice</div>
+                        <div style="font-size:0.71rem;color:var(--text-subtle);">Keep the audio from my clip as-is — just get the script and caption text</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </template>
+
+        <!-- Generate -->
+        <button @click="generate()" :disabled="generating"
+                style="width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;"
+                :style="generating ? 'opacity:0.7;cursor:not-allowed;' : ''">
+            <span x-show="!generating">Create Post</span>
+            <span x-show="generating" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;"></span>
+                Creating…
+            </span>
+        </button>
+
+    </div>
+
+    <!-- ── RIGHT: Progress + Result ───────────────────────────────────── -->
+    <div>
+
+        <!-- Idle -->
+        <div x-show="!generating && !done" class="card"
+             style="min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="opacity:0.25;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <div style="font-weight:700;color:var(--text-muted);font-size:0.9rem;">Your post will appear here</div>
+            <div style="font-size:0.78rem;color:var(--text-subtle);max-width:240px;line-height:1.5;">Pick a content type, choose your platform, and hit Create Post.</div>
+        </div>
+
+        <!-- Progress -->
+        <div x-show="generating" class="card" style="min-height:200px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Working on it…</div>
+            <template x-for="(entry, i) in log" :key="i">
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
+                    <span :style="entry.status==='complete'?'color:#22c55e;':entry.status==='error'?'color:#ef4444;entry.status==='skipped'?'color:#a78bfa;':'color:#f59e0b;'"
+                          style="font-size:0.72rem;font-weight:700;text-transform:uppercase;min-width:56px;" x-text="entry.stage"></span>
+                    <span style="font-size:0.8rem;color:var(--text-primary);" x-text="entry.message"></span>
+                </div>
+            </template>
+        </div>
+
+        <!-- Result -->
+        <div x-show="done" x-transition>
+
+            <!-- Video preview -->
+            <div x-show="result.r2_video_url || result.video_url" class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+                <video :src="result.r2_video_url || result.video_url"
+                       controls muted playsinline
+                       style="width:100%;max-height:300px;object-fit:contain;display:block;background:#000;"></video>
+            </div>
+
+            <!-- Image preview -->
+            <div x-show="!result.r2_video_url && !result.video_url && (result.image_url || result.r2_image_url)" class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+                <img :src="result.r2_image_url || result.image_url" style="width:100%;max-height:260px;object-fit:cover;display:block;">
+            </div>
+
+            <!-- Script -->
+            <div class="card" style="margin-bottom:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);">Your Script / Caption</div>
+                    <button @click="copyScript()"
+                            style="font-size:0.72rem;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text-muted);cursor:pointer;"
+                            x-text="copied ? '✓ Copied' : 'Copy'"></button>
+                </div>
+                <div style="font-size:0.85rem;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;" x-text="result.script"></div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <a x-show="result.r2_video_url || result.video_url"
+                   :href="result.r2_video_url || result.video_url" download
+                   style="display:block;text-align:center;padding:10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:10px;font-weight:700;font-size:0.82rem;text-decoration:none;">
+                    Download Video
+                </a>
+                <button @click="reset()"
+                        style="padding:10px;background:var(--surface-raised);border:1px solid var(--border);color:var(--text-muted);border-radius:10px;font-weight:700;font-size:0.82rem;cursor:pointer;">
+                    Make Another
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function studio() {
+    return {
+        contentType:  'party_tip',
+        platform:     'tiktok',
+        assetId:      null,
+        customAngle:  '',
+        skipVoiceover: false,
+        generating:   false,
+        done:         false,
+        log:          [],
+        result:       {},
+        copied:       false,
+        listening:    false,
+        _recognition: null,
+
+        contentTypes: [
+            { id: 'party_tip',     emoji: '🎉', label: 'Party Tip',       desc: 'Show your expertise, build trust' },
+            { id: 'behind_scenes', emoji: '🎈', label: 'Behind the Scenes', desc: 'Show setup, prep, the magic' },
+            { id: 'client_story',  emoji: '👑', label: 'Client Story',     desc: 'A party moment that moved someone' },
+            { id: 'booking_promo', emoji: '📅', label: 'Booking Promo',    desc: 'Announce dates, a special offer' },
+            { id: 'business_tip',  emoji: '💡', label: 'Business Tip',     desc: 'Pricing, booking, running your biz' },
+        ],
+        platforms: [
+            { id: 'tiktok',    label: 'TikTok' },
+            { id: 'instagram', label: 'Instagram' },
+            { id: 'facebook',  label: 'Facebook' },
+            { id: 'youtube',   label: 'YouTube' },
+        ],
+
+        // Loaded from server
+        assets: {{ assets | tojson }},
+
+        async generate() {
+            this.generating = true;
+            this.done       = false;
+            this.log        = [];
+            this.result     = {};
+
+            const resp = await fetch('/pbh/api/studio/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content_type:   this.contentType,
+                    platform:       this.platform,
+                    asset_id:       this.assetId,
+                    custom_angle:   this.customAngle,
+                    skip_voiceover: this.skipVoiceover,
+                }),
+            });
+
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data:')) continue;
+                    try {
+                        const ev = JSON.parse(line.slice(5).trim());
+                        if (ev.stage === 'done') {
+                            await this.loadResult(ev.content_id);
+                            this.generating = false;
+                            this.done = true;
+                        } else {
+                            this.log.push(ev);
+                        }
+                    } catch {}
+                }
+            }
+        },
+
+        async loadResult(contentId) {
+            const resp = await fetch(`/pbh/api/items/${contentId}/log`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            this.result = data;
+        },
+
+        copyScript() {
+            const text = this.result.script || '';
+            navigator.clipboard.writeText(text).then(() => {
+                this.copied = true;
+                setTimeout(() => this.copied = false, 2000);
+            });
+        },
+
+        reset() {
+            this.done         = false;
+            this.generating   = false;
+            this.log          = [];
+            this.result       = {};
+            this.customAngle  = '';
+            this.skipVoiceover = false;
+        },
+
+        toggleMic() {
+            if (this.listening) {
+                this._recognition?.stop();
+                this.listening = false;
+                return;
+            }
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) { alert('Voice input not supported in this browser — try Chrome.'); return; }
+            this._recognition = new SpeechRec();
+            this._recognition.continuous    = true;
+            this._recognition.interimResults = false;
+            this._recognition.lang          = 'en-US';
+            this._recognition.onresult = (e) => {
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    if (e.results[i].isFinal) this.customAngle += (this.customAngle ? ' ' : '') + e.results[i][0].transcript;
+                }
+            };
+            this._recognition.onend = () => { this.listening = false; };
+            this._recognition.start();
+            this.listening = true;
+        },
+    };
+}
+</script>
+<style>
+@keyframes spin  { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+</style>
+{% endblock %}

@@ -10,7 +10,7 @@ from datetime import datetime
 
 from flask import Blueprint, request, jsonify, Response, current_app
 from auth import login_required
-from models import ContentItem, PBHAsset, PipelineLog, PBHKnowledge
+from models import ContentItem, PBHAsset, PipelineLog, PBHKnowledge, Setting
 from extensions import db
 
 pbh_api_bp = Blueprint("pbh_api", __name__)
@@ -587,3 +587,165 @@ def save_knowledge():
     data = request.get_json() or {}
     PBHKnowledge.save(data.get("content", ""))
     return jsonify({"ok": True})
+
+
+# ── PBH Business Settings (business profile + API keys) ─────────────────────
+
+@pbh_api_bp.route("/settings", methods=["GET"])
+@login_required
+def get_settings():
+    return jsonify({
+        "business_name":  Setting.get("pbh_business_name", ""),
+        "business_type":  Setting.get("pbh_business_type", ""),
+        "has_elevenlabs": bool(Setting.get("pbh_elevenlabs_key")),
+        "voice_id":       Setting.get("pbh_voice_id", ""),
+    })
+
+
+@pbh_api_bp.route("/settings", methods=["POST"])
+@login_required
+def save_settings():
+    data = request.get_json() or {}
+    if "business_name" in data:
+        Setting.set("pbh_business_name", data["business_name"].strip())
+    if "business_type" in data:
+        Setting.set("pbh_business_type", data["business_type"].strip())
+    if "elevenlabs_key" in data:
+        Setting.set("pbh_elevenlabs_key", data["elevenlabs_key"].strip())
+    if "voice_id" in data:
+        Setting.set("pbh_voice_id", data["voice_id"].strip())
+    return jsonify({"ok": True})
+
+
+@pbh_api_bp.route("/settings/test-key", methods=["POST"])
+@login_required
+def test_elevenlabs_key():
+    """Quick check that the saved ElevenLabs key is valid."""
+    import requests as req
+    key = Setting.get("pbh_elevenlabs_key", "")
+    if not key:
+        return jsonify({"ok": False, "error": "No key saved yet."})
+    try:
+        resp = req.get(
+            "https://api.elevenlabs.io/v1/user",
+            headers={"xi-api-key": key},
+            timeout=8,
+        )
+        if resp.ok:
+            info = resp.json()
+            tier = info.get("subscription", {}).get("tier", "unknown")
+            chars = info.get("subscription", {}).get("character_count", 0)
+            limit = info.get("subscription", {}).get("character_limit", 0)
+            return jsonify({"ok": True, "tier": tier, "used": chars, "limit": limit})
+        return jsonify({"ok": False, "error": f"ElevenLabs returned {resp.status_code}"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+# ── Studio generate — party biz owner content ────────────────────────────────
+
+_OWNER_CONTENT_DIRECTIONS = {
+    "party_tip":     "Share a genuine party planning tip that shows your expertise and makes parents trust you more.",
+    "booking_promo": "Announce your availability or a special offer. Make it feel exciting and warm, not salesy.",
+    "behind_scenes": "Take viewers behind the scenes — show how you set up, prepare, or transform a space. Show the work and the magic.",
+    "client_story":  "Share a story about a party you did and how it made a child's day special. Focus on the kid's reaction and the parent's relief.",
+    "business_tip":  "Share a tip about running a party business — pricing, booking, handling clients — that positions you as the expert.",
+}
+
+
+@pbh_api_bp.route("/studio/generate", methods=["POST"])
+@login_required
+def studio_generate():
+    """Generate content for a party biz owner's own social media (not PBH marketing)."""
+    data = request.get_json() or {}
+
+    content_type   = data.get("content_type", "party_tip")
+    platform       = data.get("platform", "tiktok")
+    custom_angle   = data.get("custom_angle", "").strip()
+    asset_id       = data.get("asset_id")
+    skip_voiceover = bool(data.get("skip_voiceover", False))
+
+    # Pull business context from saved settings
+    business_name = Setting.get("pbh_business_name", "")
+    business_type = Setting.get("pbh_business_type", "")
+
+    # Build the input_text that stage_script will receive
+    direction = _OWNER_CONTENT_DIRECTIONS.get(content_type, _OWNER_CONTENT_DIRECTIONS["party_tip"])
+    parts = [f"Platform: {platform.capitalize()}"]
+    if business_name:
+        parts.append(f"Business name: {business_name}")
+    if business_type:
+        parts.append(f"Business type: {business_type}")
+    parts.append(f"\nContent direction: {direction}")
+    if custom_angle:
+        parts.append(f"Specific angle: {custom_angle}")
+    input_text = "\n".join(parts)
+
+    item = ContentItem(
+        brand=          "pbh_user",
+        input_text=     input_text,
+        input_type=     "idea",
+        platform=       platform,
+        include_video=  False,
+        skip_voiceover= skip_voiceover,
+        status=         "draft",
+    )
+    db.session.add(item)
+    db.session.commit()
+
+    if asset_id:
+        asset = PBHAsset.query.get(asset_id)
+        if asset:
+            if asset.file_type == "video":
+                item.r2_video_url = asset.r2_url
+                item.video_url    = asset.r2_url
+                item.input_type   = "video"
+            else:
+                item.image_url    = asset.r2_url
+                item.r2_image_url = asset.r2_url
+            db.session.commit()
+
+    content_id = item.id
+    q = queue.Queue()
+    app = current_app._get_current_object()
+
+    def emit(stage, status, message, detail=""):
+        q.put(json.dumps({
+            "content_id": content_id,
+            "stage": stage, "status": status,
+            "message": message, "detail": detail,
+        }))
+        try:
+            log_entry = PipelineLog(
+                content_id=content_id, stage=stage, status=status,
+                message=str(message)[:500], detail=str(detail)[:500],
+            )
+            db.session.add(log_entry)
+            db.session.commit()
+        except Exception:
+            pass
+
+    def run():
+        with app.app_context():
+            PipelineLog.query.filter_by(content_id=content_id).delete()
+            db.session.commit()
+            from pipeline import run_pipeline
+            run_pipeline(content_id, emit)
+        q.put("DONE")
+
+    threading.Thread(target=run, daemon=True).start()
+
+    def stream():
+        while True:
+            try:
+                msg = q.get(timeout=960)
+                if msg == "DONE":
+                    yield f"data: {json.dumps({'stage': 'done', 'status': 'complete', 'content_id': content_id})}\n\n"
+                    break
+                yield f"data: {msg}\n\n"
+            except queue.Empty:
+                yield f"data: {json.dumps({'stage': 'done', 'status': 'timeout'})}\n\n"
+                break
+
+    return Response(stream(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

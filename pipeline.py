@@ -26,7 +26,7 @@ from datetime import datetime
 from models import ContentItem, PipelineLog, Setting
 from extensions import db
 from services.firecrawl import scrape_url
-from services.openrouter import generate_script, generate_image_prompt, generate_captions, generate_pbh_script, generate_pbh_captions
+from services.openrouter import generate_script, generate_image_prompt, generate_captions, generate_pbh_script, generate_pbh_captions, generate_party_owner_script
 from services.kie_ai import generate_image, generate_video, generate_video_with_reference
 from services.getlate import publish_post
 from services.r2_storage import upload_image as r2_upload_image, upload_video as r2_upload_video, is_configured as r2_is_configured
@@ -317,9 +317,16 @@ def stage_script(content_id, item, emit_event):
     source_text = item.article_text or item.input_text
     input_type = item.input_type
 
-    # PBH uses its own script generator — completely separate system prompt
-    # to prevent KPPS hooks ("undercharging", pricing coaching) from bleeding in
-    if getattr(item, "brand", None) == "pbh":
+    # Route to the right script generator based on brand
+    if getattr(item, "brand", None) == "pbh_user":
+        # Party biz owner creating content about their OWN business (not PBH marketing)
+        result = generate_party_owner_script(
+            source_text,
+            platform=item.platform,
+            emit_event=emit_event,
+        )
+    elif getattr(item, "brand", None) == "pbh":
+        # PBH marketing content (Monica promoting the software)
         from models import PBHKnowledge
         knowledge = PBHKnowledge.get()
         result = generate_pbh_script(
@@ -1004,8 +1011,16 @@ def stage_voiceover(content_id, item, emit_event):
         emit_event(stage, "skipped", "Skipping AI voiceover — your recorded voice will be used as-is.")
         return 0.0
 
-    if not is_configured():
-        emit_event(stage, "skipped", "ElevenLabs not configured — add ELEVENLABS_API_KEY to Railway to enable voiceover.")
+    # Determine which ElevenLabs key to use — PBH users bring their own
+    override_api_key = None
+    override_voice_id = None
+    if getattr(item, 'brand', 'kpps') in ('pbh', 'pbh_user'):
+        from models import Setting
+        override_api_key  = Setting.get('pbh_elevenlabs_key') or None
+        override_voice_id = Setting.get('pbh_voice_id') or None
+
+    if not is_configured(override_api_key):
+        emit_event(stage, "skipped", "No ElevenLabs key — add your key in PBH Settings to enable voiceover.")
         return 0.0
 
     _VIDEO_EXTS = (".mp4", ".mov", ".webm", ".avi", ".m4v")
@@ -1072,7 +1087,7 @@ def stage_voiceover(content_id, item, emit_event):
 
     emit_event(stage, "progress", "Sending script to ElevenLabs — recording your cloned voice...")
 
-    result = synthesize_with_timestamps(script_text)
+    result = synthesize_with_timestamps(script_text, api_key=override_api_key, voice_id=override_voice_id)
     caption_chunks = []
 
     if result:
@@ -1085,7 +1100,7 @@ def stage_voiceover(content_id, item, emit_event):
         # Fallback: try basic synthesis without timestamps
         emit_event(stage, "progress", "Timestamps endpoint failed — trying basic voice synthesis...")
         from services.elevenlabs import synthesize
-        audio_bytes = synthesize(script_text)
+        audio_bytes = synthesize(script_text, api_key=override_api_key, voice_id=override_voice_id)
         if not audio_bytes:
             emit_event(stage, "warning",
                        "ElevenLabs returned no audio. Check that ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID "

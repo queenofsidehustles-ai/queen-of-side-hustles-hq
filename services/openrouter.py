@@ -546,6 +546,83 @@ OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or
 
 
 # ---------------------------------------------------------------------------
+# generate_party_owner_script() — content FOR a party biz owner's own social media
+# ---------------------------------------------------------------------------
+def generate_party_owner_script(input_text, platform="tiktok", emit_event=None):
+    """
+    Generate social media content for a party biz owner to market their OWN business.
+    NOT about Party Biz Hub — this is their TikTok/Instagram content about their parties.
+    input_text is built by the Studio form: business name, type, content angle.
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+    client = _get_client()
+
+    if not client:
+        emit("script", "progress", "No OpenRouter API key — using demo content.")
+        return _demo_response("Script generation requires an OpenRouter API key")
+
+    char_limit = PLATFORM_LIMITS.get(platform, 2200)
+
+    system_prompt = f"""You are a social media copywriter helping a kids party business owner attract more bookings.
+
+YOUR JOB: Write content that makes parents stop scrolling, feel excited, and want to book this person.
+
+THE AUDIENCE:
+- Moms and dads planning birthday parties for kids aged 3-12
+- Scrolling for inspiration, comparing options, looking for someone they can trust
+- They book based on emotion first, then logic — make them feel the magic before they read the details
+- They respond to real moments, kid reactions, behind-the-scenes, and confident expertise
+
+CONTENT FORMULA:
+1. HOOK — open with something relatable (party planning chaos, a child's excitement, a surprising tip) or something visual that stops the scroll
+2. VALUE — show expertise, a transformation, a party tip, or a genuine moment from the work
+3. CTA — one clear next step: "DM me PARTY", "comment BOOKING to check my dates", "link in bio"
+
+TONE: Warm, excited, genuine. The voice of someone who truly loves making kids' birthdays magical. Not salesy — enthusiastic and real. Like a friend who also happens to be amazing at what they do.
+
+PLATFORM: {platform} | Max: {char_limit} characters
+HASHTAGS (Instagram/TikTok only): Use relevant party hashtags based on their business type
+
+VOICEOVER DELIVERY (this will be read aloud by a voice clone — make it sound natural):
+- Write in flowing, conversational phrases. Not choppy sentences. Connect thoughts with commas.
+- Vary sentence length: a short punchy line for emphasis, then longer flowing phrases for momentum.
+- No ellipses (...). No em dashes (—). No parentheses. No hashtags in the spoken script.
+- Write how someone TALKS when they love their job — smooth, warm, energetic, real.
+
+OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."""
+
+    user_prompt = f"""Write a {platform} post for this party business:\n\n{input_text}"""
+
+    emit("script", "progress", f"Writing your {platform} post...")
+
+    try:
+        response = client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=800,
+            temperature=0.78,
+        )
+        text = response.choices[0].message.content.strip()
+        usage = response.usage
+        result = {
+            "text": text,
+            "model": DEFAULT_MODEL,
+            "tokens_in": usage.prompt_tokens if usage else 0,
+            "tokens_out": usage.completion_tokens if usage else 0,
+            "cost": _estimate_cost(usage.prompt_tokens, usage.completion_tokens) if usage else 0.0,
+            "demo": False
+        }
+        emit("script", "progress", f"Post written! {result['tokens_out']} tokens.")
+        return result
+    except Exception as e:
+        emit("script", "error", f"OpenRouter error: {str(e)}")
+        raise
+
+
+# ---------------------------------------------------------------------------
 # generate_pbh_captions() — PBH platform captions (separate from KPPS)
 # ---------------------------------------------------------------------------
 def generate_pbh_captions(script_text, platforms=None, knowledge_base="", emit_event=None):

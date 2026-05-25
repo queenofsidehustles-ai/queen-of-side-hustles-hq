@@ -1,0 +1,168 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Content Studio Settings{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Set up your business profile and voice settings once — the Studio uses these every time you create content.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/pbh/studio" class="btn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-weight:700;">
+    Go to Studio →
+</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="pbhSettings()" style="max-width:640px;">
+
+    <!-- Step 1: Business Profile -->
+    <div class="card" style="margin-bottom:24px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">1 — Your Business Profile</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+            <div>
+                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Business Name</label>
+                <input type="text" x-model="businessName"
+                       placeholder="e.g. Bella's Balloon Art"
+                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Business Type</label>
+                <select x-model="businessType"
+                        style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
+                    <option value="">Select your specialty…</option>
+                    <option value="balloon artist">Balloon Artist</option>
+                    <option value="face painter">Face Painter</option>
+                    <option value="princess character entertainer">Princess Character Entertainer</option>
+                    <option value="bounce house rental">Bounce House Rental</option>
+                    <option value="party planner">Party Planner / Coordinator</option>
+                    <option value="kids entertainment">Kids Entertainer (clown, magician, etc.)</option>
+                    <option value="event decorator">Event Decorator</option>
+                    <option value="party supply rental">Party Supply Rental</option>
+                    <option value="kids party business">Kids Party Business (multiple services)</option>
+                </select>
+            </div>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-subtle);margin:0;">The AI uses your business name and type to write content that sounds like YOU, not a generic party template.</p>
+    </div>
+
+    <!-- Step 2: ElevenLabs Voice -->
+    <div class="card" style="margin-bottom:24px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">2 — Your Voice (Optional)</div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 16px;">Add your own ElevenLabs API key to use AI voiceover. You pay ElevenLabs directly — nothing extra here. No key? Skip this and record your own voice instead.</p>
+
+        <div style="margin-bottom:12px;">
+            <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">ElevenLabs API Key</label>
+            <div style="display:flex;gap:8px;">
+                <input :type="showKey ? 'text' : 'password'"
+                       x-model="elevenlabsKey"
+                       placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
+                       style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;font-family:monospace;">
+                <button @click="showKey=!showKey"
+                        style="padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;white-space:nowrap;"
+                        x-text="showKey ? 'Hide' : 'Show'"></button>
+            </div>
+            <p style="font-size:0.72rem;color:var(--text-subtle);margin:6px 0 0;">Get your key at elevenlabs.io → Profile → API Key. Start free, upgrade as you grow.</p>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Voice ID <span style="font-weight:400;color:var(--text-subtle)">(optional — leave blank to use a default voice)</span></label>
+            <input type="text" x-model="voiceId"
+                   placeholder="e.g. 21m00Tcm4TlvDq8ikWAM"
+                   style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;font-family:monospace;box-sizing:border-box;">
+            <p style="font-size:0.72rem;color:var(--text-subtle);margin:6px 0 0;">In ElevenLabs, click your cloned voice → Share → copy the Voice ID. Leave blank to use a built-in voice.</p>
+        </div>
+
+        <!-- Test key button -->
+        <button @click="testKey()" :disabled="!elevenlabsKey || testing"
+                style="padding:8px 20px;border:1px solid rgba(99,102,241,0.4);border-radius:8px;background:rgba(99,102,241,0.07);color:#6366f1;font-weight:700;font-size:0.82rem;cursor:pointer;"
+                :style="(!elevenlabsKey || testing) ? 'opacity:0.4;cursor:not-allowed;' : ''">
+            <span x-show="!testing">Test Key</span>
+            <span x-show="testing">Checking…</span>
+        </button>
+        <div x-show="testResult" style="margin-top:10px;padding:8px 12px;border-radius:8px;"
+             :style="testOk ? 'background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#22c55e;' : 'background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;'"
+             x-text="testResult"></div>
+    </div>
+
+    <!-- Save button -->
+    <button @click="save()" :disabled="saving"
+            style="width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;">
+        <span x-show="!saving">Save Settings</span>
+        <span x-show="saving">Saving…</span>
+    </button>
+    <div x-show="saved" style="text-align:center;margin-top:10px;color:#22c55e;font-size:0.82rem;font-weight:600;">
+        ✓ Saved! Head to the Studio to create your first post.
+    </div>
+    <div x-show="saveError" style="text-align:center;margin-top:10px;color:#ef4444;font-size:0.82rem;" x-text="saveError"></div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pbhSettings() {
+    return {
+        businessName:   '{{ business_name | e }}',
+        businessType:   '{{ business_type | e }}',
+        elevenlabsKey:  '{{ elevenlabs_key | e }}',
+        voiceId:        '{{ voice_id | e }}',
+        showKey:        false,
+        saving:         false,
+        saved:          false,
+        saveError:      '',
+        testing:        false,
+        testResult:     '',
+        testOk:         false,
+
+        async save() {
+            this.saving = true;
+            this.saved  = false;
+            this.saveError = '';
+            try {
+                const resp = await fetch('/pbh/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        business_name:  this.businessName,
+                        business_type:  this.businessType,
+                        elevenlabs_key: this.elevenlabsKey,
+                        voice_id:       this.voiceId,
+                    }),
+                });
+                if (resp.ok) {
+                    this.saved = true;
+                    setTimeout(() => this.saved = false, 4000);
+                } else {
+                    this.saveError = 'Save failed — try again.';
+                }
+            } catch (e) {
+                this.saveError = 'Network error — check your connection.';
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async testKey() {
+            this.testing    = true;
+            this.testResult = '';
+            // Save key first so the API can read it
+            await fetch('/pbh/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ elevenlabs_key: this.elevenlabsKey }),
+            });
+            try {
+                const resp = await fetch('/pbh/api/settings/test-key', { method: 'POST' });
+                const data = await resp.json();
+                this.testOk     = data.ok;
+                this.testResult = data.ok
+                    ? `✓ Key works! Plan: ${data.tier} — ${data.used?.toLocaleString()} / ${data.limit?.toLocaleString()} chars used`
+                    : `✗ ${data.error}`;
+            } catch (e) {
+                this.testOk     = false;
+                this.testResult = '✗ Could not reach ElevenLabs — check your connection.';
+            } finally {
+                this.testing = false;
+            }
+        },
+    };
+}
+</script>
+{% endblock %}
