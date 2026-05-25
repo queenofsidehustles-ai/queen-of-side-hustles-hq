@@ -280,6 +280,7 @@ def item_log(item_id):
         "item_id": item_id,
         "status": item.status,
         "r2_video_url": item.r2_video_url,
+        "skip_voiceover": bool(item.skip_voiceover),
         "logs": [l.to_dict() for l in logs],
     })
 

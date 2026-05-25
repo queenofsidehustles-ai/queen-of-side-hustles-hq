@@ -511,8 +511,17 @@ async function loadPipelineLog(itemId) {
             return `<div><span style="color:${color};font-weight:700;">${stage}</span> <span style="color:#e2e8f0;">${l.message || ''}</span></div>`;
         });
         // Summary line at top
-        const voiceoverOk = data.r2_video_url ? '✓ Voiceover applied' : '✗ Voiceover NOT saved';
-        const voiceColor  = data.r2_video_url ? '#22c55e' : '#f59e0b';
+        let voiceoverOk, voiceColor;
+        if (data.r2_video_url && data.skip_voiceover) {
+            voiceoverOk = '✓ Your voice kept — no AI voiceover';
+            voiceColor  = '#a78bfa';
+        } else if (data.r2_video_url) {
+            voiceoverOk = '✓ AI voiceover applied';
+            voiceColor  = '#22c55e';
+        } else {
+            voiceoverOk = '✗ Video not saved';
+            voiceColor  = '#f59e0b';
+        }
         box.innerHTML = `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2a2a3a;">
             <span style="color:${voiceColor};font-weight:700;">${voiceoverOk}</span>
             <span style="color:#666;margin-left:8px;">status: ${data.status}</span>
