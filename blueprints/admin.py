@@ -36,43 +36,51 @@ def logout():
 @admin_bp.route("/dashboard")
 @login_required
 def dashboard():
+    import json, logging
+    log = logging.getLogger(__name__)
+
     active_stages = ["Checklist Downloaded", "Warming Up", "Lead", "Course Purchased",
                      "Hub Activated", "Active Subscriber"]
+
+    # ── Core stats — safe queries that work even on a fresh DB ─────────────
+    def _safe(fn, default):
+        try:
+            return fn()
+        except Exception as e:
+            log.warning("Dashboard query failed: %s", e)
+            db.session.rollback()
+            return default
+
     stats = {
-        "total_contacts": Contact.query.count(),
-        "total_leads": Contact.query.filter(Contact.status.in_(active_stages)).count(),
-        "pipeline_value": float(db.session.query(func.coalesce(func.sum(Deal.value), 0)).filter(
-            Deal.stage.notin_(["Won", "Lost"])
-        ).scalar()),
-        "total_revenue": float(db.session.query(func.coalesce(func.sum(Deal.value), 0)).filter(
-            Deal.stage == "Won"
-        ).scalar()),
-        "total_deals": Deal.query.count(),
-        "won_deals": Deal.query.filter(Deal.stage == "Won").count(),
+        "total_contacts":  _safe(lambda: Contact.query.count(), 0),
+        "total_leads":     _safe(lambda: Contact.query.filter(Contact.status.in_(active_stages)).count(), 0),
+        "pipeline_value":  _safe(lambda: float(db.session.query(func.coalesce(func.sum(Deal.value), 0)).filter(
+                                     Deal.stage.notin_(["Won", "Lost"])).scalar()), 0.0),
+        "total_revenue":   _safe(lambda: float(db.session.query(func.coalesce(func.sum(Deal.value), 0)).filter(
+                                     Deal.stage == "Won").scalar()), 0.0),
+        "total_deals":     _safe(lambda: Deal.query.count(), 0),
+        "won_deals":       _safe(lambda: Deal.query.filter(Deal.stage == "Won").count(), 0),
     }
 
     today = date.today()
-    follow_ups = (Contact.query
-                  .filter(Contact.follow_up_date <= today)
-                  .order_by(Contact.follow_up_date.asc())
-                  .limit(20).all())
 
-    recent_activity = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(10).all()
+    follow_ups    = _safe(lambda: Contact.query.filter(Contact.follow_up_date <= today)
+                          .order_by(Contact.follow_up_date.asc()).limit(20).all(), [])
+    recent_activity = _safe(lambda: ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(10).all(), [])
 
     from models import ContentItem
-    content_total = ContentItem.query.count()
-    content_ready = ContentItem.query.filter_by(status="ReadyToPost").count()
-    content_published = ContentItem.query.filter_by(status="published").count()
+    content_total     = _safe(lambda: ContentItem.query.count(), 0)
+    content_ready     = _safe(lambda: ContentItem.query.filter_by(status="ReadyToPost").count(), 0)
+    content_published = _safe(lambda: ContentItem.query.filter_by(status="published").count(), 0)
 
     # ── "Your Move" action items ────────────────────────────────────────────
     your_move = []
 
-    # Hot new leads (created in last 3 days, still in active-lead stages)
     three_days_ago = datetime.utcnow() - timedelta(days=3)
-    hot_lead_count = Contact.query.filter(
+    hot_lead_count = _safe(lambda: Contact.query.filter(
         Contact.status.in_(["Lead", "Warming Up", "Checklist Downloaded"]),
         Contact.created_at >= three_days_ago,
-    ).count()
+    ).count(), 0)
     if hot_lead_count > 0:
         your_move.append({
             "emoji": "🔥",
@@ -84,11 +92,10 @@ def dashboard():
             "bg": "rgba(239,68,68,0.07)",
         })
 
-    # Overdue follow-ups (follow_up_date is in the past)
-    overdue_count = Contact.query.filter(
+    overdue_count = _safe(lambda: Contact.query.filter(
         Contact.follow_up_date.isnot(None),
         Contact.follow_up_date < today,
-    ).count()
+    ).count(), 0)
     if overdue_count > 0:
         your_move.append({
             "emoji": "⏰",
@@ -100,11 +107,10 @@ def dashboard():
             "bg": "rgba(245,158,11,0.07)",
         })
 
-    # Ready content with no schedule date
-    ready_unscheduled = ContentItem.query.filter(
+    ready_unscheduled = _safe(lambda: ContentItem.query.filter(
         ContentItem.status.in_(["ready", "ReadyToPost", "complete"]),
         ContentItem.scheduled_at.is_(None),
-    ).count()
+    ).count(), 0)
     if ready_unscheduled > 0:
         your_move.append({
             "emoji": "📱",
@@ -116,92 +122,77 @@ def dashboard():
             "bg": "rgba(199,163,90,0.07)",
         })
 
-    # Days without a published post
-    last_pub = ContentItem.query.filter(
+    last_pub = _safe(lambda: ContentItem.query.filter(
         ContentItem.status == "published",
         ContentItem.published_at.isnot(None),
-    ).order_by(ContentItem.published_at.desc()).first()
+    ).order_by(ContentItem.published_at.desc()).first(), None)
     days_no_post = None
     if last_pub and last_pub.published_at:
         days_no_post = (datetime.utcnow() - last_pub.published_at).days
     if days_no_post is None or days_no_post >= 3:
-        if days_no_post and days_no_post < 999:
-            post_title = f"{days_no_post} days without a post"
-            post_body = "The algorithm rewards consistency — pick a clip and post today."
-        else:
-            post_title = "You haven't posted yet"
-            post_body = "Pick a clip from your library and create your first post."
+        post_title = (f"{days_no_post} days without a post"
+                      if days_no_post and days_no_post < 999
+                      else "You haven't posted yet")
+        post_body  = ("The algorithm rewards consistency — pick a clip and post today."
+                      if days_no_post and days_no_post < 999
+                      else "Pick a clip from your library and create your first post.")
         your_move.append({
             "emoji": "🎬",
             "title": post_title,
-            "body": post_body,
-            "cta": "Create a post",
-            "url": "/content/",
+            "body":  post_body,
+            "cta":   "Create a post",
+            "url":   "/content/",
             "accent": "#8b5cf6",
-            "bg": "rgba(139,92,246,0.07)",
+            "bg":    "rgba(139,92,246,0.07)",
         })
 
-    from datetime import datetime
-    import json
-
-    # Platform / lead source breakdown (real data)
-    platform_rows = db.session.query(
+    # ── Analytics ───────────────────────────────────────────────────────────
+    platform_rows = _safe(lambda: db.session.query(
         Contact.lead_source, func.count(Contact.id)
-    ).group_by(Contact.lead_source).order_by(func.count(Contact.id).desc()).all()
+    ).group_by(Contact.lead_source).order_by(func.count(Contact.id).desc()).all(), [])
     platform_breakdown_json = json.dumps([
         {"source": (row[0] or "Other"), "count": row[1]} for row in platform_rows
     ])
 
-    # Real conversion funnel (all time)
-    all_count = stats["total_contacts"]
-    leads_count = Contact.query.filter(
+    all_count  = stats["total_contacts"]
+    leads_count = _safe(lambda: Contact.query.filter(
         Contact.status.in_(["Checklist Downloaded", "Warming Up", "Lead"])
-    ).count()
-    converted_count = Contact.query.filter(
+    ).count(), 0)
+    converted_count = _safe(lambda: Contact.query.filter(
         Contact.status.in_(["Course Purchased", "Hub Activated", "Active Subscriber", "VIP Client"])
-    ).count()
+    ).count(), 0)
     funnel = {
         "all_contacts": all_count,
         "active_leads": leads_count,
-        "converted": converted_count,
-        "lead_rate": round(leads_count / all_count * 100) if all_count > 0 else 0,
+        "converted":    converted_count,
+        "lead_rate":    round(leads_count / all_count * 100) if all_count > 0 else 0,
         "convert_rate": round(converted_count / leads_count * 100) if leads_count > 0 else 0,
     }
 
-    # Revenue by week — real Won deal data, last 13 weeks
     now_dt = datetime.utcnow()
     revenue_weeks_data = []
     for i in range(13):
         wk_start = now_dt - timedelta(weeks=12 - i)
-        wk_end = wk_start + timedelta(weeks=1)
-        total = db.session.query(func.coalesce(func.sum(Deal.value), 0)).filter(
-            Deal.stage == "Won",
-            Deal.created_at >= wk_start,
-            Deal.created_at < wk_end,
-        ).scalar()
-        revenue_weeks_data.append({
-            "label": f"{wk_start.month}/{wk_start.day}",
-            "value": float(total or 0),
-        })
+        wk_end   = wk_start + timedelta(weeks=1)
+        total = _safe(lambda ws=wk_start, we=wk_end: db.session.query(
+            func.coalesce(func.sum(Deal.value), 0)
+        ).filter(Deal.stage == "Won", Deal.created_at >= ws, Deal.created_at < we).scalar(), 0)
+        revenue_weeks_data.append({"label": f"{wk_start.month}/{wk_start.day}", "value": float(total or 0)})
     revenue_weeks_json = json.dumps(revenue_weeks_data)
 
-    # Real Won deals for transactions panel
-    won_rows = (
-        db.session.query(Deal, Contact)
+    won_rows = _safe(lambda: db.session.query(Deal, Contact)
         .outerjoin(Contact, Deal.contact_id == Contact.id)
         .filter(Deal.stage == "Won")
         .order_by(Deal.created_at.desc())
-        .limit(10)
-        .all()
-    )
+        .limit(10).all(), [])
     won_deals = []
     for deal, contact in won_rows:
         nm = (contact.name if contact else deal.title or "Unknown")
         won_deals.append({
-            "name": nm,
+            "name":     nm,
             "initials": "".join(w[0].upper() for w in nm.split()[:2]) if nm else "?",
-            "amount": f"{float(deal.value):,.2f}" if deal.value else "0.00",
-            "date": deal.created_at.strftime("%b %d, %Y") if deal.created_at else "",
+            "amount":   f"{float(deal.value):,.2f}" if deal.value else "0.00",
+            "date":     deal.created_at.strftime("%b %d, %Y") if deal.created_at else "",
         })
     won_deals_json = json.dumps(won_deals)
 
