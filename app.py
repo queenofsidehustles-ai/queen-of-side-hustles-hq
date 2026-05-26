@@ -192,6 +192,27 @@ def _migrate_columns():
             except Exception:
                 pass
 
+    # Backfill pbh_assets.file_type — rows added before the column existed
+    # got DEFAULT 'image', but some are actually videos.
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(sa_text("""
+                UPDATE pbh_assets
+                SET file_type = 'video'
+                WHERE file_type = 'image'
+                  AND (
+                    filename ILIKE '%.mp4' OR filename ILIKE '%.mov' OR
+                    filename ILIKE '%.webm' OR filename ILIKE '%.avi' OR
+                    filename ILIKE '%.m4v' OR
+                    r2_key   ILIKE '%.mp4' OR r2_key   ILIKE '%.mov' OR
+                    r2_key   ILIKE '%.webm' OR r2_key  ILIKE '%.avi' OR
+                    r2_key   ILIKE '%.m4v'
+                  )
+            """))
+            conn.commit()
+    except Exception:
+        pass
+
 
 def _migrate_email_templates():
     """Update email templates to Monica's branded versions if they still have generic seed content."""
