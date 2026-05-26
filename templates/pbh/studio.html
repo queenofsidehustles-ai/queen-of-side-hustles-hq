@@ -104,7 +104,7 @@
                         <span style="font-size:0.77rem;color:var(--text-muted);">No clip — text post only</span>
                     </div>
                     <template x-for="a in assets" :key="a.id">
-                        <div @click="assetId=a.id; skipVoiceover=isVideoAsset(a)"
+                        <div @click="assetId=a.id"
                              :style="assetId===a.id ? 'background:rgba(99,102,241,0.07);' : ''"
                              style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);">
                             <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-secondary);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
@@ -395,7 +395,6 @@ function studio() {
                     // Add to list and auto-select it
                     this.assets.unshift(data);
                     this.assetId     = data.id;
-                    this.skipVoiceover = this.isVideoAsset(data);
                     this.pendingFile = null;
                     document.getElementById('studioUpload').value = '';
                 } else {
