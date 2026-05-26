@@ -139,9 +139,9 @@
         <!-- Skip voiceover toggle (shown whenever a video asset is selected) -->
         <div x-show="assetId !== null && isVideoAsset(assets.find(a=>a.id===assetId))"
              style="margin-bottom:14px;">
-            <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border-subtle);cursor:pointer;"
-                   :style="skipVoiceover ? 'border-color:#6366f1;background:rgba(99,102,241,0.05);' : ''">
-                <input type="checkbox" x-model="skipVoiceover" style="display:none;">
+            <div @click="skipVoiceover = !skipVoiceover"
+                 :style="skipVoiceover ? 'border-color:#6366f1;background:rgba(99,102,241,0.05);' : 'border-color:var(--border-subtle);background:var(--bg-secondary);'"
+                 style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid;cursor:pointer;transition:all 0.2s;user-select:none;">
                 <div style="flex-shrink:0;">
                     <div :style="skipVoiceover ? 'background:#6366f1;border-color:#6366f1;' : 'background:var(--bg-primary);border-color:var(--border);'"
                          style="width:36px;height:20px;border-radius:10px;border:2px solid;transition:all 0.2s;">
@@ -153,7 +153,7 @@
                     <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">🎤 I already recorded my voice</div>
                     <div style="font-size:0.7rem;color:var(--text-subtle);">Skip AI voiceover — keep my clip's original audio</div>
                 </div>
-            </label>
+            </div>
         </div>
 
         <!-- Generate button -->
