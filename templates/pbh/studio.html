@@ -74,6 +74,7 @@
                 <div style="font-size:0.78rem;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Upload a new clip or photo</div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <input type="file" id="studioUpload" accept="image/*,video/*,.mp4,.mov,.webm"
+                           multiple
                            @change="fileChosen($event)"
                            style="font-size:0.75rem;flex:1;min-width:0;color:var(--text-primary);">
                     <select x-model="uploadTag"
@@ -84,13 +85,29 @@
                         <option value="my_work">My work (balloons, face paint…)</option>
                         <option value="other">Other</option>
                     </select>
-                    <button @click="uploadFile()" :disabled="!pendingFile || uploading"
+                    <button @click="uploadFiles()" :disabled="!pendingFiles.length || uploading"
                             style="padding:7px 16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;"
-                            :style="(!pendingFile || uploading) ? 'opacity:0.5;cursor:not-allowed;' : ''">
-                        <span x-show="!uploading">Upload</span>
+                            :style="(!pendingFiles.length || uploading) ? 'opacity:0.5;cursor:not-allowed;' : ''">
+                        <span x-show="!uploading" x-text="pendingFiles.length > 1 ? 'Upload ' + pendingFiles.length + ' files' : 'Upload'"></span>
                         <span x-show="uploading">Uploading…</span>
                     </button>
                 </div>
+
+                <!-- Per-file progress list -->
+                <div x-show="uploads.length > 0" style="margin-top:8px;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+                    <template x-for="(u, i) in uploads" :key="i">
+                        <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--border-light);font-size:0.74rem;">
+                            <span x-show="u.status==='uploading'" style="width:11px;height:11px;border:2px solid rgba(99,102,241,0.25);border-top-color:#6366f1;border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;display:inline-block;"></span>
+                            <svg x-show="u.status==='done'" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg x-show="u.status==='error'" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" style="flex-shrink:0;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <span x-show="u.status==='pending'" style="width:11px;height:11px;background:var(--border);border-radius:50%;flex-shrink:0;display:inline-block;"></span>
+                            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);" x-text="u.name"></span>
+                            <span x-show="u.status==='done'" style="color:#22c55e;font-weight:600;flex-shrink:0;">Saved</span>
+                            <span x-show="u.status==='error'" style="color:#ef4444;flex-shrink:0;" x-text="u.error"></span>
+                        </div>
+                    </template>
+                </div>
+
                 <div x-show="uploadError" style="color:#ef4444;font-size:0.75rem;margin-top:6px;" x-text="uploadError"></div>
             </div>
 
@@ -349,7 +366,8 @@ function studio() {
 
         // Upload state
         uploadTag:    'party_clip',
-        pendingFile:  null,
+        pendingFiles: [],
+        uploads:      [],
         uploading:    false,
         uploadError:  '',
 
@@ -376,35 +394,44 @@ function studio() {
         },
 
         fileChosen(event) {
-            this.pendingFile = event.target.files[0] || null;
-            this.uploadError = '';
+            this.pendingFiles = Array.from(event.target.files);
+            this.uploads      = [];
+            this.uploadError  = '';
         },
 
-        async uploadFile() {
-            if (!this.pendingFile) return;
-            this.uploading    = true;
-            this.uploadError  = '';
-            const fd = new FormData();
-            fd.append('file',  this.pendingFile);
-            fd.append('tag',   this.uploadTag);
-            fd.append('notes', '');
-            try {
-                const resp = await fetch('/pbh/api/assets/upload', { method: 'POST', body: fd });
-                const data = await resp.json();
-                if (resp.ok && data.id) {
-                    // Add to list and auto-select it
-                    this.assets.unshift(data);
-                    this.assetId     = data.id;
-                    this.pendingFile = null;
-                    document.getElementById('studioUpload').value = '';
-                } else {
-                    this.uploadError = data.error || 'Upload failed — try again.';
+        async uploadFiles() {
+            if (!this.pendingFiles.length) return;
+            this.uploading   = true;
+            this.uploadError = '';
+            this.uploads     = this.pendingFiles.map(f => ({ name: f.name, status: 'pending', error: '' }));
+
+            for (let i = 0; i < this.pendingFiles.length; i++) {
+                this.uploads[i].status = 'uploading';
+                this.uploads = [...this.uploads]; // trigger Alpine reactivity
+                const fd = new FormData();
+                fd.append('file',  this.pendingFiles[i]);
+                fd.append('tag',   this.uploadTag);
+                fd.append('notes', '');
+                try {
+                    const resp = await fetch('/pbh/api/assets/upload', { method: 'POST', body: fd });
+                    const data = await resp.json();
+                    if (resp.ok && data.id) {
+                        this.assets.unshift(data);
+                        this.uploads[i].status = 'done';
+                    } else {
+                        this.uploads[i].status = 'error';
+                        this.uploads[i].error  = data.error || 'Upload failed';
+                    }
+                } catch (e) {
+                    this.uploads[i].status = 'error';
+                    this.uploads[i].error  = 'Upload failed — check connection';
                 }
-            } catch (e) {
-                this.uploadError = 'Upload failed — check your connection.';
-            } finally {
-                this.uploading = false;
+                this.uploads = [...this.uploads]; // trigger Alpine reactivity
             }
+
+            this.uploading    = false;
+            this.pendingFiles = [];
+            document.getElementById('studioUpload').value = '';
         },
 
         async generate() {

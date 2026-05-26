@@ -14,15 +14,12 @@
 
     <!-- Upload zone -->
     <div class="card" style="margin-bottom:28px;">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Upload Screenshot</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Upload Screenshots &amp; Videos</div>
+
+        <!-- Tag + Notes row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
             <div>
-                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Screenshot File</label>
-                <input type="file" id="assetFile" accept="image/*,video/*,.mp4,.mov,.webm"
-                       style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
-            </div>
-            <div>
-                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Page / Feature</label>
+                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Page / Feature (applies to all files)</label>
                 <select x-model="uploadTag" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
                     <option value="dashboard">Dashboard</option>
                     <option value="quote">Quote Builder</option>
@@ -39,13 +36,45 @@
                        style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;box-sizing:border-box;">
             </div>
         </div>
-        <button @click="uploadAsset()"
-                :disabled="uploading"
-                style="padding:10px 28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
-            <span x-show="!uploading">Upload Screenshot</span>
-            <span x-show="uploading">Uploading…</span>
-        </button>
-        <div x-show="uploadError" style="color:#ef4444;font-size:0.8rem;margin-top:8px;" x-text="uploadError"></div>
+
+        <!-- Drop zone -->
+        <div @dragover.prevent="dragOver = true"
+             @dragleave.prevent="dragOver = false"
+             @drop.prevent="handleDrop($event)"
+             :style="dragOver ? 'border-color:#6366f1;background:rgba(99,102,241,0.06);' : ''"
+             style="border:2px dashed rgba(99,102,241,0.3);border-radius:10px;padding:28px 20px;text-align:center;transition:all 0.2s;margin-bottom:12px;">
+            <label for="assetFile" style="cursor:pointer;display:block;">
+                <div style="width:44px;height:44px;border-radius:50%;background:rgba(99,102,241,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div style="font-size:0.88rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Tap to choose files or drag them here</div>
+                <div style="font-size:0.75rem;color:var(--text-subtle);">Images &amp; videos — select multiple at once</div>
+            </label>
+            <input type="file" id="assetFile" accept="image/*,video/*,.mp4,.mov,.webm"
+                   multiple style="display:none;"
+                   @change="filesChosen($event)" :disabled="uploading">
+        </div>
+
+        <!-- Per-file progress list -->
+        <div x-show="uploads.length > 0" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;">
+            <template x-for="(u, i) in uploads" :key="i">
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--border-light);font-size:0.78rem;">
+                    <span x-show="u.status==='uploading'" style="width:13px;height:13px;border:2px solid rgba(99,102,241,0.25);border-top-color:#6366f1;border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;display:inline-block;"></span>
+                    <svg x-show="u.status==='done'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg x-show="u.status==='error'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" style="flex-shrink:0;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <span x-show="u.status==='pending'" style="width:13px;height:13px;background:var(--border);border-radius:50%;flex-shrink:0;display:inline-block;"></span>
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);" x-text="u.name"></span>
+                    <span x-show="u.status==='done'" style="color:#22c55e;font-weight:700;flex-shrink:0;">Saved ✓</span>
+                    <span x-show="u.status==='error'" style="color:#ef4444;flex-shrink:0;" x-text="u.error"></span>
+                </div>
+            </template>
+            <div x-show="!anyUploading && totalDone > 0" style="padding:8px 12px;background:rgba(34,197,94,0.06);display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:0.78rem;color:#22c55e;font-weight:700;" x-text="totalDone + ' file' + (totalDone !== 1 ? 's' : '') + ' saved!'"></span>
+                <button @click="window.location.reload()" style="padding:4px 14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">Done — Refresh Library</button>
+            </div>
+        </div>
+
+        <div x-show="uploadError" style="color:#ef4444;font-size:0.8rem;margin-top:4px;" x-text="uploadError"></div>
     </div>
 
     <!-- Asset grid -->
@@ -99,6 +128,7 @@
 {% endblock %}
 
 {% block scripts %}
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <script>
 function pbhAssets() {
     return {
@@ -106,29 +136,54 @@ function pbhAssets() {
         uploadNotes: '',
         uploading:   false,
         uploadError: '',
+        uploads:     [],
+        dragOver:    false,
 
-        async uploadAsset() {
-            const fileInput = document.getElementById('assetFile');
-            if (!fileInput.files[0]) { this.uploadError = 'Please select a file.'; return; }
-            this.uploading = true;
+        get anyUploading() { return this.uploads.some(u => u.status === 'uploading'); },
+        get totalDone()    { return this.uploads.filter(u => u.status === 'done').length; },
+
+        filesChosen(event) {
+            const files = Array.from(event.target.files);
+            if (files.length) this.startUploads(files);
+        },
+
+        handleDrop(event) {
+            this.dragOver = false;
+            const files = Array.from(event.dataTransfer.files).filter(f =>
+                f.type.startsWith('image/') || f.type.startsWith('video/') ||
+                /\.(mp4|mov|webm|avi|m4v|jpg|jpeg|png|gif|webp)$/i.test(f.name)
+            );
+            if (files.length) this.startUploads(files);
+        },
+
+        async startUploads(files) {
+            this.uploading   = true;
             this.uploadError = '';
-            const fd = new FormData();
-            fd.append('file', fileInput.files[0]);
-            fd.append('tag',  this.uploadTag);
-            fd.append('notes', this.uploadNotes);
-            try {
-                const resp = await fetch('/pbh/api/assets/upload', { method: 'POST', body: fd });
-                const data = await resp.json();
-                if (resp.ok) {
-                    window.location.reload();
-                } else {
-                    this.uploadError = data.error || 'Upload failed.';
+            this.uploads     = files.map(f => ({ name: f.name, status: 'pending', error: '' }));
+
+            for (let i = 0; i < files.length; i++) {
+                this.uploads[i].status = 'uploading';
+                this.uploads = [...this.uploads];
+                const fd = new FormData();
+                fd.append('file',  files[i]);
+                fd.append('tag',   this.uploadTag);
+                fd.append('notes', this.uploadNotes);
+                try {
+                    const resp = await fetch('/pbh/api/assets/upload', { method: 'POST', body: fd });
+                    const data = await resp.json();
+                    if (resp.ok) {
+                        this.uploads[i].status = 'done';
+                    } else {
+                        this.uploads[i].status = 'error';
+                        this.uploads[i].error  = data.error || 'Upload failed';
+                    }
+                } catch(e) {
+                    this.uploads[i].status = 'error';
+                    this.uploads[i].error  = 'Upload failed — check R2 storage';
                 }
-            } catch(e) {
-                this.uploadError = 'Upload failed — check R2 storage is configured.';
-            } finally {
-                this.uploading = false;
+                this.uploads = [...this.uploads];
             }
+            this.uploading = false;
         }
     };
 }
