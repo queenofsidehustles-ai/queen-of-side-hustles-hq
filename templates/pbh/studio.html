@@ -177,8 +177,8 @@
                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;resize:vertical;min-height:56px;box-sizing:border-box;font-family:inherit;margin-top:8px;"></textarea>
         </div>
 
-        <!-- STEP 5: Voice — always rendered, shown when any asset is selected -->
-        <div x-show="assetId !== null" class="card" style="margin-bottom:16px;">
+        <!-- STEP 5: Voice — always visible -->
+        <div class="card" style="margin-bottom:16px;">
             <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Step 5 — Whose voice goes on this video?</div>
 
             {% if settings.has_elevenlabs %}
