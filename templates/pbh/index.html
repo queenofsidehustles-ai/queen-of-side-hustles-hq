@@ -457,11 +457,11 @@ function pbhPreview(id) {
     const imageUrl    = !finalVideo && !rawVideo ? (item.r2_image || item.image) : '';
 
     if (finalVideo) {
-        mediaBox.innerHTML = `
-            <div style="margin-bottom:6px;font-size:0.7rem;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:0.05em;">
-                Final version — with your voiceover
-            </div>
-            <video src="${finalVideo}" controls playsinline style="width:100%;max-height:300px;border-radius:10px;background:#000;"></video>`;
+        const voiceLabel = item.skip_voiceover
+            ? '<div style="margin-bottom:6px;font-size:0.7rem;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.05em;">Your recorded voice kept — no AI voiceover</div>'
+            : '<div style="margin-bottom:6px;font-size:0.7rem;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:0.05em;">Final version — AI voiceover added</div>';
+        mediaBox.innerHTML = voiceLabel +
+            `<video src="${finalVideo}" controls playsinline style="width:100%;max-height:300px;border-radius:10px;background:#000;"></video>`;
     } else if (rawVideo) {
         mediaBox.innerHTML = `
             <div style="margin-bottom:6px;font-size:0.7rem;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.05em;">
