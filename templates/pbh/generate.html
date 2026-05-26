@@ -136,25 +136,24 @@
                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;resize:vertical;min-height:60px;box-sizing:border-box;font-family:inherit;"></textarea>
         </div>
 
-        <!-- Skip voiceover toggle (shown whenever a video asset is selected) -->
-        <div x-show="assetId !== null && isVideoAsset(assets.find(a=>a.id===assetId))"
-             style="margin-bottom:14px;">
-            <div @click="skipVoiceover = !skipVoiceover"
-                 :style="skipVoiceover ? 'border-color:#6366f1;background:rgba(99,102,241,0.05);' : 'border-color:var(--border-subtle);background:var(--bg-secondary);'"
-                 style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid;cursor:pointer;transition:all 0.2s;user-select:none;">
-                <div style="flex-shrink:0;">
-                    <div :style="skipVoiceover ? 'background:#6366f1;border-color:#6366f1;' : 'background:var(--bg-primary);border-color:var(--border);'"
-                         style="width:36px;height:20px;border-radius:10px;border:2px solid;transition:all 0.2s;">
-                        <div :style="skipVoiceover ? 'transform:translateX(16px);' : 'transform:translateX(0);'"
-                             style="width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
-                    </div>
-                </div>
-                <div>
-                    <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">🎤 I already recorded my voice</div>
-                    <div style="font-size:0.7rem;color:var(--text-subtle);">Skip AI voiceover — keep my clip's original audio</div>
+        <!-- Skip voiceover toggle -->
+        <button type="button"
+                x-show="assetId !== null && isVideoAsset(assets.find(a=>a.id===assetId))"
+                @click="skipVoiceover = !skipVoiceover"
+                :style="skipVoiceover ? 'border-color:#6366f1;background:rgba(99,102,241,0.05);' : 'border-color:var(--border-subtle);background:var(--bg-secondary);'"
+                style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid;cursor:pointer;transition:all 0.2s;text-align:left;margin-bottom:14px;">
+            <div style="flex-shrink:0;">
+                <div :style="skipVoiceover ? 'background:#6366f1;border-color:#6366f1;' : 'background:var(--bg-primary);border-color:var(--border);'"
+                     style="width:36px;height:20px;border-radius:10px;border:2px solid;transition:all 0.2s;pointer-events:none;">
+                    <div :style="skipVoiceover ? 'transform:translateX(16px);' : 'transform:translateX(0);'"
+                         style="width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
                 </div>
             </div>
-        </div>
+            <div style="pointer-events:none;">
+                <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);">🎤 I already recorded my voice</div>
+                <div style="font-size:0.7rem;color:var(--text-subtle);">Skip AI voiceover — keep my clip's original audio</div>
+            </div>
+        </button>
 
         <!-- Generate button -->
         <button @click="generate()" :disabled="generating"
