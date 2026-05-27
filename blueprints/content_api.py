@@ -95,12 +95,17 @@ def create_draft():
     data = request.get_json() or {}
     # as_ready=True used by "Post As-Is" flow — skip pipeline, mark ready immediately
     status = "ready" if data.get("as_ready") else "draft"
+    # brand: 'kpps' (default) or 'pbh_user' (Party Biz Hub flow)
+    brand = data.get("brand", "kpps")
+    if brand not in ("kpps", "pbh_user"):
+        brand = "kpps"
     item = ContentItem(
         input_text=data.get("input_text", ""),
         input_type=data.get("input_type", "idea"),
         platform=data.get("platform", "tiktok"),
         include_video=data.get("include_video", False),
         skip_voiceover=bool(data.get("skip_voiceover", False)),
+        brand=brand,
         status=status,
     )
     db.session.add(item)

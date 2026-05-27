@@ -30,6 +30,21 @@
         </button>
     </div>
 
+    <!-- ── BRAND TOGGLE ────────────────────────────────────── -->
+    <div x-show="tab==='create'" style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:24px;padding:10px 16px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border);">
+        <span style="font-size:0.78rem;font-weight:600;color:var(--text-muted);white-space:nowrap;">Creating for:</span>
+        <button @click="switchBrand('kpps')"
+                :style="brand==='kpps' ? 'background:var(--gold);color:#2d1f3d;border-color:transparent;' : 'background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);'"
+                style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.82rem;border:none;cursor:pointer;transition:all 0.15s;">
+            🎉 Kids Party Profit
+        </button>
+        <button @click="switchBrand('pbh')"
+                :style="brand==='pbh' ? 'background:#8b5cf6;color:#fff;border-color:transparent;' : 'background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);'"
+                style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.82rem;border:none;cursor:pointer;transition:all 0.15s;">
+            🏢 Party Biz Hub
+        </button>
+    </div>
+
     <!-- ══════════════════════════════════════════════════════ -->
     <!--  CREATE TAB                                            -->
     <!-- ══════════════════════════════════════════════════════ -->
@@ -143,15 +158,30 @@
 
                     <!-- Post type -->
                     <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px;">Post Type</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:18px;">
-                        <template x-for="t in types" :key="t.id">
-                            <button @click="contentType=t.id"
-                                    :style="contentType===t.id ? 'background:var(--gold);color:#2d1f3d;border-color:transparent;' : 'background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);'"
-                                    style="padding:8px 10px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;text-align:left;transition:all 0.15s;">
-                                <span x-text="t.emoji + ' ' + t.label"></span>
-                            </button>
-                        </template>
-                    </div>
+                    <!-- KPPS types -->
+                    <template x-if="brand==='kpps'">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:18px;">
+                            <template x-for="t in types" :key="t.id">
+                                <button @click="contentType=t.id"
+                                        :style="contentType===t.id ? 'background:var(--gold);color:#2d1f3d;border-color:transparent;' : 'background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);'"
+                                        style="padding:8px 10px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;text-align:left;transition:all 0.15s;">
+                                    <span x-text="t.emoji + ' ' + t.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </template>
+                    <!-- PBH types -->
+                    <template x-if="brand==='pbh'">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:18px;">
+                            <template x-for="t in pbhTypes" :key="t.id">
+                                <button @click="pbhType=t.id"
+                                        :style="pbhType===t.id ? 'background:#8b5cf6;color:#fff;border-color:transparent;' : 'background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);'"
+                                        style="padding:8px 10px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;text-align:left;transition:all 0.15s;">
+                                    <span x-text="t.emoji + ' ' + t.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </template>
 
                     <!-- Platform -->
                     <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px;">Platform</div>
@@ -176,7 +206,7 @@
                         </button>
                     </div>
                     <textarea x-model="hook"
-                              placeholder="E.g. 'Parents always ask me how to keep kids busy during cocktail hour…' — AI builds off YOUR words."
+                              :placeholder="brand==='pbh' ? 'E.g. \'I went from 0 to 5 bookings in my first month doing this one thing…\' — AI builds off YOUR words.' : 'E.g. \'Parents always ask me how to keep kids busy during cocktail hour…\' — AI builds off YOUR words.'"
                               :style="listening ? 'border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,0.15);' : ''"
                               style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;resize:vertical;min-height:80px;box-sizing:border-box;font-family:inherit;transition:border-color 0.2s;"></textarea>
 
@@ -674,6 +704,9 @@ function contentHub() {
         // Tab
         tab: 'create',
 
+        // Brand toggle — which product this post is for
+        brand: 'kpps',   // 'kpps' or 'pbh'
+
         // Create flow step machine
         step: 'pick',  // pick | path | generate | review
         skipVoiceover: false,
@@ -685,6 +718,7 @@ function contentHub() {
 
         // Settings
         contentType: 'party_highlight',
+        pbhType: 'business_tip',
         platform: 'tiktok',
         hook: '',
 
@@ -727,6 +761,13 @@ function contentHub() {
             { id:'hook_post',       emoji:'🎯', label:'Hook Post'       },
             { id:'call_to_action',  emoji:'📣', label:'Call to Action'  },
         ],
+        pbhTypes: [
+            { id:'business_tip',  emoji:'💼', label:'Business Tip'      },
+            { id:'hot_take',      emoji:'🔥', label:'Hot Take'           },
+            { id:'day_in_life',   emoji:'📅', label:'Day in the Life'   },
+            { id:'bts',           emoji:'🎬', label:'Behind the Scenes' },
+            { id:'before_after',  emoji:'✨', label:'Before & After'    },
+        ],
         platforms: [
             { id:'tiktok',    label:'TikTok'    },
             { id:'instagram', label:'Instagram'  },
@@ -749,6 +790,22 @@ function contentHub() {
         pickClip(clip) {
             this.selectedClip = clip;
             this.step = 'path';
+        },
+
+        switchBrand(b) {
+            if (this.brand === b) return;
+            this.brand = b;
+            // Reset the create flow so nothing carries over from the other brand
+            this.step = 'pick';
+            this.selectedClip = null;
+            this.hook = '';
+            this.log = [];
+            this.result = {};
+            this.contentId = null;
+            this.generating = false;
+            this.posted = false;
+            if (b === 'pbh') this.pbhType = 'business_tip';
+            else this.contentType = 'party_highlight';
         },
 
         choosePath(path) {
@@ -779,6 +836,9 @@ function contentHub() {
             this.asisPosting = false;
             this.asisPosted = false;
             this.showScheduleAsis = false;
+            // Reset type to brand defaults
+            if (this.brand === 'pbh') this.pbhType = 'business_tip';
+            else this.contentType = 'party_highlight';
         },
 
         async loadAccounts() {
@@ -853,7 +913,22 @@ function contentHub() {
 
             try {
                 const hookText = this.hook.trim();
-                const inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
+
+                // Build input_text and brand param based on selected brand
+                let inputText, brandParam;
+                if (this.brand === 'pbh') {
+                    const t = this.pbhTypes.find(x => x.id === this.pbhType);
+                    const typeLabel = t ? t.label : '';
+                    // "Business Tip: hook text" gives the AI clear post-type context
+                    inputText = typeLabel && hookText
+                        ? typeLabel + ': ' + hookText
+                        : (hookText || typeLabel);
+                    brandParam = 'pbh_user';
+                } else {
+                    inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
+                    brandParam = 'kpps';
+                }
+
                 const draftRes = await fetch('/content/api/create-draft', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -863,6 +938,7 @@ function contentHub() {
                         platform:       this.platform,
                         clip_id:        this.selectedClip ? this.selectedClip.id : null,
                         skip_voiceover: this.skipVoiceover,
+                        brand:          brandParam,
                     }),
                 });
                 if (!draftRes.ok) throw new Error('Could not create draft');
