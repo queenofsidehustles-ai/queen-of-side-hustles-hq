@@ -548,7 +548,7 @@ OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or
 # ---------------------------------------------------------------------------
 # generate_party_owner_script() — content FOR a party biz owner's own social media
 # ---------------------------------------------------------------------------
-def generate_party_owner_script(input_text, platform="tiktok", image_url=None, emit_event=None):
+def generate_party_owner_script(input_text, platform="tiktok", image_url=None, emit_event=None, transcript=None):
     """
     Generate social media content for a party biz owner to market their OWN business.
     When image_url is provided (screenshot of the app), the vision model reads what's
@@ -596,6 +596,28 @@ OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."
             {"type": "text", "text": f"Write a {platform} post about what you see in this screenshot.\n\nBusiness context:\n{input_text}\n\nBe specific about what is shown on screen. Don't write a generic party tip — react to exactly what is visible."}
         ]
         emit("script", "progress", f"Reading your screenshot and writing a specific {platform} caption about what's on screen...")
+    elif transcript and transcript.strip():
+        # Face-cam video — write captions from what Monica actually said
+        system_prompt = f"""You are a social media caption writer for a kids party business owner.
+The owner recorded a face-cam video where they are speaking directly to camera. You have a transcript of what they said.
+
+YOUR JOB: Write a caption that captures their message faithfully — use their exact words and energy where possible. Do NOT invent a different topic or write generic party tips. Amplify what they already said.
+
+WHAT TO DO:
+1. HOOK — pull the most scroll-stopping line from their transcript as the opening
+2. BODY — expand slightly on their main point, keeping their voice and energy
+3. CTA — close with: "DM me PARTY", "comment BOOKING to check my dates", or "link in bio" (platform appropriate)
+
+TONE: Match whatever energy comes through in the transcript — excited, calm, educational, funny. Keep it authentic to the speaker.
+
+PLATFORM: {platform} | Max: {char_limit} characters
+HASHTAGS (Instagram/TikTok only): 3-5 relevant party business hashtags
+
+OUTPUT: Return ONLY the caption text. No labels, no preamble."""
+
+        angle_line = f"\nSpecific angle to emphasize:\n{input_text}" if input_text.strip() else ""
+        user_content = f"Here is the transcript of what I said in my video:\n\n{transcript.strip()}{angle_line}\n\nWrite a {platform} caption based on what I said."
+        emit("script", "progress", "Writing captions from your words...")
     else:
         system_prompt = f"""You are a social media copywriter helping a kids party business owner attract more bookings.
 

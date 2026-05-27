@@ -115,7 +115,7 @@
             <div x-show="assets.length > 0">
                 <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">Or pick from your library</div>
                 <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
-                    <div @click="assetId=null;skipVoiceover=false"
+                    <div @click="assetId=null"
                          :style="assetId===null ? 'background:rgba(99,102,241,0.07);' : ''"
                          style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);">
                         <span style="font-size:0.77rem;color:var(--text-muted);">No clip — text post only</span>
@@ -144,12 +144,19 @@
                 </div>
             </div>
 
-            <!-- Selected badge -->
-            <div x-show="assetId !== null" style="margin-top:10px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;display:flex;align-items:center;gap:8px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style="font-size:0.8rem;font-weight:600;color:#22c55e;" x-text="assets.find(a=>a.id===assetId)?.filename || 'Clip selected'"></span>
-                <span style="font-size:0.72rem;color:var(--text-muted);" x-text="isVideoAsset(assets.find(a=>a.id===assetId)) ? '· video' : '· photo'"></span>
-                <button @click="assetId=null;skipVoiceover=false" style="margin-left:auto;background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:0.8rem;line-height:1;">✕ Remove</button>
+            <!-- Selected badge — shows a playable preview for video clips -->
+            <div x-show="assetId !== null" style="margin-top:10px;border:1px solid rgba(34,197,94,0.3);border-radius:8px;overflow:hidden;">
+                <template x-if="isVideoAsset(assets.find(a=>a.id===assetId))">
+                    <video :src="(assets.find(a=>a.id===assetId)||{}).r2_url"
+                           controls playsinline
+                           style="width:100%;max-height:160px;object-fit:contain;display:block;background:#000;"></video>
+                </template>
+                <div style="padding:6px 10px;background:rgba(34,197,94,0.08);display:flex;align-items:center;gap:8px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span style="font-size:0.78rem;font-weight:600;color:#22c55e;" x-text="assets.find(a=>a.id===assetId)?.filename || 'Clip selected'"></span>
+                    <span style="font-size:0.7rem;color:var(--text-muted);" x-text="isVideoAsset(assets.find(a=>a.id===assetId)) ? '· video' : '· photo'"></span>
+                    <button @click="assetId=null" style="margin-left:auto;background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:0.8rem;line-height:1;">✕ Remove</button>
+                </div>
             </div>
         </div>
 
@@ -177,23 +184,24 @@
                       style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.82rem;resize:vertical;min-height:56px;box-sizing:border-box;font-family:inherit;margin-top:8px;"></textarea>
         </div>
 
-        <!-- STEP 5: Voice — always visible -->
+        <!-- STEP 5: Voice — native radio inputs so it works on every device -->
         <div class="card" style="margin-bottom:16px;">
             <div style="font-size:0.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Step 5 — Whose voice goes on this video?</div>
 
             {% if settings.has_elevenlabs %}
-            <button type="button" @click="skipVoiceover=false"
-                    :style="!skipVoiceover ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.05);' : 'border:1px solid var(--border);background:var(--card-bg);'"
-                    style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;cursor:pointer;margin-bottom:8px;transition:all 0.15s;text-align:left;">
-                <div :style="!skipVoiceover ? 'background:#6366f1;' : 'background:var(--card-bg);border:2px solid var(--border);'"
-                     style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;pointer-events:none;">
-                    <div x-show="!skipVoiceover" style="width:8px;height:8px;background:#fff;border-radius:50%;"></div>
+            <label style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;cursor:pointer;margin-bottom:8px;transition:all 0.15s;box-sizing:border-box;"
+                   :style="voiceChoice==='ai' ? 'border:2px solid #6366f1;background:rgba(99,102,241,0.05);' : 'border:1px solid var(--border);background:var(--card-bg);'">
+                <input type="radio" name="voice_choice" value="ai" x-model="voiceChoice"
+                       style="position:absolute;opacity:0;width:0;height:0;">
+                <div :style="voiceChoice==='ai' ? 'background:#6366f1;' : 'background:var(--card-bg);border:2px solid var(--border);'"
+                     style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">
+                    <div x-show="voiceChoice==='ai'" style="width:8px;height:8px;background:#fff;border-radius:50%;"></div>
                 </div>
-                <div style="pointer-events:none;">
+                <div>
                     <div style="font-size:0.85rem;font-weight:700;color:var(--text-primary);">🤖 Use AI voice (your ElevenLabs clone)</div>
                     <div style="font-size:0.72rem;color:var(--text-subtle);margin-top:2px;">AI reads the script aloud and burns the captions right onto the video</div>
                 </div>
-            </button>
+            </label>
             {% else %}
             <div style="padding:12px 16px;border-radius:10px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);margin-bottom:8px;">
                 <div style="display:flex;align-items:flex-start;gap:10px;">
@@ -206,18 +214,19 @@
             </div>
             {% endif %}
 
-            <button type="button" @click="skipVoiceover=true"
-                    :style="skipVoiceover ? 'border:2px solid #8b5cf6;background:rgba(139,92,246,0.05);' : 'border:1px solid var(--border);background:var(--card-bg);'"
-                    style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;cursor:pointer;transition:all 0.15s;text-align:left;">
-                <div :style="skipVoiceover ? 'background:#8b5cf6;' : 'background:var(--card-bg);border:2px solid var(--border);'"
-                     style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;pointer-events:none;">
-                    <div x-show="skipVoiceover" style="width:8px;height:8px;background:#fff;border-radius:50%;"></div>
+            <label style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;cursor:pointer;transition:all 0.15s;box-sizing:border-box;"
+                   :style="voiceChoice==='my_voice' ? 'border:2px solid #8b5cf6;background:rgba(139,92,246,0.05);' : 'border:1px solid var(--border);background:var(--card-bg);'">
+                <input type="radio" name="voice_choice" value="my_voice" x-model="voiceChoice"
+                       style="position:absolute;opacity:0;width:0;height:0;">
+                <div :style="voiceChoice==='my_voice' ? 'background:#8b5cf6;' : 'background:var(--card-bg);border:2px solid var(--border);'"
+                     style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">
+                    <div x-show="voiceChoice==='my_voice'" style="width:8px;height:8px;background:#fff;border-radius:50%;"></div>
                 </div>
-                <div style="pointer-events:none;">
+                <div>
                     <div style="font-size:0.85rem;font-weight:700;color:var(--text-primary);">🎤 I already recorded my voice</div>
                     <div style="font-size:0.72rem;color:var(--text-subtle);margin-top:2px;">Keep my clip's original audio — just give me the script to caption it myself</div>
                 </div>
-            </button>
+            </label>
         </div>
 
         <!-- GENERATE BUTTON -->
@@ -348,7 +357,7 @@ function studio() {
         platform:      'tiktok',
         assetId:       null,
         customAngle:   '',
-        skipVoiceover: false,
+        voiceChoice:   'ai',   // 'ai' or 'my_voice' — drives Step 5 radio; sent as skip_voiceover
         generating:    false,
         done:          false,
         log:           [],
@@ -442,7 +451,7 @@ function studio() {
                     platform:       this.platform,
                     asset_id:       this.assetId,
                     custom_angle:   this.customAngle,
-                    skip_voiceover: this.skipVoiceover,
+                    skip_voiceover: this.voiceChoice === 'my_voice',
                 }),
             });
 
@@ -492,12 +501,12 @@ function studio() {
         },
 
         reset() {
-            this.done          = false;
-            this.generating    = false;
-            this.log           = [];
-            this.result        = {};
-            this.customAngle   = '';
-            this.skipVoiceover = false;
+            this.done        = false;
+            this.generating  = false;
+            this.log         = [];
+            this.result      = {};
+            this.customAngle = '';
+            this.voiceChoice = 'ai';
         },
 
         toggleMic() {

@@ -117,6 +117,24 @@ def run_pipeline(content_id, emit_event):
         item = db.session.get(ContentItem, content_id)
 
         # ==================================================================
+        # STAGE 1.5: PRE-TRANSCRIBE — face-cam clips where Monica already
+        # recorded her voice: transcribe BEFORE script so captions are
+        # written from what she actually said (not generic copy)
+        # ==================================================================
+        pre_video = item.r2_video_url or item.video_url
+        if pre_video and getattr(item, 'skip_voiceover', False) and not item.transcript:
+            emit_event("transcribe", "started",
+                       "Listening to what you said in your clip so I can write captions from your own words...")
+            try:
+                cost = stage_transcribe(content_id, item, emit_event)
+                total_cost += cost
+                item = db.session.get(ContentItem, content_id)
+            except Exception as pre_trans_err:
+                emit_event("transcribe", "warning",
+                           f"Couldn't transcribe your clip ({str(pre_trans_err)[:60]}) — writing from your description instead.")
+                item = db.session.get(ContentItem, content_id)
+
+        # ==================================================================
         # STAGE 2: SCRIPT — Generate social media post text
         # ==================================================================
         cost = stage_script(content_id, item, emit_event)
@@ -175,11 +193,11 @@ def run_pipeline(content_id, emit_event):
 
         # ==================================================================
         # STAGE 7: TRANSCRIBE — speech-to-text via Groq Whisper
-        # (only runs when the item has an uploaded video)
-        # Wrapped in try/except — a transcription failure must NOT kill voiceover
+        # (only runs when the item has an uploaded video AND wasn't already
+        # transcribed by the pre-transcribe step above)
         # ==================================================================
         video_source = item.r2_video_url or item.video_url
-        if video_source:
+        if video_source and not item.transcript:
             try:
                 cost = stage_transcribe(content_id, item, emit_event)
                 total_cost += cost
@@ -320,12 +338,14 @@ def stage_script(content_id, item, emit_event):
     # Route to the right script generator based on brand
     if getattr(item, "brand", None) == "pbh_user":
         # Party biz owner creating content about their OWN business (not PBH marketing)
-        # Pass the screenshot URL so the AI reads what's on screen instead of writing generic tips
+        # If she recorded her own voice, use transcript to write captions from her words.
+        # If she uploaded a screenshot, read what's on screen instead of writing generic tips.
         screenshot_url = item.r2_image_url or item.image_url or None
         result = generate_party_owner_script(
             source_text,
             platform=item.platform,
             image_url=screenshot_url,
+            transcript=item.transcript or None,
             emit_event=emit_event,
         )
     elif getattr(item, "brand", None) == "pbh":

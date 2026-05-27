@@ -53,13 +53,78 @@ def init_scheduler(app):
         with app.app_context():
             _run_daily_generate(app)
 
+    def publish_job():
+        with app.app_context():
+            _run_auto_publish()
+
     _scheduler.add_job(
         daily_job,
         CronTrigger(hour=hour, minute=minute),
         id="daily_generate",
     )
+
+    from apscheduler.triggers.interval import IntervalTrigger
+    _scheduler.add_job(
+        publish_job,
+        IntervalTrigger(minutes=1),
+        id="auto_publish",
+    )
+
     _scheduler.start()
     logger.info("Daily auto-generate scheduled at %02d:%02d UTC (enabled=%s)", hour, minute, enabled)
+    logger.info("Auto-publish scheduler running every minute")
+
+
+def _run_auto_publish():
+    """Check for scheduled posts that are due and publish them via GetLate."""
+    import json
+    from datetime import datetime
+    from extensions import db
+    from models import ContentItem
+    from services.getlate import publish_to_all_platforms
+
+    now = datetime.utcnow()
+    due_items = ContentItem.query.filter(
+        ContentItem.status == "scheduled",
+        ContentItem.scheduled_at <= now,
+        ContentItem.brand.in_(["pbh", "pbh_user"]),
+    ).all()
+
+    if not due_items:
+        return
+
+    logger.info("Auto-publish: %d scheduled post(s) are due", len(due_items))
+
+    for item in due_items:
+        try:
+            content_dict = {
+                "script":       item.script or "",
+                "platform":     item.platform or "tiktok",
+                "image_url":    item.image_url or "",
+                "r2_image_url": item.r2_image_url or "",
+                "video_url":    item.video_url or "",
+                "r2_video_url": item.r2_video_url or "",
+            }
+            captions = {}
+            if item.captions:
+                try:
+                    captions = json.loads(item.captions)
+                except Exception:
+                    pass
+
+            result = publish_to_all_platforms(content_item=content_dict, captions_dict=captions)
+
+            if result.get("status") != "error":
+                item.status = "published"
+                item.published_at = datetime.utcnow()
+                db.session.commit()
+                logger.info("Auto-published item %d to: %s", item.id,
+                            ", ".join(result.get("platforms_published", [])))
+            else:
+                logger.warning("Auto-publish failed for item %d: %s",
+                               item.id, result.get("error", "unknown"))
+        except Exception:
+            logger.exception("Error auto-publishing item %d", item.id)
 
 
 def _run_daily_generate(app):
