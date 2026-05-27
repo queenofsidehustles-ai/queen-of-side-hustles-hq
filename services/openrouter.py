@@ -465,40 +465,61 @@ def generate_pbh_script(input_text, platform="tiktok", knowledge_base="", emit_e
 
     kb_section = f"\n\nBRAND KNOWLEDGE BASE — use this as your source of truth for every post:\n{knowledge_base.strip()}" if knowledge_base and knowledge_base.strip() else ""
 
-    system_prompt = f"""You are a social media copywriter for Party Biz Hub — a business management app for kids party business owners.
+    # Detect whether a custom angle was provided (set by _build_input_text in pbh_api.py)
+    has_custom_angle = input_text.strip().startswith("CONTENT SUBJECT")
+
+    _cta = {
+        "tiktok":    'End with: "Comment PARTY BIZ for more details" and "Follow for more party biz tips" — NO URLs (TikTok suppresses links)',
+        "instagram": 'End with: "Link in bio → partybizhub.com" and relevant hashtags: #PartyBizHub #KidsPartyBusiness #PartyBusiness',
+        "facebook":  'End with: "Get started at partybizhub.com"',
+        "youtube":   'End with: "Link in the description — partybizhub.com"',
+    }.get(platform, 'End with a CTA pointing to partybizhub.com')
+
+    if has_custom_angle:
+        # Custom angle specified — write about THAT topic, not the generic back-office template
+        system_prompt = f"""You are writing a social media post for Party Biz Hub, a business management app for kids party owners.
+
+The content creator has given you a SPECIFIC TOPIC to cover. Follow these rules exactly:
+
+1. WRITE ENTIRELY ABOUT THE SPECIFIED TOPIC — hook, body, and emotion must all be about THAT topic.
+2. Do NOT default to "back office," "chaos," or generic Party Biz Hub feature copy.
+3. Party Biz Hub appears ONLY at the very end as a brief, relevant CTA — it is NOT the main message.
+4. Write like a real person who has something authentic to say — not a marketing script.
+
+PLATFORM: {platform} | Max: {char_limit} characters
+{_cta}
+
+VOICEOVER DELIVERY (read aloud naturally):
+- Flowing, conversational phrases. Vary sentence length.
+- No ellipses, em dashes, or parentheses in the spoken portion.
+
+OUTPUT: Return ONLY the post text. Start with the hook. No labels or preamble.{kb_section}"""
+    else:
+        system_prompt = f"""You are a social media copywriter for Party Biz Hub — a business management app for kids party business owners.
 
 CORE CONTENT STRATEGY — 3-PART STRUCTURE (follow this every time):
 1. PROBLEM: Open with the pain, chaos, or embarrassment the avatar feels right now. Make them feel seen.
 2. SOLUTION: Position Party Biz Hub as THE answer to that exact problem — not just any software, the specific fix.
 3. PROOF: Name the specific feature that solves it. Show HOW it fixes the problem in concrete terms.
 
-Example: "Still sending quotes over text? (PROBLEM) Party Biz Hub fixes that. (SOLUTION) Send a professional, branded quote in 60 seconds — client reviews it and pays the deposit on the spot. (PROOF)"
-
-Every post needs all three parts. Not just feelings. Not just features. The combination is what converts.
-
 TARGET AVATAR: Someone ALREADY running a kids party business. They have clients, they're doing the work — but everything runs on chaos. Text-message bookings, Venmo payments with no records, handwritten contracts that get lost, no way to track income at tax time. They feel like a hobby, not a business. They're embarrassed. They're exhausted. They want to feel like a real CEO.
-
-EMOTIONAL TRANSFORMATION THIS CONTENT MUST DELIVER:
-FROM: Chaotic, disorganized, unprofessional, stressed at tax season, chasing invoices, afraid of double-booking
-TO: Polished back office, clients see a real business, contracts signed digitally, income tracked automatically, tax season handled, everything in one place
 
 HOOK FORMULAS — lead with feeling, not features:
 • Chaos mirror:    "You run a real business. You just don't have a back office that shows it."
 • Embarrassment:  "Sending a quote over text isn't unprofessional — it's costing you bookings."
 • Tax season:     "When your accountant asks for your profit and loss... do you panic?"
 • Before/after:   "Before: 12 DMs to confirm one party. After: client books and pays in 2 minutes."
-• Relief:         "Imagine finishing a party weekend knowing every invoice, contract, and deposit is already handled."
 
 PLATFORM: {platform} | Max: {char_limit} characters
 HASHTAGS (Instagram/TikTok only): #PartyBizHub #KidsPartyBusiness #PartyBusiness #PartyPlanner
 
-PLATFORM-SPECIFIC CALL TO ACTION — use the exact CTA for the platform, no exceptions:
-- TikTok:    "Comment PARTY BIZ for more details" + "DM me" + "Follow for more party biz tips" — NO external links, NO URLs (TikTok suppresses them)
+PLATFORM-SPECIFIC CALL TO ACTION:
+- TikTok:    "Comment PARTY BIZ for more details" + "DM me" + "Follow for more party biz tips" — NO URLs
 - Instagram: "Link in bio → partybizhub.com"
 - Facebook:  "Get started at partybizhub.com"
 - YouTube:   "Link in the description — partybizhub.com"
 
-IMPORTANT: Party Biz Hub does NOT have a free version. Never say "free trial", "try for free", or "start free". They visit the site and purchase directly.
+IMPORTANT: Party Biz Hub does NOT have a free version. Never say "free trial" or "start free".
 
 CRITICAL RULES:
 - Start with the PROBLEM, not a feature list
@@ -506,17 +527,15 @@ CRITICAL RULES:
 - Do NOT write coaching content — this is a software product post{kb_section}
 
 VOICEOVER DELIVERY (this script will be read aloud by a voice clone — it must sound natural):
-- Write in flowing, conversational phrases — the way someone speaks when they're confident and real, not choppy short sentences.
-- Use commas to connect related thoughts and create a natural mid-sentence rhythm. Not every idea needs its own hard stop.
-- Vary sentence length: a short punchy line to land the point, then a longer flowing phrase to build the feeling.
+- Write in flowing, conversational phrases. Vary sentence length.
 - No ellipses (...). No em dashes (—). No parentheses. No hashtags inside the spoken script.
-- Write how someone TALKS — smooth, warm, and direct.
 
 OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or explanations."""
 
     user_prompt = f"""Write a {platform} post following these exact instructions:\n\n{input_text}"""
 
-    emit("script", "progress", f"Generating Party Biz Hub {platform} post...")
+    emit("script", "progress",
+         "Writing from your angle..." if has_custom_angle else f"Generating Party Biz Hub {platform} post...")
 
     try:
         response = client.chat.completions.create(
