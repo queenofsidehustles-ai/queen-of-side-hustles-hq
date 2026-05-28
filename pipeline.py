@@ -1121,6 +1121,7 @@ def stage_voiceover(content_id, item, emit_event):
 
     result = synthesize_with_timestamps(script_text, api_key=override_api_key, voice_id=override_voice_id)
     caption_chunks = []
+    audio_bytes    = b""
 
     if result:
         audio_bytes    = result["audio"]
@@ -1132,13 +1133,28 @@ def stage_voiceover(content_id, item, emit_event):
         # Fallback: try basic synthesis without timestamps
         emit_event(stage, "progress", "Timestamps endpoint failed — trying basic voice synthesis...")
         from services.elevenlabs import synthesize
-        audio_bytes = synthesize(script_text, api_key=override_api_key, voice_id=override_voice_id)
+        audio_bytes = synthesize(script_text, api_key=override_api_key, voice_id=override_voice_id) or b""
         if not audio_bytes:
             emit_event(stage, "warning",
                        "ElevenLabs returned no audio. Check that ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID "
                        "are correct in Railway Variables, and that your ElevenLabs account has credits.")
             return 0.0
         emit_event(stage, "progress", f"Basic voice synthesis succeeded ({len(audio_bytes)//1024}KB). Adding to video...")
+
+    # If we have audio but no word-level timestamps, estimate caption timing from script word count.
+    # This ensures captions always appear even when ElevenLabs alignment data is missing.
+    if audio_bytes and not caption_chunks:
+        raw_words = [w for w in script_text.split() if w]
+        if raw_words:
+            total_secs = max(len(audio_bytes) / 16000, 1.0)  # ~16KB/s for 128kbps MP3
+            secs_per_word = total_secs / len(raw_words)
+            synthetic_words = [
+                {"word": w, "start": i * secs_per_word, "end": (i + 1) * secs_per_word}
+                for i, w in enumerate(raw_words)
+            ]
+            caption_chunks = words_to_caption_chunks(synthetic_words, chunk_size=4)
+            emit_event(stage, "progress",
+                       f"No word timestamps from ElevenLabs — estimating caption timing from {len(raw_words)} words.")
 
     row = db.session.get(ContentItem, content_id)
     voiced_url = add_voiceover_with_captions(
