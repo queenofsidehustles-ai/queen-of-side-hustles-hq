@@ -1072,6 +1072,17 @@ def stage_voiceover(content_id, item, emit_event):
     # Strip production notes before TTS — AI sometimes adds stage directions that sound awful when read aloud
     import re
     script_text = raw_script
+
+    # ── Normalize Unicode punctuation FIRST (before emoji strip removes them) ──
+    # Smart/curly quotes → ASCII (so apostrophes survive — "she's" stays "she's")
+    script_text = script_text.replace('‘', "'").replace('’', "'")
+    script_text = script_text.replace('“', '"').replace('”', '"')
+    # Em dash / en dash → comma pause (must run before emoji strip, which would silently delete them)
+    script_text = re.sub(r'\s*[–—]\s*|\s*--\s*', ', ', script_text)
+    # Ellipses → period (same reason — U+2026 is outside ASCII)
+    script_text = script_text.replace('…', '.')
+    script_text = re.sub(r'\.{2,}', '.', script_text)
+
     # Remove [bracketed stage directions] like [Hook:], [Transition], [CTA], [Note: ...]
     script_text = re.sub(r'\[.*?\]', '', script_text, flags=re.DOTALL)
     # Remove (parenthetical notes) — producer notes like (pause here), (cut to demo)
@@ -1082,18 +1093,10 @@ def stage_voiceover(content_id, item, emit_event):
     script_text = re.sub(r'#\w+', '', script_text)
     # Strip URLs
     script_text = re.sub(r'https?://\S+', '', script_text)
-    # Strip emoji characters that ElevenLabs may pronounce oddly
+    # Strip remaining emoji / non-Latin Unicode (smart quotes already converted above)
     script_text = re.sub(r'[^\x00-\x7FÀ-ɏḀ-ỿ]', '', script_text)
     # Clean up whitespace
     script_text = re.sub(r'[ \t]+', ' ', script_text)
-    script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
-
-    # ── Pacing fixes for natural ElevenLabs delivery ──────────────────
-    # Ellipses → period so the voice stops cleanly instead of trailing off weirdly
-    script_text = re.sub(r'\.{2,}', '.', script_text)
-    # Em dash / double dash → comma pause (reads more naturally than a hard stop)
-    script_text = re.sub(r'\s*—\s*|\s*--\s*', ', ', script_text)
-    # Clean up any excessive newlines — let ElevenLabs read punctuation naturally
     script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
 
     # Auto-shorten script to match video duration so the voice never outlasts the clip.
