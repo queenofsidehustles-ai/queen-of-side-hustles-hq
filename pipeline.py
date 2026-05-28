@@ -225,10 +225,16 @@ def run_pipeline(content_id, emit_event):
 
         # ==================================================================
         # STAGE 9: VOICEOVER — ElevenLabs reads the script over the video
-        # Always runs (voiceover does not depend on transcription succeeding)
+        # Non-fatal: if it fails the content is still ready (no AI audio)
         # ==================================================================
-        cost = stage_voiceover(content_id, item, emit_event)
-        total_cost += cost
+        try:
+            cost = stage_voiceover(content_id, item, emit_event)
+            total_cost += cost
+        except Exception as vo_err:
+            emit_event("voiceover", "warning",
+                       f"AI voiceover skipped ({str(vo_err)[:80]}) — your content is still ready, just without AI audio.")
+            _add_log(content_id, "voiceover", "warning",
+                     f"Voiceover error (non-fatal): {str(vo_err)[:300]}")
         item = db.session.get(ContentItem, content_id)
 
         # ==================================================================

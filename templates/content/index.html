@@ -992,6 +992,12 @@ function contentHub() {
                                     this.loadAccounts();
                                 }
                                 if (evt.status === 'error' && evt.stage === 'pipeline') {
+                                    // Still try to show review if a script was generated
+                                    try {
+                                        const r2e = await fetch('/content/api/' + itemId);
+                                        const d = await r2e.json();
+                                        if (d.script) { this.result = d; this.step = 'review'; }
+                                    } catch(e) {}
                                     this.generating = false;
                                 }
                             }
