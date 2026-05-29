@@ -67,8 +67,12 @@ def get_ai_client():
         ), "google/gemini-2.5-flash"
 
 
-def jackie_chat(user_message, history=None):
-    """Send a message to Genesis and get a response."""
+def jackie_chat(user_message, history=None, image_data=None):
+    """Send a message to Genesis and get a response.
+
+    image_data: optional dict {"url": "data:image/jpeg;base64,...", "name": "file.jpg"}
+                When provided, Gemini reads the image alongside the text message.
+    """
     client, model = get_ai_client()
     if not client:
         return {
@@ -78,9 +82,19 @@ def jackie_chat(user_message, history=None):
     messages = [{"role": "system", "content": JACKIE_SYSTEM_PROMPT}]
     if history:
         messages.extend(history[-10:])
-    messages.append({"role": "user", "content": user_message})
+
+    # Build user content — multimodal if an image/file was attached
+    if image_data and image_data.get("url"):
+        user_content = [
+            {"type": "text", "text": user_message or "Please read and analyse this file."},
+            {"type": "image_url", "image_url": {"url": image_data["url"]}},
+        ]
+    else:
+        user_content = user_message
+
+    messages.append({"role": "user", "content": user_content})
     try:
-        resp = client.chat.completions.create(model=model, messages=messages, max_tokens=1200, temperature=0.5)
+        resp = client.chat.completions.create(model=model, messages=messages, max_tokens=1800, temperature=0.5)
         return {"response": resp.choices[0].message.content, "provider": os.getenv("CHAT_PROVIDER", "openrouter")}
     except Exception as e:
         return {"response": f"Sorry, I hit an error: {str(e)}", "provider": "error"}

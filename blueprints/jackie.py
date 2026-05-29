@@ -16,9 +16,10 @@ def index():
 @login_required
 def chat():
     data = request.get_json() or {}
-    message = data.get("message", "").strip()
-    history = data.get("history", [])
-    if not message:
-        return jsonify({"error": "Message required"}), 400
-    result = jackie_chat(message, history)
+    message    = data.get("message", "").strip()
+    history    = data.get("history", [])
+    image_data = data.get("image_data")   # {"url": "data:image/...;base64,...", "name": "..."}
+    if not message and not image_data:
+        return jsonify({"error": "Message or file required"}), 400
+    result = jackie_chat(message, history, image_data=image_data)
     return jsonify(result)
