@@ -642,8 +642,8 @@ def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | 
         vid_dur      = _get_video_duration(tmp_video.name)
         vid_w, vid_h = _get_video_size(tmp_video.name)
 
-        # Cap longer dimension at 720px to avoid OOM on Railway (portrait 1080x1920 kills FFmpeg)
-        MAX_DIM = 720
+        # Keep up to 1080p — 720 was visibly degrading quality
+        MAX_DIM = 1080
         if vid_h > vid_w:  # portrait
             if vid_h > MAX_DIM:
                 scale_h = MAX_DIM
@@ -667,14 +667,15 @@ def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | 
              f"Combining voice ({len(audio_bytes)//1024}KB) with video ({vid_dur:.0f}s → {scale_w}x{scale_h})...")
 
         # -map 0:v:0 -map 1:a:0 mutes original video audio and uses ElevenLabs
+        # CRF 20 / fast = good quality; much better than the previous ultrafast/crf28
         cmd = [
             "ffmpeg", "-y",
             *loop_flags, "-i", tmp_video.name,
             "-i", tmp_audio.name,
             "-map", "0:v:0", "-map", "1:a:0",
             "-vf", f"scale={scale_w}:{scale_h},format=yuv420p",
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-            "-c:a", "aac", "-b:a", "128k",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+            "-c:a", "aac", "-b:a", "192k",
             "-threads", "2",
             "-shortest",
             tmp_out.name,
@@ -753,8 +754,8 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
         vid_dur      = _get_video_duration(tmp_video.name)
         vid_w, vid_h = _get_video_size(tmp_video.name)
 
-        # Cap longer dimension at 720px to avoid OOM on Railway (portrait 1080x1920 kills FFmpeg)
-        MAX_DIM = 720
+        # Keep up to 1080p — 720 was visibly degrading quality
+        MAX_DIM = 1080
         if vid_h > vid_w:  # portrait
             if vid_h > MAX_DIM:
                 scale_h = MAX_DIM
@@ -786,8 +787,8 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
             "-i", tmp_audio.name,
             "-map", "0:v:0", "-map", "1:a:0",
             "-vf", f"scale={scale_w}:{scale_h},format=yuv420p",
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-            "-c:a", "aac", "-b:a", "128k",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-c:a", "aac", "-b:a", "192k",
             "-threads", "2",
             "-shortest", tmp_voiced.name,
         ]
