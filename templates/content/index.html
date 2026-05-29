@@ -58,13 +58,28 @@
 
         <!-- ── STEP 1: PICK A CLIP ─────────────────────────── -->
         <div x-show="step==='pick'">
-            <div style="text-align:center;margin-bottom:28px;">
-                <div style="font-size:1.25rem;font-weight:800;color:var(--text-primary);margin-bottom:6px;">Step 1 — Pick a clip from your library</div>
-                <div style="color:var(--text-subtle);font-size:0.875rem;">
-                    Creating a
-                    <strong :style="brand==='pbh' ? 'color:#a78bfa;' : 'color:var(--gold);'"
-                            x-text="brand==='pbh' ? 'Party Biz Hub' : 'Kids Party Profit'"></strong>
-                    post. Tap any clip to select it.
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                <div>
+                    <div style="font-size:1.25rem;font-weight:800;color:var(--text-primary);margin-bottom:4px;">Step 1 — Pick a clip</div>
+                    <div style="color:var(--text-subtle);font-size:0.875rem;">
+                        Creating a
+                        <strong :style="brand==='pbh' ? 'color:#a78bfa;' : 'color:var(--gold);'"
+                                x-text="brand==='pbh' ? 'Party Biz Hub' : 'Kids Party Profit'"></strong>
+                        post. Pick an existing clip or upload a new one.
+                    </div>
+                </div>
+                <!-- Upload new clip button -->
+                <div>
+                    <input type="file" x-ref="clipUploadInput" accept="video/*" style="display:none;"
+                           @change="uploadNewClip($event)">
+                    <button type="button" @click="$refs.clipUploadInput.click()"
+                            :disabled="uploadingClip"
+                            style="padding:9px 18px;background:linear-gradient(135deg,var(--gold),#e8a844);color:#2d1f3d;border:none;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap;"
+                            :style="uploadingClip ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                        <span x-show="!uploadingClip">Upload new clip</span>
+                        <span x-show="uploadingClip">Uploading…</span>
+                    </button>
                 </div>
             </div>
 
@@ -77,8 +92,7 @@
             <div x-show="clipsLoaded && clips.length===0" class="card" style="text-align:center;padding:48px;max-width:480px;margin:0 auto;">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" style="opacity:0.4;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                 <div style="font-size:1rem;font-weight:700;margin-bottom:8px;color:var(--text-primary);">No clips yet</div>
-                <div style="font-size:0.85rem;color:var(--text-subtle);margin-bottom:20px;">Upload your videos to the library first, then come back here to create posts.</div>
-                <a href="/admin/library" class="btn btn-primary">Go Upload Clips →</a>
+                <div style="font-size:0.85rem;color:var(--text-subtle);margin-bottom:20px;">Hit "Upload new clip" above to add your first video.</div>
             </div>
 
             <!-- Clip grid -->
@@ -778,6 +792,7 @@ function contentHub() {
         clips: [],
         clipsLoaded: false,
         selectedClip: null,
+        uploadingClip: false,
 
         // Settings
         contentType: 'party_highlight',
@@ -853,6 +868,30 @@ function contentHub() {
             // If URL has ?tab=queue, switch to queue
             const params = new URLSearchParams(window.location.search);
             if (params.get('tab') === 'queue') this.tab = 'queue';
+        },
+
+        async uploadNewClip(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            event.target.value = '';
+            this.uploadingClip = true;
+            try {
+                const fd = new FormData();
+                fd.append('video', file);
+                fd.append('tag', 'other');
+                const resp = await fetch('/admin/library/upload', { method: 'POST', body: fd });
+                const data = await resp.json();
+                if (data.id && data.url) {
+                    // Prepend the new clip to the list and auto-select it
+                    this.clips.unshift({ id: data.id, r2_url: data.url, tag: 'other', tag_label: 'New clip', duration: data.duration || 0 });
+                    this.pickClip(this.clips[0]);
+                } else {
+                    alert(data.error || 'Upload failed — check R2 is configured.');
+                }
+            } catch(e) {
+                alert('Upload error: ' + e.message);
+            }
+            this.uploadingClip = false;
         },
 
         pickClip(clip) {

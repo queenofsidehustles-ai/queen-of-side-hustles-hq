@@ -28,8 +28,9 @@ def index():
 @content_bp.route("/create")
 @login_required
 def create():
-    """Create new content item form."""
-    return render_template("content/create.html")
+    """Old create page — redirect to the unified content flow."""
+    from flask import redirect, url_for
+    return redirect(url_for("content.index"))
 
 
 @content_bp.route("/batch")
