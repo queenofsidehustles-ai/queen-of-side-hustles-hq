@@ -795,11 +795,26 @@ OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."
         emit("script", "progress", "Writing your Bear Hug Events post from your words…")
     else:
         system_prompt = base_system
-        angle = input_text.strip() if input_text.strip() else ""
-        user_content = (
-            f"Write a {platform} post for Bear Hug Events in Orlando, FL."
-            + (f"\n\nSpecific angle / post type: {angle}" if angle else "")
-        )
+        raw = input_text.strip()
+        # Parse hook vs post type — format is "hook text [post type: Label]"
+        # The hook is the primary driver; post type is structural context only
+        import re as _re
+        type_match = _re.search(r'\[post type:\s*(.+?)\]', raw)
+        post_type   = type_match.group(1).strip() if type_match else ""
+        hook        = _re.sub(r'\[post type:[^\]]+\]', '', raw).strip()
+
+        if hook:
+            user_content = (
+                f"Write a {platform} post for Bear Hug Events in Orlando, FL.\n\n"
+                f"IMPORTANT — write SPECIFICALLY about this: {hook}\n"
+                + (f"Post format/type: {post_type}\n" if post_type else "")
+                + f"\nDo NOT default to bear parties or teddy bears unless the hook is explicitly about them."
+            )
+        else:
+            user_content = (
+                f"Write a {platform} post for Bear Hug Events in Orlando, FL."
+                + (f"\n\nPost type: {post_type}" if post_type else "")
+            )
         emit("script", "progress", "Writing your Bear Hug Events post…")
 
     try:

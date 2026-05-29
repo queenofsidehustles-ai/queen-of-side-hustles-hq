@@ -1054,17 +1054,33 @@ function contentHub() {
             else this.contentType = 'party_highlight';
         },
 
+        accountMatchesBrand(acc, brand) {
+            const u = (acc.username || '').toLowerCase().replace(/[\s._@-]/g, '');
+            const profileName = (acc.profile || '').toLowerCase();
+            if (brand === 'bear_hug') {
+                return u.includes('bear') || u.includes('bearhug') ||
+                       profileName.includes('bear');
+            }
+            if (brand === 'pbh') {
+                return u.includes('partybiz') || u.includes('partybizcoach') ||
+                       profileName.includes('party biz');
+            }
+            // KPPS / Default — everything that isn't bear hug or pbh-only
+            return !u.includes('bear') &&
+                   !(profileName.includes('bear') || profileName.includes('party biz hub'));
+        },
+
         async loadAccounts() {
             this.accountsLoading = true;
             try {
                 const r = await fetch('/content/api/accounts');
                 const data = await r.json();
                 this.accounts = data.accounts || [];
-                // Auto-select only accounts that belong to the active brand's Zernio profile
+                // Try profile-name match first; fall back to username keyword match
                 const targetProfile = this.brandProfileMap[this.brand] || 'Default';
-                const matched = this.accounts.filter(a => a.profile === targetProfile);
-                // If Zernio returned profile data and we got matches, use those;
-                // otherwise fall back to selecting everything
+                const byProfile = this.accounts.filter(a => a.profile === targetProfile);
+                const byKeyword = this.accounts.filter(a => this.accountMatchesBrand(a, this.brand));
+                const matched = byProfile.length > 0 ? byProfile : byKeyword;
                 this.selectedAccountIds = matched.length > 0
                     ? matched.map(a => a.id)
                     : this.accounts.map(a => a.id);
@@ -1138,12 +1154,19 @@ function contentHub() {
                 if (this.brand === 'pbh') {
                     const t = this.pbhTypes.find(x => x.id === this.pbhType);
                     const typeLabel = t ? t.label : '';
-                    inputText = typeLabel && hookText ? typeLabel + ': ' + hookText : (hookText || typeLabel);
+                    // Hook drives content; post type is context only
+                    inputText = hookText
+                        ? hookText + (typeLabel ? ' [post type: ' + typeLabel + ']' : '')
+                        : typeLabel;
                     brandParam = 'pbh_user';
                 } else if (this.brand === 'bear_hug') {
                     const t = this.bhTypes.find(x => x.id === this.bhType);
                     const typeLabel = t ? t.label : '';
-                    inputText = typeLabel && hookText ? typeLabel + ': ' + hookText : (hookText || typeLabel);
+                    // Hook text is the primary driver — post type is secondary context only
+                    // This prevents "Bear Party" type from overriding a typed "paint and sip" angle
+                    inputText = hookText
+                        ? hookText + (typeLabel ? ' [post type: ' + typeLabel + ']' : '')
+                        : typeLabel;
                     brandParam = 'bear_hug';
                 } else {
                     inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
