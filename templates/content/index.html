@@ -32,22 +32,29 @@
 
     <!-- ── BRAND TOGGLE ────────────────────────────────────── -->
     <div x-show="tab==='create'"
-         :style="brand==='pbh' ? 'border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.06);' : 'border-color:var(--border);background:var(--bg-secondary);'"
-         style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:24px;padding:10px 16px;border-radius:12px;border:1px solid;transition:all 0.2s;">
-        <span style="font-size:0.78rem;font-weight:600;color:var(--text-muted);white-space:nowrap;">Creating for:</span>
+         :style="brand==='pbh' ? 'border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.06);' : brand==='bear_hug' ? 'border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.06);' : 'border-color:var(--border);background:var(--bg-secondary);'"
+         style="display:flex;align-items:center;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:24px;padding:10px 14px;border-radius:12px;border:1px solid;transition:all 0.2s;">
+        <span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);white-space:nowrap;margin-right:2px;">Creating for:</span>
         <button type="button" @click="switchBrand('kpps')"
                 :style="brand==='kpps'
                     ? {'background':'var(--gold)','color':'#2d1f3d','border':'none','outline':'none'}
                     : {'background':'transparent','color':'var(--text-primary)','border':'1px solid var(--border)','outline':'none'}"
-                style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;transition:all 0.15s;">
+                style="padding:7px 14px;border-radius:8px;font-weight:700;font-size:0.78rem;cursor:pointer;transition:all 0.15s;">
             🎉 Kids Party Profit
         </button>
         <button type="button" @click="switchBrand('pbh')"
                 :style="brand==='pbh'
                     ? {'background':'#8b5cf6','color':'#fff','border':'none','outline':'none'}
                     : {'background':'transparent','color':'var(--text-primary)','border':'1px solid var(--border)','outline':'none'}"
-                style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;transition:all 0.15s;">
+                style="padding:7px 14px;border-radius:8px;font-weight:700;font-size:0.78rem;cursor:pointer;transition:all 0.15s;">
             🏢 Party Biz Hub
+        </button>
+        <button type="button" @click="switchBrand('bear_hug')"
+                :style="brand==='bear_hug'
+                    ? {'background':'#f59e0b','color':'#2d1f3d','border':'none','outline':'none'}
+                    : {'background':'transparent','color':'var(--text-primary)','border':'1px solid var(--border)','outline':'none'}"
+                style="padding:7px 14px;border-radius:8px;font-weight:700;font-size:0.78rem;cursor:pointer;transition:all 0.15s;">
+            🐻 Bear Hug Events
         </button>
     </div>
 
@@ -63,8 +70,8 @@
                     <div style="font-size:1.25rem;font-weight:800;color:var(--text-primary);margin-bottom:4px;">Step 1 — Pick a clip</div>
                     <div style="color:var(--text-subtle);font-size:0.875rem;">
                         Creating a
-                        <strong :style="brand==='pbh' ? 'color:#a78bfa;' : 'color:var(--gold);'"
-                                x-text="brand==='pbh' ? 'Party Biz Hub' : 'Kids Party Profit'"></strong>
+                        <strong :style="brand==='pbh' ? 'color:#a78bfa;' : brand==='bear_hug' ? 'color:#f59e0b;' : 'color:var(--gold);'"
+                                x-text="brand==='pbh' ? 'Party Biz Hub' : brand==='bear_hug' ? 'Bear Hug Events' : 'Kids Party Profit'"></strong>
                         post. Pick an existing clip or upload a new one.
                     </div>
                 </div>
@@ -207,6 +214,18 @@
                             </template>
                         </div>
                     </template>
+                    <!-- Bear Hug types -->
+                    <template x-if="brand==='bear_hug'">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:18px;">
+                            <template x-for="t in bhTypes" :key="t.id">
+                                <button @click="bhType=t.id"
+                                        :style="bhType===t.id ? 'background:#f59e0b;color:#2d1f3d;border-color:transparent;' : 'background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);'"
+                                        style="padding:8px 10px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;text-align:left;transition:all 0.15s;">
+                                    <span x-text="t.emoji + ' ' + t.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </template>
 
                     <!-- Platform -->
                     <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px;">Platform</div>
@@ -231,7 +250,7 @@
                         </button>
                     </div>
                     <textarea x-model="hook"
-                              :placeholder="brand==='pbh' ? 'E.g. \'I went from 0 to 5 bookings in my first month doing this one thing…\' — AI builds off YOUR words.' : 'E.g. \'Parents always ask me how to keep kids busy during cocktail hour…\' — AI builds off YOUR words.'"
+                              :placeholder="brand==='pbh' ? 'E.g. \'I went from 0 to 5 bookings in my first month doing this one thing…\' — AI builds off YOUR words.' : brand==='bear_hug' ? 'E.g. \'Last Saturday we set up a teepee party for 8 girls and the moms literally cried…\' — AI builds off YOUR words.' : 'E.g. \'Parents always ask me how to keep kids busy during cocktail hour…\' — AI builds off YOUR words.'"
                               :style="listening ? 'border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,0.15);' : ''"
                               style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text-primary);font-size:0.85rem;resize:vertical;min-height:80px;box-sizing:border-box;font-family:inherit;transition:border-color 0.2s;"></textarea>
 
@@ -797,6 +816,7 @@ function contentHub() {
         // Settings
         contentType: 'party_highlight',
         pbhType: 'business_tip',
+        bhType: 'bear_party',
         platform: 'tiktok',
         hook: '',
 
@@ -850,6 +870,14 @@ function contentHub() {
             { id:'day_in_life',   emoji:'📅', label:'Day in the Life'   },
             { id:'bts',           emoji:'🎬', label:'Behind the Scenes' },
             { id:'before_after',  emoji:'✨', label:'Before & After'    },
+        ],
+        bhTypes: [
+            { id:'bear_party',   emoji:'🐻', label:'Bear Party'        },
+            { id:'movie_night',  emoji:'🎬', label:'Movie Night'       },
+            { id:'teepee',       emoji:'⛺', label:'Teepee Sleepover'  },
+            { id:'slime_paint',  emoji:'🎨', label:'Slime & Paint'     },
+            { id:'diy_kit',      emoji:'📦', label:'DIY Kit'           },
+            { id:'client_story', emoji:'⭐', label:'Client Story'      },
         ],
         platforms: [
             { id:'tiktok',    label:'TikTok'    },
@@ -973,6 +1001,7 @@ function contentHub() {
             this.generating = false;
             this.posted = false;
             if (b === 'pbh') this.pbhType = 'business_tip';
+            else if (b === 'bear_hug') this.bhType = 'bear_party';
             else this.contentType = 'party_highlight';
         },
 
@@ -1011,6 +1040,7 @@ function contentHub() {
             this.musicVolume = '0.25';
             // Reset type to brand defaults
             if (this.brand === 'pbh') this.pbhType = 'business_tip';
+            else if (this.brand === 'bear_hug') this.bhType = 'bear_party';
             else this.contentType = 'party_highlight';
         },
 
@@ -1092,11 +1122,13 @@ function contentHub() {
                 if (this.brand === 'pbh') {
                     const t = this.pbhTypes.find(x => x.id === this.pbhType);
                     const typeLabel = t ? t.label : '';
-                    // "Business Tip: hook text" gives the AI clear post-type context
-                    inputText = typeLabel && hookText
-                        ? typeLabel + ': ' + hookText
-                        : (hookText || typeLabel);
+                    inputText = typeLabel && hookText ? typeLabel + ': ' + hookText : (hookText || typeLabel);
                     brandParam = 'pbh_user';
+                } else if (this.brand === 'bear_hug') {
+                    const t = this.bhTypes.find(x => x.id === this.bhType);
+                    const typeLabel = t ? t.label : '';
+                    inputText = typeLabel && hookText ? typeLabel + ': ' + hookText : (hookText || typeLabel);
+                    brandParam = 'bear_hug';
                 } else {
                     inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;
                     brandParam = 'kpps';

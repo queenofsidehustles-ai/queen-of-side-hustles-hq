@@ -97,7 +97,7 @@ def create_draft():
     status = "ready" if data.get("as_ready") else "draft"
     # brand: 'kpps' (default) or 'pbh_user' (Party Biz Hub flow)
     brand = data.get("brand", "kpps")
-    if brand not in ("kpps", "pbh_user"):
+    if brand not in ("kpps", "pbh_user", "bear_hug"):
         brand = "kpps"
     item = ContentItem(
         input_text=data.get("input_text", ""),

@@ -26,7 +26,7 @@ from datetime import datetime
 from models import ContentItem, PipelineLog, Setting
 from extensions import db
 from services.firecrawl import scrape_url
-from services.openrouter import generate_script, generate_image_prompt, generate_captions, generate_pbh_script, generate_pbh_captions, generate_party_owner_script
+from services.openrouter import generate_script, generate_image_prompt, generate_captions, generate_pbh_script, generate_pbh_captions, generate_party_owner_script, generate_bear_hug_script
 from services.kie_ai import generate_image, generate_video, generate_video_with_reference
 from services.getlate import publish_post
 from services.r2_storage import upload_image as r2_upload_image, upload_video as r2_upload_video, is_configured as r2_is_configured
@@ -342,7 +342,16 @@ def stage_script(content_id, item, emit_event):
     input_type = item.input_type
 
     # Route to the right script generator based on brand
-    if getattr(item, "brand", None) == "pbh_user":
+    if getattr(item, "brand", None) == "bear_hug":
+        screenshot_url = item.r2_image_url or item.image_url or None
+        result = generate_bear_hug_script(
+            source_text,
+            platform=item.platform,
+            image_url=screenshot_url,
+            transcript=item.transcript or None,
+            emit_event=emit_event,
+        )
+    elif getattr(item, "brand", None) == "pbh_user":
         # Party biz owner creating content about their OWN business (not PBH marketing)
         # If she recorded her own voice, use transcript to write captions from her words.
         # If she uploaded a screenshot, read what's on screen instead of writing generic tips.

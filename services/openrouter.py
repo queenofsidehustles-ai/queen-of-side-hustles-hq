@@ -731,6 +731,104 @@ OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."
 
 
 # ---------------------------------------------------------------------------
+# generate_bear_hug_script() — Bear Hug Events local Orlando party content
+# ---------------------------------------------------------------------------
+def generate_bear_hug_script(input_text, platform="instagram", image_url=None,
+                              emit_event=None, transcript=None):
+    """
+    Generate local-market social media content for Bear Hug Events, Orlando FL.
+    Covers bear parties, teepee sleepovers, movie nights, and DIY kits.
+    Target: Orlando-area parents who want stress-free, photo-ready party experiences.
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+    client = _get_client()
+
+    if not client:
+        emit("script", "progress", "No OpenRouter API key — using demo content.")
+        return _demo_response("Script generation requires an OpenRouter API key")
+
+    char_limit = PLATFORM_LIMITS.get(platform, 2200)
+
+    base_system = f"""You are a social media copywriter for Bear Hug Events — a luxury, all-inclusive kids party business in Orlando, Florida, run by Monica Lewis.
+
+BUSINESS FACTS:
+- Bear Parties (teddy bear stuffing + heart ceremony, $450–$900+) with paint & sip, slime, or spa add-ons
+- Luxury Teepee Sleepovers ($550–$750+) — styled tents, bedding, full décor
+- Backyard Movie Nights ($700–$900+) — inflatable screen, projector, snack station, lounge setup
+- DIY Party Kits ($250–$300) — slime/spa/paint delivered, no hosting required, up to 8 guests
+- 9+ years experience | 250+ families | 5★ Google rating
+- Professional setup AND breakdown included — parents do nothing
+- CTA options: "DM PARTY to book" | "(407) 743-1944" | "bearhug.events"
+
+THE AUDIENCE: Orlando-area parents (mostly moms) who want a MAGICAL, photo-worthy birthday but dread the planning chaos. They'll pay for convenience, professional results, and a stress-free day. They're scrolling for inspo and looking for someone to hand it all to.
+
+CONTENT FORMULA:
+1. HOOK — speak to the stress ("I've planned 250+ kids parties and one thing is always true…")
+   OR show the magic ("This is what a bear party looks like in Orlando 🐻")
+   OR ask a question parents feel ("Tired of spending 3 weeks planning a party nobody remembers?")
+2. VALUE — show the transformation: they arrive, we set up, kids lose their minds, parents sip coffee
+3. LOCAL SIGNAL — weave in Orlando or Central Florida naturally (not forced)
+4. CTA — one clear call to action from the options above
+
+TONE: Warm, confident, fun. Luxury without being stuffy. Like your most organized friend who genuinely loves making kids happy. Real Orlando mom energy.
+
+PLATFORM: {platform} | Max: {char_limit} characters
+HASHTAGS (Instagram/TikTok only): #OrlandoParties #OrlandoBirthday #KidsPartyOrlando #BearHugEvents #OrlandoMoms #BirthdayPartyOrlando #OrlandoKids #CentralFloridaMoms
+
+VOICEOVER DELIVERY (this will be read aloud — write how someone talks):
+- Flowing, conversational. Vary sentence length. Warm and excited.
+- No hashtags, URLs, or parenthetical notes in the spoken text. No em dashes or ellipses.
+
+OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."""
+
+    if image_url:
+        system_prompt = base_system
+        user_content = [
+            {"type": "image_url", "image_url": {"url": image_url}},
+            {"type": "text", "text": f"Write a {platform} post for Bear Hug Events based on what you see in this image.\n\nExtra context: {input_text}" if input_text.strip() else f"Write a {platform} post for Bear Hug Events about what's shown in this image."},
+        ]
+        emit("script", "progress", "Reading your image and writing a Bear Hug Events post…")
+    elif transcript and transcript.strip():
+        system_prompt = base_system
+        angle_line = f"\nSpecific angle: {input_text}" if input_text.strip() else ""
+        user_content = f"Here is the transcript of what I said in my video:\n\n{transcript.strip()}{angle_line}\n\nWrite a {platform} caption for Bear Hug Events based on what I said."
+        emit("script", "progress", "Writing your Bear Hug Events post from your words…")
+    else:
+        system_prompt = base_system
+        angle = input_text.strip() if input_text.strip() else ""
+        user_content = (
+            f"Write a {platform} post for Bear Hug Events in Orlando, FL."
+            + (f"\n\nSpecific angle / post type: {angle}" if angle else "")
+        )
+        emit("script", "progress", "Writing your Bear Hug Events post…")
+
+    try:
+        response = client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_content},
+            ],
+            max_tokens=800,
+            temperature=0.78,
+        )
+        text = response.choices[0].message.content or ""
+        cost = (response.usage.prompt_tokens * 0.000001 +
+                response.usage.completion_tokens * 0.000003)
+        return {
+            "text":       text,
+            "model":      DEFAULT_MODEL,
+            "tokens_in":  response.usage.prompt_tokens,
+            "tokens_out": response.usage.completion_tokens,
+            "cost":       cost,
+            "demo":       False,
+        }
+    except Exception as e:
+        emit("script", "error", f"Script generation failed: {str(e)[:120]}")
+        raise
+
+
+# ---------------------------------------------------------------------------
 # generate_pbh_captions() — PBH platform captions (separate from KPPS)
 # ---------------------------------------------------------------------------
 def generate_pbh_captions(script_text, platforms=None, knowledge_base="", emit_event=None):
