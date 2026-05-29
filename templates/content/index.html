@@ -1154,19 +1154,16 @@ function contentHub() {
                 if (this.brand === 'pbh') {
                     const t = this.pbhTypes.find(x => x.id === this.pbhType);
                     const typeLabel = t ? t.label : '';
-                    // Hook drives content; post type is context only
-                    inputText = hookText
-                        ? hookText + (typeLabel ? ' [post type: ' + typeLabel + ']' : '')
-                        : typeLabel;
+                    // If Monica typed a hook, use ONLY that — drop the type label entirely
+                    // so the AI can't confuse the type name with what to write about
+                    inputText = hookText || typeLabel;
                     brandParam = 'pbh_user';
                 } else if (this.brand === 'bear_hug') {
                     const t = this.bhTypes.find(x => x.id === this.bhType);
                     const typeLabel = t ? t.label : '';
-                    // Hook text is the primary driver — post type is secondary context only
-                    // This prevents "Bear Party" type from overriding a typed "paint and sip" angle
-                    inputText = hookText
-                        ? hookText + (typeLabel ? ' [post type: ' + typeLabel + ']' : '')
-                        : typeLabel;
+                    // If Monica typed a hook, use ONLY that — drop "Bear Party" type label
+                    // so the AI doesn't write about bear stuffing when she means paint & sip
+                    inputText = hookText || typeLabel;
                     brandParam = 'bear_hug';
                 } else {
                     inputText = '[KPPS_TYPE:' + this.contentType + '] ' + hookText;

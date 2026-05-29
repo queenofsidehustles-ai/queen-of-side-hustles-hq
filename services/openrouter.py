@@ -806,14 +806,18 @@ OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."
         if hook:
             user_content = (
                 f"Write a {platform} post for Bear Hug Events in Orlando, FL.\n\n"
-                f"IMPORTANT — write SPECIFICALLY about this: {hook}\n"
-                + (f"Post format/type: {post_type}\n" if post_type else "")
-                + f"\nDo NOT default to bear parties or teddy bears unless the hook is explicitly about them."
+                f"WRITE STRICTLY ABOUT THIS — do not change the topic:\n{hook}\n\n"
+                f"Rules:\n"
+                f"- If the hook says 'paint and sip', write about paint and sip. NOT teddy bears.\n"
+                f"- If the hook says 'movie night', write about movie night. NOT bear stuffing.\n"
+                f"- If the hook says 'slime', write about slime. NOT bears.\n"
+                f"- Only mention teddy bears or bear stuffing if the text above explicitly does.\n"
+                f"- Frame it as a Bear Hug Events experience, but centered on exactly what is described."
             )
         else:
             user_content = (
                 f"Write a {platform} post for Bear Hug Events in Orlando, FL."
-                + (f"\n\nPost type: {post_type}" if post_type else "")
+                + (f"\n\nPost type / service to highlight: {post_type}" if post_type else "")
             )
         emit("script", "progress", "Writing your Bear Hug Events post…")
 
