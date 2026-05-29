@@ -352,6 +352,7 @@ def stage_script(content_id, item, emit_event):
             platform=item.platform,
             image_url=screenshot_url,
             transcript=item.transcript or None,
+            brand=getattr(item, "brand", "kpps"),
             emit_event=emit_event,
         )
     elif getattr(item, "brand", None) == "pbh":

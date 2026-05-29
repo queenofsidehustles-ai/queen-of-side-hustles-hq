@@ -567,11 +567,14 @@ OUTPUT: Return ONLY the post text, starting directly with the hook. No labels or
 # ---------------------------------------------------------------------------
 # generate_party_owner_script() — content FOR a party biz owner's own social media
 # ---------------------------------------------------------------------------
-def generate_party_owner_script(input_text, platform="tiktok", image_url=None, emit_event=None, transcript=None):
+def generate_party_owner_script(input_text, platform="tiktok", image_url=None,
+                                emit_event=None, transcript=None, brand=None):
     """
     Generate social media content for a party biz owner to market their OWN business.
     When image_url is provided (screenshot of the app), the vision model reads what's
     on screen and writes a caption ABOUT that specific feature — not a generic tip.
+    brand='pbh_user' → default content promotes Party Biz Hub software.
+    brand='kpps'     → default content promotes kids party booking services.
     """
     emit = emit_event or (lambda *a, **kw: None)
     client = _get_client()
@@ -637,7 +640,38 @@ OUTPUT: Return ONLY the caption text. No labels, no preamble."""
         angle_line = f"\nSpecific angle to emphasize:\n{input_text}" if input_text.strip() else ""
         user_content = f"Here is the transcript of what I said in my video:\n\n{transcript.strip()}{angle_line}\n\nWrite a {platform} caption based on what I said."
         emit("script", "progress", "Writing captions from your words...")
+    elif brand == "pbh_user":
+        # PBH brand with no screenshot and no transcript — promote the software
+        system_prompt = f"""You are a social media copywriter for Monica Lewis, a party business owner promoting Party Biz Hub — her all-in-one business management software built specifically for party entertainers, balloon artists, face painters, and children's entertainers.
+
+YOUR JOB: Write content that shows OTHER party business owners how Party Biz Hub transformed Monica's business from chaotic to professional — and how it can do the same for them.
+
+THE AUDIENCE: Party business owners who are overwhelmed — losing quotes in DMs, forgetting follow-ups, running everything from their notes app. They're ready for a real system.
+
+CONTENT FORMULA:
+1. HOOK — speak to their pain: missed quotes, booking chaos, doing it all manually
+2. VALUE — show the transformation: Party Biz Hub handles quotes, clients, content, and scheduling in one place
+3. CTA — "DM me PARTYBIZ", "Comment PARTYBIZ to try it", "Link in bio → partybizhub.com"
+
+TONE: One party biz owner talking to another. Real, relatable, genuine — "this changed my business" not "buy my product".
+
+PLATFORM: {platform} | Max: {char_limit} characters
+HASHTAGS (Instagram/TikTok only): #PartyBizHub #PartyBusiness #PartyEntrepreneur #PartyBusinessOwner #SmallBusinessTools
+
+VOICEOVER DELIVERY (read aloud by a voice clone — write how someone talks):
+- Flowing, conversational phrases. No hashtags or URLs in the spoken text.
+- No ellipses, em dashes, or parentheses. Vary sentence length.
+
+OUTPUT: Return ONLY the post text. Start with the hook. No labels, no preamble."""
+
+        angle = input_text.strip() if input_text.strip() else ""
+        user_content = (
+            f"Write a {platform} post promoting Party Biz Hub software."
+            + (f"\n\nSpecific angle: {angle}" if angle else "")
+        )
+        emit("script", "progress", "Writing your Party Biz Hub post...")
     else:
+        # Default: KPPS / kids party booking content
         system_prompt = f"""You are a social media copywriter helping a kids party business owner attract more bookings.
 
 YOUR JOB: Write content that makes parents stop scrolling, feel excited, and want to book this person.
