@@ -503,6 +503,110 @@ def upload_processed_video(file_path: str, emit_event=None, emit_stage: str = "o
 
 
 # ---------------------------------------------------------------------------
+# mix_background_music() — layer a music track under existing video audio
+# ---------------------------------------------------------------------------
+def mix_background_music(video_url: str, music_bytes: bytes,
+                         volume: float = 0.25, emit_event=None) -> str | None:
+    """
+    Download the current video, mix a music track in the background at `volume`
+    (0.0–1.0), upload the result to R2, and return the new URL.
+
+    The music loops if the video is longer than the track.
+    The voice/original audio stays at full volume; music sits underneath.
+    Returns None on any failure — caller should keep the original URL.
+    """
+    emit = emit_event or (lambda *a, **kw: None)
+
+    if not _ffmpeg_available():
+        emit("music", "warning", "FFmpeg not available on this server — music mixing skipped.")
+        return None
+
+    tmp_video = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_music = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    tmp_out   = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    for f in [tmp_video, tmp_music, tmp_out]:
+        f.close()
+
+    try:
+        # 1. Download video
+        emit("music", "progress", "Downloading video…")
+        resp = requests.get(video_url, stream=True, timeout=120)
+        if not resp.ok:
+            emit("music", "warning", f"Video download failed (HTTP {resp.status_code})")
+            return None
+        with open(tmp_video.name, "wb") as f:
+            for chunk in resp.iter_content(65536):
+                f.write(chunk)
+
+        # 2. Write music
+        with open(tmp_music.name, "wb") as f:
+            f.write(music_bytes)
+
+        # 3. Probe whether the video has an audio stream
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a",
+             "-show_entries", "stream=codec_type", "-of", "csv=p=0", tmp_video.name],
+            capture_output=True, text=True, timeout=15,
+        )
+        has_audio = bool(probe.stdout.strip())
+
+        emit("music", "progress", f"Mixing music at {int(volume*100)}% volume…")
+
+        if has_audio:
+            # Mix existing audio (voice) + looped music at reduced volume
+            filter_str = (
+                f"[1:a]volume={volume},aloop=loop=-1:size=2147483647[mus];"
+                f"[0:a][mus]amix=inputs=2:duration=first:dropout_transition=3[aout]"
+            )
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", tmp_video.name,
+                "-stream_loop", "-1", "-i", tmp_music.name,
+                "-filter_complex", filter_str,
+                "-map", "0:v:0", "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k",
+                "-shortest", tmp_out.name,
+            ]
+        else:
+            # Video is silent — music becomes the only audio track
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", tmp_video.name,
+                "-stream_loop", "-1", "-i", tmp_music.name,
+                "-filter_complex", f"[1:a]volume={volume}[aout]",
+                "-map", "0:v:0", "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k",
+                "-shortest", tmp_out.name,
+            ]
+
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if r.returncode != 0:
+            err = r.stderr[-400:] if r.stderr else "(no stderr)"
+            emit("music", "warning", f"FFmpeg mix failed: {err[-200:]}")
+            return None
+
+        # 4. Upload to R2
+        emit("music", "progress", "Uploading mixed video to R2…")
+        url = upload_processed_video(tmp_out.name, emit_event=emit_event, emit_stage="music")
+        if url:
+            emit("music", "complete", "Music mixed in!")
+        return url
+
+    except Exception as e:
+        logger.exception("mix_background_music failed")
+        emit("music", "warning", f"Music mix error: {str(e)[:120]}")
+        return None
+    finally:
+        for p in [tmp_video.name, tmp_music.name, tmp_out.name]:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+# ---------------------------------------------------------------------------
 # add_voiceover() — layer ElevenLabs audio onto a silent video
 # ---------------------------------------------------------------------------
 def add_voiceover(video_url: str, audio_bytes: bytes, emit_event=None) -> str | None:

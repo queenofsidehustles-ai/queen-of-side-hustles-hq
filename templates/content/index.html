@@ -289,6 +289,30 @@
                 </div>
                 <!-- Caption + actions -->
                 <div>
+                    <!-- Background music -->
+                    <div style="margin-bottom:18px;padding:12px 14px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border);">
+                        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;">Background Music</div>
+                        <div x-show="!musicAdded" style="font-size:0.78rem;color:var(--text-subtle);margin-bottom:8px;line-height:1.5;">Upload an MP3 (e.g. from Mixkit.co). It mixes in at low volume under your voice.</div>
+                        <div x-show="musicAdded" style="font-size:0.78rem;color:#22c55e;margin-bottom:8px;font-weight:600;">✓ Music mixed in — video updated</div>
+                        <input type="file" x-ref="musicInput" accept="audio/*" style="display:none;"
+                               @change="addMusic($event)">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <button type="button" @click="$refs.musicInput.click()"
+                                    :disabled="mixingMusic"
+                                    style="flex:1;padding:9px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"
+                                    :style="mixingMusic ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                                <span x-show="!mixingMusic">🎵 <span x-text="musicAdded ? 'Replace music' : 'Add music'"></span></span>
+                                <span x-show="mixingMusic">Mixing… this takes ~30s</span>
+                            </button>
+                            <!-- Volume nudge -->
+                            <select x-model="musicVolume" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.78rem;">
+                                <option value="0.15">Subtle</option>
+                                <option value="0.25" selected>Medium</option>
+                                <option value="0.4">Loud</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;">Caption</div>
                     <div style="background:var(--bg-secondary);border-radius:10px;padding:14px;font-size:0.85rem;color:var(--text-primary);line-height:1.6;max-height:180px;overflow-y:auto;margin-bottom:20px;white-space:pre-wrap;" x-text="result.script || '(generating…)'"></div>
 
@@ -779,6 +803,9 @@ function contentHub() {
         showScheduleReview: false,
         thumbnailUrl: null,
         capturingThumb: false,
+        mixingMusic: false,
+        musicAdded: false,
+        musicVolume: '0.25',
 
         // Post-as-is state
         asisItemId: null,
@@ -831,6 +858,37 @@ function contentHub() {
         pickClip(clip) {
             this.selectedClip = clip;
             this.step = 'path';
+        },
+
+        async addMusic(event) {
+            const file = event.target.files[0];
+            if (!file || !this.contentId) return;
+            event.target.value = '';
+            this.mixingMusic = true;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('volume', this.musicVolume);
+                const resp = await fetch('/content/api/' + this.contentId + '/add-music', {
+                    method: 'POST', body: fd,
+                });
+                const data = await resp.json();
+                if (data.url) {
+                    this.result.r2_video_url = data.url;
+                    this.result.video_url    = data.url;
+                    // Reload the video player
+                    this.$nextTick(() => {
+                        const v = this.$refs.reviewVideo;
+                        if (v) { v.load(); }
+                    });
+                    this.musicAdded = true;
+                } else {
+                    alert(data.error || 'Music mixing failed.');
+                }
+            } catch(e) {
+                alert('Music mixing error: ' + e.message);
+            }
+            this.mixingMusic = false;
         },
 
         captureFrame() {
@@ -909,6 +967,9 @@ function contentHub() {
             this.showScheduleAsis = false;
             this.thumbnailUrl = null;
             this.capturingThumb = false;
+            this.mixingMusic = false;
+            this.musicAdded  = false;
+            this.musicVolume = '0.25';
             // Reset type to brand defaults
             if (this.brand === 'pbh') this.pbhType = 'business_tip';
             else this.contentType = 'party_highlight';

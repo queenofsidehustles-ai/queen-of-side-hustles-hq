@@ -491,6 +491,39 @@ def upload_media():
     return jsonify({"url": url, "key": key, "type": "video" if is_video else "image"})
 
 
+@content_api_bp.route("/<int:item_id>/add-music", methods=["POST"])
+@login_required
+def add_music(item_id):
+    """Mix a background music track into the item's video at low volume."""
+    item = ContentItem.query.get_or_404(item_id)
+
+    if "file" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+
+    video_url = item.r2_video_url or item.video_url
+    if not video_url:
+        return jsonify({"error": "No video attached to this post yet"}), 400
+
+    music_bytes = request.files["file"].read()
+    if not music_bytes:
+        return jsonify({"error": "Empty audio file"}), 400
+
+    volume = float(request.form.get("volume", "0.25"))
+    volume = max(0.05, min(0.6, volume))  # clamp 5–60 %
+
+    from services.video_processor import mix_background_music
+    new_url = mix_background_music(video_url, music_bytes, volume=volume)
+
+    if not new_url:
+        return jsonify({"error": "Music mixing failed — check that FFmpeg is installed on the server"}), 500
+
+    item.r2_video_url = new_url
+    item.video_url    = new_url
+    db.session.commit()
+
+    return jsonify({"url": new_url})
+
+
 @content_api_bp.route("/<int:item_id>/thumbnail", methods=["POST"])
 @login_required
 def set_thumbnail(item_id):
