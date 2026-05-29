@@ -315,11 +315,22 @@ def list_accounts():
         r.raise_for_status()
         data = r.json()
         raw = data if isinstance(data, list) else data.get("accounts", [])
-        simplified = [
-            {"id": a.get("_id", ""), "platform": a.get("platform", ""),
-             "username": a.get("username") or a.get("name") or ""}
-            for a in raw if a.get("_id")
-        ]
+        simplified = []
+        for a in raw:
+            if not a.get("_id"):
+                continue
+            # Extract profile name — Zernio may nest it or use a flat field
+            profile_raw = a.get("profile") or {}
+            if isinstance(profile_raw, dict):
+                profile_name = profile_raw.get("name") or "Default"
+            else:
+                profile_name = str(profile_raw) if profile_raw else "Default"
+            simplified.append({
+                "id":       a.get("_id", ""),
+                "platform": a.get("platform", ""),
+                "username": a.get("username") or a.get("name") or "",
+                "profile":  profile_name,
+            })
         return jsonify({"accounts": simplified, "demo": False})
     except Exception as e:
         return jsonify({"accounts": [], "demo": False, "error": str(e)})

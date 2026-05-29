@@ -366,7 +366,7 @@
                             <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;">Post to:</div>
                             <div x-show="accountsLoading" style="font-size:0.78rem;color:var(--text-subtle);">Loading accounts…</div>
                             <div x-show="!accountsLoading && accounts.length===0" style="font-size:0.78rem;color:var(--text-subtle);">
-                                All connected accounts <span style="font-size:0.7rem;opacity:0.6;">(connect more in Zernio Settings)</span>
+                                All connected accounts <span style="font-size:0.7rem;opacity:0.6;">(connect more in Zernio)</span>
                             </div>
                             <div x-show="!accountsLoading && accounts.length>0" style="display:flex;flex-wrap:wrap;gap:6px;">
                                 <template x-for="acc in accounts" :key="acc.id">
@@ -374,9 +374,13 @@
                                             :style="selectedAccountIds.includes(acc.id)
                                                 ? 'background:rgba(16,185,129,0.15);border-color:#10b981;color:#10b981;'
                                                 : 'background:var(--bg-primary);border-color:var(--border);color:var(--text-subtle);'"
-                                            style="padding:5px 12px;border:1px solid;border-radius:20px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;display:flex;align-items:center;gap:5px;">
-                                        <span x-text="platformEmoji(acc.platform)"></span>
-                                        <span x-text="acc.username || acc.platform"></span>
+                                            style="padding:5px 12px;border:1px solid;border-radius:20px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;display:flex;align-items:center;gap:5px;flex-direction:column;align-items:flex-start;gap:1px;">
+                                        <div style="display:flex;align-items:center;gap:5px;">
+                                            <span x-text="platformEmoji(acc.platform)"></span>
+                                            <span x-text="acc.username || acc.platform"></span>
+                                        </div>
+                                        <span x-show="acc.profile" x-text="acc.profile"
+                                              style="font-size:0.62rem;opacity:0.65;font-weight:500;"></span>
                                     </button>
                                 </template>
                             </div>
@@ -852,6 +856,12 @@ function contentHub() {
         accounts: [],
         accountsLoading: false,
         selectedAccountIds: [],
+        // Maps each brand toggle to its Zernio profile name for auto-selection
+        brandProfileMap: {
+            'kpps':      'Default',
+            'pbh':       'Party Biz Hub',
+            'bear_hug':  'Bear Hug Events',
+        },
 
         // Queue filter
         filter: 'all',
@@ -1050,8 +1060,14 @@ function contentHub() {
                 const r = await fetch('/content/api/accounts');
                 const data = await r.json();
                 this.accounts = data.accounts || [];
-                // Default: all selected
-                this.selectedAccountIds = this.accounts.map(a => a.id);
+                // Auto-select only accounts that belong to the active brand's Zernio profile
+                const targetProfile = this.brandProfileMap[this.brand] || 'Default';
+                const matched = this.accounts.filter(a => a.profile === targetProfile);
+                // If Zernio returned profile data and we got matches, use those;
+                // otherwise fall back to selecting everything
+                this.selectedAccountIds = matched.length > 0
+                    ? matched.map(a => a.id)
+                    : this.accounts.map(a => a.id);
             } catch(e) {
                 this.accounts = [];
             }
