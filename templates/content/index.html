@@ -254,10 +254,38 @@
                 <div style="color:var(--text-subtle);font-size:0.875rem;">Watch the video, read the caption. Approve it when you're happy.</div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:880px;margin:0 auto;align-items:start;">
-                <!-- Video -->
-                <div style="border-radius:14px;overflow:hidden;background:#000;">
-                    <video :src="result.r2_video_url || result.video_url || (selectedClip ? selectedClip.r2_url : '')"
-                           controls playsinline style="width:100%;max-height:420px;object-fit:contain;display:block;"></video>
+                <!-- Video + thumbnail picker -->
+                <div>
+                    <div style="border-radius:14px;overflow:hidden;background:#000;">
+                        <video x-ref="reviewVideo"
+                               :src="result.r2_video_url || result.video_url || (selectedClip ? selectedClip.r2_url : '')"
+                               controls playsinline style="width:100%;max-height:380px;object-fit:contain;display:block;"></video>
+                    </div>
+                    <!-- Thumbnail picker -->
+                    <div style="margin-top:10px;">
+                        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;">Thumbnail / Cover Frame</div>
+                        <div x-show="!thumbnailUrl" style="font-size:0.78rem;color:var(--text-subtle);margin-bottom:8px;line-height:1.5;">
+                            Pause the video on the frame you want as the cover, then capture it.
+                        </div>
+                        <!-- Captured preview -->
+                        <div x-show="thumbnailUrl" style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:2px solid #22c55e;">
+                            <img :src="thumbnailUrl" style="width:100%;display:block;max-height:120px;object-fit:cover;">
+                            <div style="padding:4px 8px;background:rgba(34,197,94,0.1);font-size:0.7rem;color:#22c55e;font-weight:700;">✓ Thumbnail saved — will be used as cover when posted</div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button type="button" @click="captureFrame()"
+                                    :disabled="capturingThumb"
+                                    style="flex:1;padding:9px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:6px;"
+                                    :style="capturingThumb ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                                <span x-show="!capturingThumb">📸 Capture this frame</span>
+                                <span x-show="capturingThumb">Saving…</span>
+                            </button>
+                            <button type="button" x-show="thumbnailUrl" @click="thumbnailUrl=null;result.r2_image_url='';result.image_url='';"
+                                    style="padding:9px 12px;background:none;border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;font-size:0.8rem;cursor:pointer;">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <!-- Caption + actions -->
                 <div>
@@ -749,6 +777,8 @@ function contentHub() {
         posted: false,
         postResult: '',
         showScheduleReview: false,
+        thumbnailUrl: null,
+        capturingThumb: false,
 
         // Post-as-is state
         asisItemId: null,
@@ -803,6 +833,36 @@ function contentHub() {
             this.step = 'path';
         },
 
+        captureFrame() {
+            const video = this.$refs.reviewVideo;
+            if (!video || !this.contentId) return;
+            this.capturingThumb = true;
+            const canvas = document.createElement('canvas');
+            canvas.width  = video.videoWidth  || 1280;
+            canvas.height = video.videoHeight || 720;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(async (blob) => {
+                try {
+                    const fd = new FormData();
+                    fd.append('file', blob, 'thumbnail.jpg');
+                    const resp = await fetch('/content/api/' + this.contentId + '/thumbnail', {
+                        method: 'POST', body: fd,
+                    });
+                    const data = await resp.json();
+                    if (data.url) {
+                        this.thumbnailUrl = data.url;
+                        this.result.r2_image_url = data.url;
+                        this.result.image_url    = data.url;
+                    } else {
+                        alert(data.error || 'Could not save thumbnail — check R2 is configured.');
+                    }
+                } catch(e) {
+                    alert('Could not save thumbnail: ' + e.message);
+                }
+                this.capturingThumb = false;
+            }, 'image/jpeg', 0.92);
+        },
+
         switchBrand(b) {
             if (this.brand === b) return;
             this.brand = b;
@@ -847,6 +907,8 @@ function contentHub() {
             this.asisPosting = false;
             this.asisPosted = false;
             this.showScheduleAsis = false;
+            this.thumbnailUrl = null;
+            this.capturingThumb = false;
             // Reset type to brand defaults
             if (this.brand === 'pbh') this.pbhType = 'business_tip';
             else this.contentType = 'party_highlight';

@@ -489,3 +489,36 @@ def upload_media():
             db.session.commit()
 
     return jsonify({"url": url, "key": key, "type": "video" if is_video else "image"})
+
+
+@content_api_bp.route("/<int:item_id>/thumbnail", methods=["POST"])
+@login_required
+def set_thumbnail(item_id):
+    """Save a JPEG frame (captured from the review video) as the post thumbnail."""
+    item = ContentItem.query.get_or_404(item_id)
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    from services.r2_storage import is_configured, _get_client, _get_public_url
+
+    file = request.files["file"]
+    file_data = file.read()
+
+    if not file_data:
+        return jsonify({"error": "Empty file"}), 400
+
+    if not is_configured():
+        return jsonify({"error": "R2 storage not configured — add R2 keys in Railway variables"}), 500
+
+    key = f"thumbnails/{uuid.uuid4().hex}.jpg"
+    client = _get_client()
+    bucket = os.environ["R2_BUCKET_NAME"]
+    client.put_object(Bucket=bucket, Key=key, Body=file_data, ContentType="image/jpeg")
+    url = _get_public_url(key)
+
+    item.image_url    = url
+    item.r2_image_url = url
+    db.session.commit()
+
+    return jsonify({"url": url})

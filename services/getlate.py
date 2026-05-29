@@ -114,7 +114,12 @@ def publish_post(content_item, platforms=None, emit_event=None):
         if raw    and "placehold" in raw:    raw    = None
         best = voiced or raw
         if best:
-            payload["mediaItems"] = [{"url": best, "type": _media_type(best)}]
+            media_item = {"url": best, "type": _media_type(best)}
+            # Custom thumbnail: when posting a video, include the captured cover frame
+            # raw holds the thumbnail URL (saved by /thumbnail endpoint)
+            if voiced and raw and raw != voiced:
+                media_item["thumbnailUrl"] = raw
+            payload["mediaItems"] = [media_item]
 
         # If there's a scheduled time, use scheduledFor (camelCase — required by Zernio)
         if content_item.get("scheduled_at"):
