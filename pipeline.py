@@ -1109,6 +1109,14 @@ def stage_voiceover(content_id, item, emit_event):
     script_text = re.sub(r'[ \t]+', ' ', script_text)
     script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
 
+    # ElevenLabs treats every \n as a hard stop — join single line breaks into
+    # flowing prose so the voice reads smoothly instead of pausing at each line.
+    # Double line breaks (paragraph breaks) become a period+space for a natural pause.
+    script_text = re.sub(r'\n\n+', '. ', script_text)
+    script_text = re.sub(r'\n', ' ', script_text)
+    script_text = re.sub(r'\. \.', '.', script_text)   # collapse any double-period
+    script_text = re.sub(r' +', ' ', script_text).strip()
+
     # Auto-shorten script to match video duration so the voice never outlasts the clip.
     # Also guarantees a "comment PARTY" CTA at the end of every voiceover.
     try:
