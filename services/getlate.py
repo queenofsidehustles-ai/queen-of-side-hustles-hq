@@ -199,14 +199,23 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
         accounts_resp.raise_for_status()
         accounts_data = accounts_resp.json()
         all_accounts = accounts_data if isinstance(accounts_data, list) else accounts_data.get("accounts", [])
-        account_map = {a["platform"]: a["_id"] for a in all_accounts if a.get("platform") and a.get("_id")}
+        # Keep ALL valid accounts — do NOT deduplicate by platform.
+        # Multiple accounts on the same platform (e.g. two TikToks) must each be
+        # reachable by their own _id, otherwise selected accounts get silently dropped.
+        valid_accounts = [a for a in all_accounts if a.get("platform") and a.get("_id")]
     except requests.exceptions.RequestException as e:
         return {"status": "error", "error": f"Could not fetch connected accounts: {str(e)}"}
 
-    if not account_map:
+    if not valid_accounts:
         return {"status": "error", "error": "No connected social accounts found. Connect them at zernio.com"}
 
-    emit("publish", "progress", f"Found {len(account_map)} connected accounts: {', '.join(account_map.keys())}")
+    # Apply the caller's allow-list (specific account IDs chosen in the UI)
+    accounts_to_post = [a for a in valid_accounts
+                        if not allowed_account_ids or a["_id"] in allowed_account_ids]
+
+    platform_names = sorted({a["platform"] for a in accounts_to_post})
+    emit("publish", "progress",
+         f"Posting to {len(accounts_to_post)} account(s): {', '.join(platform_names)}")
 
     # Build shared mediaItems payload (Zernio uses 'mediaItems', not 'media')
     # Filter out demo placeholder URLs (placehold.co) — never publish those
@@ -229,10 +238,9 @@ def publish_to_all_platforms(content_item, captions_dict=None, scheduled_at=None
     platforms_published = []
     platforms_failed = []
 
-    for platform, account_id in account_map.items():
-        # Skip if caller passed a specific allow-list of account IDs
-        if allowed_account_ids and account_id not in allowed_account_ids:
-            continue
+    for account in accounts_to_post:
+        platform   = account["platform"]
+        account_id = account["_id"]
 
         # Use platform-specific caption, fall back to script
         raw_caption = captions_dict.get(platform)

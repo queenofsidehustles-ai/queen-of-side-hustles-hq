@@ -1057,17 +1057,16 @@ function contentHub() {
         accountMatchesBrand(acc, brand) {
             const u = (acc.username || '').toLowerCase().replace(/[\s._@-]/g, '');
             const profileName = (acc.profile || '').toLowerCase();
+            const isBearHug = u.includes('bear') || u.includes('bearhug') || profileName.includes('bear');
             if (brand === 'bear_hug') {
-                return u.includes('bear') || u.includes('bearhug') ||
-                       profileName.includes('bear');
+                return isBearHug;
             }
             if (brand === 'pbh') {
-                return u.includes('partybiz') || u.includes('partybizcoach') ||
-                       profileName.includes('party biz');
+                // PBH posts to PBH accounts AND KPPS accounts — everything except Bear Hug
+                return !isBearHug;
             }
-            // KPPS / Default — everything that isn't bear hug or pbh-only
-            return !u.includes('bear') &&
-                   !(profileName.includes('bear') || profileName.includes('party biz hub'));
+            // KPPS — everything that isn't bear hug or party biz hub only
+            return !isBearHug && !profileName.includes('party biz hub');
         },
 
         async loadAccounts() {
@@ -1076,11 +1075,17 @@ function contentHub() {
                 const r = await fetch('/content/api/accounts');
                 const data = await r.json();
                 this.accounts = data.accounts || [];
-                // Try profile-name match first; fall back to username keyword match
-                const targetProfile = this.brandProfileMap[this.brand] || 'Default';
-                const byProfile = this.accounts.filter(a => a.profile === targetProfile);
-                const byKeyword = this.accounts.filter(a => this.accountMatchesBrand(a, this.brand));
-                const matched = byProfile.length > 0 ? byProfile : byKeyword;
+                // PBH: always use keyword match (selects PBH + KPPS, skips Bear Hug)
+                // Other brands: try profile-name match first, fall back to keyword match
+                let matched;
+                if (this.brand === 'pbh') {
+                    matched = this.accounts.filter(a => this.accountMatchesBrand(a, 'pbh'));
+                } else {
+                    const targetProfile = this.brandProfileMap[this.brand] || 'Default';
+                    const byProfile = this.accounts.filter(a => a.profile === targetProfile);
+                    const byKeyword = this.accounts.filter(a => this.accountMatchesBrand(a, this.brand));
+                    matched = byProfile.length > 0 ? byProfile : byKeyword;
+                }
                 this.selectedAccountIds = matched.length > 0
                     ? matched.map(a => a.id)
                     : this.accounts.map(a => a.id);
