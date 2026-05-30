@@ -754,8 +754,10 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
         vid_dur      = _get_video_duration(tmp_video.name)
         vid_w, vid_h = _get_video_size(tmp_video.name)
 
-        # Keep up to 1080p — 720 was visibly degrading quality
-        MAX_DIM = 1080
+        # Cap at 720p for the voiceover step — Railway's shared CPU can't handle
+        # encoding 4K/high-bitrate source files fast enough at 1080p. 720p is still
+        # sharp for TikTok/Reels and encodes in seconds instead of minutes.
+        MAX_DIM = 720
         if vid_h > vid_w:  # portrait
             if vid_h > MAX_DIM:
                 scale_h = MAX_DIM
@@ -781,13 +783,15 @@ def add_voiceover_with_captions(video_url: str, audio_bytes: bytes,
              f"audio ~{est_audio_dur:.0f}s, loop={use_loop})...")
 
         # 3. Combine video + audio; -map 0:v:0 -map 1:a:0 mutes original video audio
+        # ultrafast preset: 5-10x faster than 'fast' — essential for large source files
+        # on Railway's shared CPU. Slightly larger file but finishes in seconds.
         cmd = [
             "ffmpeg", "-y",
             *loop_flags, "-i", tmp_video.name,
             "-i", tmp_audio.name,
             "-map", "0:v:0", "-map", "1:a:0",
             "-vf", f"scale={scale_w}:{scale_h},format=yuv420p",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
             "-c:a", "aac", "-b:a", "192k",
             "-threads", "2",
             "-shortest", tmp_voiced.name,
