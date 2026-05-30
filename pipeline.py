@@ -1111,14 +1111,6 @@ def stage_voiceover(content_id, item, emit_event):
     script_text = re.sub(r'[ \t]+', ' ', script_text)
     script_text = re.sub(r'\n{3,}', '\n\n', script_text).strip()
 
-    # ElevenLabs treats every \n as a hard stop — join single line breaks into
-    # flowing prose so the voice reads smoothly instead of pausing at each line.
-    # Double line breaks (paragraph breaks) become a period+space for a natural pause.
-    script_text = re.sub(r'\n\n+', '. ', script_text)
-    script_text = re.sub(r'\n', ' ', script_text)
-    script_text = re.sub(r'\. \.', '.', script_text)   # collapse any double-period
-    script_text = re.sub(r' +', ' ', script_text).strip()
-
     # Auto-shorten script to match video duration so the voice never outlasts the clip.
     # Also guarantees a "comment PARTY" CTA at the end of every voiceover.
     try:
@@ -1133,9 +1125,27 @@ def stage_voiceover(content_id, item, emit_event):
         # No duration info — still ensure CTA is present
         _CTA_KEYWORDS = ["comment party", "drop party", "type party", "dm me", "link in bio", "save this"]
         if not any(kw in script_text.lower() for kw in _CTA_KEYWORDS):
-            import random
-            _ctas = ["Comment PARTY below!", "Drop PARTY in the comments!", "Comment PARTY to get started!"]
             script_text = script_text.rstrip() + "\n\nComment PARTY below!"
+
+    # Normalize for ElevenLabs AFTER duration fitting.
+    # Process line-by-line: ensure each sentence ends with punctuation so ElevenLabs
+    # pauses naturally at boundaries. Join into one paragraph — no \n hard stops,
+    # no run-on sentences. Each line without punctuation gets a period added.
+    _SENT_END = ('.', '?', '!', ',', ';')
+    _out = []
+    for _ln in script_text.split('\n'):
+        _ln = _ln.strip()
+        if not _ln:
+            # Paragraph break — make sure previous sentence closes properly
+            if _out and not _out[-1].endswith(_SENT_END):
+                _out[-1] += '.'
+            continue
+        if not _ln.endswith(_SENT_END):
+            _ln += '.'
+        _out.append(_ln)
+    script_text = ' '.join(_out)
+    script_text = re.sub(r'\.\s*\.', '.', script_text)  # collapse ". ." or ".."
+    script_text = re.sub(r' +', ' ', script_text).strip()
 
     emit_event(stage, "progress", "Sending script to ElevenLabs — recording your cloned voice...")
 
