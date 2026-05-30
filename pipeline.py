@@ -1050,10 +1050,12 @@ def stage_voiceover(content_id, item, emit_event):
         emit_event(stage, "skipped", "Skipping AI voiceover — your recorded voice will be used as-is.")
         return 0.0
 
-    # Determine which ElevenLabs key to use — PBH users bring their own
+    # Determine which ElevenLabs key to use.
+    # All of Monica's brands (kpps, bear_hug, pbh) share the same ElevenLabs account,
+    # stored in PBH Settings. ELEVENLABS_API_KEY env var is the fallback.
     override_api_key = None
     override_voice_id = None
-    if getattr(item, 'brand', 'kpps') in ('pbh', 'pbh_user'):
+    if getattr(item, 'brand', 'kpps') in ('pbh', 'pbh_user', 'bear_hug', 'kpps'):
         from models import Setting
         override_api_key  = Setting.get('pbh_elevenlabs_key') or None
         override_voice_id = Setting.get('pbh_voice_id') or None
