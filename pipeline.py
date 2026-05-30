@@ -1051,11 +1051,11 @@ def stage_voiceover(content_id, item, emit_event):
         return 0.0
 
     # Determine which ElevenLabs key to use.
-    # All of Monica's brands (kpps, bear_hug, pbh) share the same ElevenLabs account,
-    # stored in PBH Settings. ELEVENLABS_API_KEY env var is the fallback.
+    # PBH and Bear Hug use the key stored in PBH Settings (database).
+    # KPPS uses ELEVENLABS_API_KEY env var (set directly in Railway).
     override_api_key = None
     override_voice_id = None
-    if getattr(item, 'brand', 'kpps') in ('pbh', 'pbh_user', 'bear_hug', 'kpps'):
+    if getattr(item, 'brand', 'kpps') in ('pbh', 'pbh_user', 'bear_hug'):
         from models import Setting
         override_api_key  = Setting.get('pbh_elevenlabs_key') or None
         override_voice_id = Setting.get('pbh_voice_id') or None
@@ -1147,6 +1147,10 @@ def stage_voiceover(content_id, item, emit_event):
         audio_bytes    = result["audio"]
         words          = result["words"]
         caption_chunks = words_to_caption_chunks(words, chunk_size=4)
+        if not audio_bytes:
+            emit_event(stage, "warning",
+                       "ElevenLabs returned empty audio — check your ElevenLabs credits and voice ID.")
+            return 0.0
         emit_event(stage, "progress",
                    f"Got {len(audio_bytes)//1024}KB audio, {len(words)} words → {len(caption_chunks)} caption chunks. Combining with video...")
     else:
