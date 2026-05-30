@@ -1050,18 +1050,15 @@ def stage_voiceover(content_id, item, emit_event):
         emit_event(stage, "skipped", "Skipping AI voiceover — your recorded voice will be used as-is.")
         return 0.0
 
-    # Determine which ElevenLabs key to use.
-    # PBH and Bear Hug use the key stored in PBH Settings (database).
-    # KPPS uses ELEVENLABS_API_KEY env var (set directly in Railway).
-    override_api_key = None
+    # All three brands (KPPS, PBH, Bear Hug) use ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID
+    # env vars set in Railway. This is the single source of truth for Monica's account.
+    # override_api_key = None tells synthesize_with_timestamps to read the env var directly.
+    override_api_key  = None
     override_voice_id = None
-    if getattr(item, 'brand', 'kpps') in ('pbh', 'pbh_user', 'bear_hug'):
-        from models import Setting
-        override_api_key  = Setting.get('pbh_elevenlabs_key') or None
-        override_voice_id = Setting.get('pbh_voice_id') or None
 
     if not is_configured(override_api_key):
-        emit_event(stage, "skipped", "No ElevenLabs key — add your key in PBH Settings to enable voiceover.")
+        emit_event(stage, "skipped",
+                   "No ElevenLabs key found — set ELEVENLABS_API_KEY in Railway Variables to enable voiceover.")
         return 0.0
 
     _VIDEO_EXTS = (".mp4", ".mov", ".webm", ".avi", ".m4v")
