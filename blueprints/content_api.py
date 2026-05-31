@@ -336,6 +336,52 @@ def list_accounts():
         return jsonify({"accounts": [], "demo": False, "error": str(e)})
 
 
+@content_api_bp.route("/calendar", methods=["GET"])
+@login_required
+def calendar_data():
+    """Return scheduled and published items for the calendar view.
+    Query params: year (int), month (int, 1-12).
+    Returns items grouped by date string YYYY-MM-DD.
+    """
+    from datetime import date
+    year  = int(request.args.get("year",  date.today().year))
+    month = int(request.args.get("month", date.today().month))
+
+    # Build date window: full month
+    import calendar as cal_mod
+    _, days_in_month = cal_mod.monthrange(year, month)
+    start_dt = datetime(year, month, 1)
+    end_dt   = datetime(year, month, days_in_month, 23, 59, 59)
+
+    items = ContentItem.query.filter(
+        ContentItem.status.in_(["scheduled", "published"]),
+        db.or_(
+            db.and_(ContentItem.scheduled_at >= start_dt, ContentItem.scheduled_at <= end_dt),
+            db.and_(ContentItem.published_at >= start_dt, ContentItem.published_at <= end_dt),
+        )
+    ).order_by(ContentItem.scheduled_at, ContentItem.published_at).all()
+
+    BRAND_COLOR = {"kpps": "#C7A35A", "pbh": "#8b5cf6", "pbh_user": "#8b5cf6", "bear_hug": "#f59e0b"}
+
+    result = []
+    for item in items:
+        dt = item.scheduled_at or item.published_at
+        if not dt:
+            continue
+        result.append({
+            "id":      item.id,
+            "date":    dt.strftime("%Y-%m-%d"),
+            "time":    dt.strftime("%-I:%M %p"),
+            "status":  item.status,
+            "brand":   item.brand or "kpps",
+            "color":   BRAND_COLOR.get(item.brand or "kpps", "#C7A35A"),
+            "platform": item.platform or "",
+            "preview": (item.script or item.caption or "")[:60],
+        })
+
+    return jsonify({"year": year, "month": month, "items": result})
+
+
 @content_api_bp.route("/<int:item_id>/publish-all", methods=["POST"])
 @login_required
 def publish_all(item_id):

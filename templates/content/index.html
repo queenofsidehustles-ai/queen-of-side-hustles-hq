@@ -28,6 +28,11 @@
             <span style="display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#2d1f3d;font-size:0.65rem;font-weight:700;width:18px;height:18px;border-radius:50%;">{{ q_count }}</span>
             {% endif %}
         </button>
+        <button @click="tab='calendar'; initCalendar()"
+                :style="tab==='calendar' ? 'border-bottom:3px solid var(--gold);color:var(--text-primary);' : 'color:var(--text-subtle);'"
+                style="padding:10px 24px;background:none;border:none;border-bottom:3px solid transparent;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s;margin-bottom:-2px;">
+            📅 Calendar
+        </button>
     </div>
 
     <!-- ── BRAND TOGGLE ────────────────────────────────────── -->
@@ -675,14 +680,16 @@
                         <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:8px;font-weight:600;">⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET</div>
                         {% endif %}
                         <div style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;">When? (Eastern)</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;">
-                            <button onclick="quickScheduleQueue({{ item.id }},0,18)" class="sched-quick sched-quick-sm">Today 6pm</button>
-                            <button onclick="quickScheduleQueue({{ item.id }},0,20)" class="sched-quick sched-quick-sm">Today 8pm</button>
-                            <button onclick="quickScheduleQueue({{ item.id }},1,9)"  class="sched-quick sched-quick-sm">Tomorrow 9am</button>
-                            <button onclick="quickScheduleQueue({{ item.id }},1,12)" class="sched-quick sched-quick-sm">Tomorrow Noon</button>
-                            <button onclick="quickScheduleQueue({{ item.id }},1,18)" class="sched-quick sched-quick-sm">Tomorrow 6pm</button>
-                            <button onclick="quickScheduleQueue({{ item.id }},2,9)"  class="sched-quick sched-quick-sm">In 2 Days 9am</button>
-                        </div>
+                        <div id="smart-times-{{ item.id }}" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;"></div>
+                        <script>
+                        (function(){
+                            const times = smartQuickTimes ? smartQuickTimes() : [];
+                            const el = document.getElementById('smart-times-{{ item.id }}');
+                            if(el && times.length) el.innerHTML = times.map(t =>
+                                `<button onclick="quickScheduleQueueVal({{ item.id }},'${t.val}',this)" class="sched-quick sched-quick-sm">${t.label}</button>`
+                            ).join('');
+                        })();
+                        </script>
                         <input type="datetime-local" id="sched-dt-{{ item.id }}"
                                style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;color-scheme:dark;"
                                {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
@@ -711,6 +718,41 @@
 
     </div><!-- /QUEUE TAB -->
 
+    <!-- ── CALENDAR TAB ──────────────────────────────────────── -->
+    <div x-show="tab==='calendar'" style="min-height:400px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+            <div>
+                <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);" id="cal-month-label">Loading…</div>
+                <div style="font-size:0.8rem;color:var(--text-subtle);margin-top:2px;">Scheduled & published posts. Click any post to reschedule.</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button onclick="calNav(-1)" style="padding:6px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:700;cursor:pointer;">‹ Prev</button>
+                <button onclick="calNav(0)"  style="padding:6px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:600;cursor:pointer;font-size:0.82rem;">Today</button>
+                <button onclick="calNav(1)"  style="padding:6px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:700;cursor:pointer;">Next ›</button>
+            </div>
+        </div>
+        <!-- Legend -->
+        <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#C7A35A;display:inline-block;"></span>Kids Party Profit</span>
+            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span>Party Biz Hub</span>
+            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Bear Hug Events</span>
+            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block;"></span>Published</span>
+            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#6366f1;display:inline-block;"></span>Scheduled</span>
+        </div>
+        <!-- Day headers -->
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
+            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Sun</div>
+            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Mon</div>
+            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Tue</div>
+            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Wed</div>
+            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Thu</div>
+            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Fri</div>
+            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Sat</div>
+        </div>
+        <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+        <div id="cal-loading" style="text-align:center;padding:40px;color:var(--text-subtle);font-size:0.85rem;">Loading calendar…</div>
+    </div><!-- /CALENDAR TAB -->
+
 </div><!-- /x-data -->
 
 
@@ -725,8 +767,17 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <div id="picker-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        <div id="picker-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
             <div style="color:var(--text-subtle);font-size:0.85rem;text-align:center;padding:12px;">Loading accounts…</div>
+        </div>
+        <!-- Smart schedule section -->
+        <div style="border-top:1px solid var(--border-subtle);padding-top:14px;margin-bottom:16px;">
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:8px;">📅 When to post? <span style="font-weight:400;color:var(--text-subtle);text-transform:none;">(Eastern Time)</span></div>
+            <div id="picker-quicktimes" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;"></div>
+            <input type="datetime-local" id="picker-custom-dt"
+                   style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;color-scheme:dark;"
+                   placeholder="Or pick a custom time…">
+            <div style="font-size:0.68rem;color:var(--text-subtle);margin-top:5px;">Leave blank to post right now.</div>
         </div>
         <div style="display:flex;gap:10px;">
             <button onclick="closePlatformPicker()" style="flex:1;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:600;cursor:pointer;">Cancel</button>
@@ -1478,6 +1529,17 @@ function quickScheduleQueue(id, offsetDays, hour) {
     if (input) { input.value = val; input.style.borderColor = '#8b5cf6'; }
 }
 
+function quickScheduleQueueVal(id, val, btn) {
+    const input = document.getElementById('sched-dt-' + id);
+    if (input) { input.value = val; input.style.borderColor = '#8b5cf6'; }
+    const parent = btn && btn.closest('[id^="smart-times-"]');
+    if (parent) parent.querySelectorAll('button').forEach(b => {
+        b.style.background = b === btn ? 'rgba(139,92,246,0.15)' : '';
+        b.style.borderColor = b === btn ? '#8b5cf6' : '';
+        b.style.color = b === btn ? '#a78bfa' : '';
+    });
+}
+
 async function schedulePost(id) {
     const dtInput = document.getElementById('sched-dt-' + id);
     if (!dtInput || !dtInput.value) { alert('Please pick a date and time first.'); return; }
@@ -1506,6 +1568,68 @@ async function schedulePost(id) {
     }
 }
 
+// ── Smart posting time suggestions ───────────────────────────────
+// Best hours for party business / education content (Eastern Time).
+// Ordered by engagement priority: morning hustle, lunch scroll, evening wind-down.
+const SMART_HOURS = [6, 9, 12, 19, 21];
+
+function smartQuickTimes() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = h => h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
+    const makeVal = (offsetDays, hour) => {
+        const d = new Date(now);
+        d.setDate(d.getDate() + offsetDays);
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(hour)}:00`;
+    };
+    const times = [];
+    // Today's remaining smart slots
+    for (const h of SMART_HOURS) {
+        if (h > now.getHours() + 1 && times.length < 3)
+            times.push({ label: `Today ${fmt(h)}`, val: makeVal(0, h) });
+    }
+    // Fill from tomorrow if today is mostly done
+    for (const h of SMART_HOURS) {
+        if (times.length < 6)
+            times.push({ label: `Tomorrow ${fmt(h)}`, val: makeVal(1, h) });
+    }
+    return times.slice(0, 6);
+}
+
+function renderPickerQuickTimes() {
+    const container = document.getElementById('picker-quicktimes');
+    if (!container) return;
+    const times = smartQuickTimes();
+    container.innerHTML = times.map(t =>
+        `<button type="button" onclick="setPickerTime('${t.val}', this)"
+            style="padding:6px 4px;font-size:0.72rem;font-weight:600;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;transition:all 0.15s;"
+            onmouseover="this.style.borderColor='#8b5cf6';this.style.background='rgba(139,92,246,0.08)'"
+            onmouseout="if(!this.dataset.active)this.style.borderColor='var(--border-subtle)';this.style.background='var(--bg-secondary)'"
+            >${t.label}</button>`
+    ).join('');
+}
+
+function setPickerTime(val, btn) {
+    const input = document.getElementById('picker-custom-dt');
+    if (input) input.value = val;
+    // Highlight selected button
+    document.querySelectorAll('#picker-quicktimes button').forEach(b => {
+        b.style.borderColor = 'var(--border-subtle)';
+        b.style.background = 'var(--bg-secondary)';
+        b.style.color = 'var(--text-primary)';
+        delete b.dataset.active;
+    });
+    if (btn) {
+        btn.style.borderColor = '#8b5cf6';
+        btn.style.background = 'rgba(139,92,246,0.15)';
+        btn.style.color = '#a78bfa';
+        btn.dataset.active = '1';
+    }
+    // Update confirm button label
+    const confirmBtn = document.getElementById('picker-confirm-btn');
+    if (confirmBtn) confirmBtn.textContent = '⏰ Schedule Post';
+}
+
 // ── Platform picker modal (for queue tiles) ──────────────────────
 let _pickerItemId = null;
 let _pickerFromModal = false;
@@ -1522,6 +1646,14 @@ async function openPlatformPicker(id, fromModal) {
     const listEl = document.getElementById('picker-accounts-list');
     listEl.innerHTML = '<div style="color:var(--text-subtle);font-size:0.85rem;text-align:center;padding:12px;">Loading accounts…</div>';
     _pickerAccounts = [];
+
+    // Reset schedule picker
+    const dtInput = document.getElementById('picker-custom-dt');
+    if (dtInput) dtInput.value = '';
+    const confirmBtn = document.getElementById('picker-confirm-btn');
+    if (confirmBtn) confirmBtn.textContent = '🚀 Post to Selected';
+    renderPickerQuickTimes();
+
     try {
         const r = await fetch('/content/api/accounts');
         const data = await r.json();
@@ -1553,23 +1685,27 @@ function closePlatformPicker() {
 async function confirmPlatformPost() {
     const checkboxes = document.querySelectorAll('#picker-accounts-list input[type="checkbox"]:checked');
     const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.accountId).filter(Boolean);
+    const scheduledAt = document.getElementById('picker-custom-dt')?.value || null;
     const itemId = _pickerItemId;
     const fromModal = _pickerFromModal;
     closePlatformPicker();
     if (!itemId) return;
-    await postToAll(itemId, fromModal, selectedIds);
+    await postToAll(itemId, fromModal, selectedIds, scheduledAt);
 }
 
-async function postToAll(id, fromModal, accountIds) {
+async function postToAll(id, fromModal, accountIds, scheduledAt) {
     // If no accountIds passed, open the picker first (unless from modal which already went through picker)
     if (!accountIds) {
         openPlatformPicker(id, fromModal);
         return;
     }
     const btn = document.getElementById(fromModal ? 'modal-post-btn' : 'post-btn-' + id);
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px;"></span>Posting…'; }
+    const isScheduling = !!scheduledAt;
+    const loadingLabel = isScheduling ? 'Scheduling…' : 'Posting…';
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px;"></span>${loadingLabel}`; }
     try {
         const body = accountIds && accountIds.length ? { account_ids: accountIds } : {};
+        if (scheduledAt) body.scheduled_at = scheduledAt;
         const resp = await fetch('/content/api/' + id + '/publish-all', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1583,6 +1719,11 @@ async function postToAll(id, fromModal, accountIds) {
                 if (data.status === 'demo') {
                     btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
                     btn.innerHTML = '⚡ Demo mode — add Zernio key in Settings';
+                } else if (isScheduling) {
+                    const dt = new Date(scheduledAt);
+                    const label = dt.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+                    btn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+                    btn.innerHTML = '⏰ Scheduled for ' + label + ' ET';
                 } else {
                     btn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
                     btn.innerHTML = '✓ Posted to: ' + ok + (bad.length ? ' · ⚠ Failed: ' + bad.join(', ') : '');
@@ -1622,6 +1763,98 @@ async function clearAllAiClips() {
     else alert('Something went wrong. Please try again.');
 }
 
+// ── Calendar ─────────────────────────────────────────────────────
+let _calYear  = new Date().getFullYear();
+let _calMonth = new Date().getMonth() + 1; // 1-indexed
+let _calData  = [];
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const BRAND_LABEL = { kpps:'KPPS', pbh:'PBH', pbh_user:'PBH', bear_hug:'Bear Hug' };
+
+async function initCalendar() {
+    await loadCalendar(_calYear, _calMonth);
+}
+
+function calNav(dir) {
+    if (dir === 0) {
+        _calYear  = new Date().getFullYear();
+        _calMonth = new Date().getMonth() + 1;
+    } else {
+        _calMonth += dir;
+        if (_calMonth > 12) { _calMonth = 1;  _calYear++; }
+        if (_calMonth < 1)  { _calMonth = 12; _calYear--; }
+    }
+    loadCalendar(_calYear, _calMonth);
+}
+
+async function loadCalendar(year, month) {
+    document.getElementById('cal-loading').style.display = 'block';
+    document.getElementById('cal-grid').innerHTML = '';
+    document.getElementById('cal-month-label').textContent = `${MONTH_NAMES[month-1]} ${year}`;
+    try {
+        const r = await fetch(`/content/api/calendar?year=${year}&month=${month}`);
+        _calData = (await r.json()).items || [];
+    } catch(e) { _calData = []; }
+
+    // Group by date
+    const byDate = {};
+    for (const item of _calData) {
+        (byDate[item.date] = byDate[item.date] || []).push(item);
+    }
+
+    // Build grid
+    const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = new Date().toISOString().slice(0, 10);
+    const grid = document.getElementById('cal-grid');
+    let html = '';
+
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) {
+        html += `<div style="min-height:80px;background:var(--bg-secondary);border-radius:8px;opacity:0.3;"></div>`;
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isToday = dateStr === today;
+        const posts = byDate[dateStr] || [];
+        const postsHtml = posts.map(p => {
+            const label = BRAND_LABEL[p.brand] || 'KPPS';
+            const icon  = p.status === 'published' ? '✓' : '⏰';
+            return `<div style="font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:4px;background:${p.color}22;border-left:3px solid ${p.color};color:var(--text-primary);margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"
+                         title="${p.preview}" onclick="calReschedule(${p.id},'${p.date}')">
+                ${icon} ${p.time} ${label}
+            </div>`;
+        }).join('');
+
+        html += `<div style="min-height:80px;padding:6px;background:${isToday ? 'rgba(199,163,90,0.1)' : 'var(--bg-secondary)'};border-radius:8px;border:1px solid ${isToday ? 'var(--gold)' : 'var(--border-subtle)'};position:relative;">
+            <div style="font-size:0.72rem;font-weight:${isToday?'800':'600'};color:${isToday?'var(--gold)':'var(--text-muted)'};margin-bottom:4px;">${d}</div>
+            ${postsHtml}
+        </div>`;
+    }
+
+    grid.innerHTML = html;
+    document.getElementById('cal-loading').style.display = 'none';
+}
+
+function calReschedule(id, currentDate) {
+    const newTime = prompt(`Reschedule this post?\nCurrent: ${currentDate}\n\nEnter new date/time (YYYY-MM-DDTHH:MM):`);
+    if (!newTime) return;
+    fetch(`/content/api/${id}/publish-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduled_at: newTime }),
+    }).then(r => r.json()).then(data => {
+        if (data.status !== 'error') {
+            showToast && showToast('Rescheduled!', 'success');
+            loadCalendar(_calYear, _calMonth);
+        } else {
+            alert('Failed to reschedule: ' + (data.error || 'unknown error'));
+        }
+    });
+}
+
+// ── Content items ─────────────────────────────────────────────────
 async function deleteContentItem(id) {
     if (!confirm('Delete this clip from your queue? This cannot be undone.')) return;
     const resp = await fetch('/content/api/' + id, { method: 'DELETE' });
