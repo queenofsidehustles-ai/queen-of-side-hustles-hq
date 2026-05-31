@@ -399,28 +399,12 @@
                             <span x-show="posting">Posting…</span>
                         </button>
 
-                        <div x-show="!showScheduleReview" style="margin-bottom:10px;">
-                            <button @click="showScheduleReview=true"
+                        <div style="margin-bottom:10px;">
+                            <button @click="openScheduleModal(contentId, null, (data, dt) => { const d = new Date(dt); postResult = 'Scheduled for ' + d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) + ' ET!'; posted = true; })"
                                     style="width:100%;padding:12px;background:none;border:2px solid #8b5cf6;border-radius:12px;color:#8b5cf6;font-weight:700;font-size:0.9rem;cursor:pointer;transition:all 0.15s;"
                                     onmouseover="this.style.background='rgba(139,92,246,0.08)'" onmouseout="this.style.background='none'">
                                 📅 Schedule for Later
                             </button>
-                        </div>
-                        <div x-show="showScheduleReview" style="margin-bottom:10px;padding:14px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border-subtle);">
-                            <div style="font-size:0.75rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">When? (Eastern Time)</div>
-                            <!-- Quick picks -->
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
-                                <button @click="setReviewTime(0,18)" class="sched-quick">Today 6pm</button>
-                                <button @click="setReviewTime(0,20)" class="sched-quick">Today 8pm</button>
-                                <button @click="setReviewTime(1,9)"  class="sched-quick">Tomorrow 9am</button>
-                                <button @click="setReviewTime(1,12)" class="sched-quick">Tomorrow Noon</button>
-                                <button @click="setReviewTime(1,18)" class="sched-quick">Tomorrow 6pm</button>
-                                <button @click="setReviewTime(2,9)"  class="sched-quick">In 2 Days 9am</button>
-                            </div>
-                            <div style="font-size:0.72rem;color:var(--text-subtle);margin-bottom:6px;">Or pick a custom time:</div>
-                            <input type="datetime-local" x-ref="reviewDt"
-                                   style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;color-scheme:dark;">
-                            <button @click="scheduleReview()" style="width:100%;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">⏰ Confirm Schedule</button>
                         </div>
 
                         <button @click="deleteReview()"
@@ -679,14 +663,9 @@
                         {% if item.scheduled_at %}
                         <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:8px;font-weight:600;">⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET</div>
                         {% endif %}
-                        <div style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;">When? (Eastern)</div>
-                        <div id="smart-times-{{ item.id }}" data-item-id="{{ item.id }}" class="smart-times-container" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;"></div>
-                        <input type="datetime-local" id="sched-dt-{{ item.id }}"
-                               style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;color-scheme:dark;"
-                               {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
-                        <button onclick="schedulePost({{ item.id }})"
-                                style="width:100%;padding:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;">
-                            ⏰ Confirm Schedule
+                        <button onclick="toggleScheduler({{ item.id }}); openScheduleModal({{ item.id }}, null, function(data,dt){ var d=new Date(dt); var el=document.getElementById('scheduler-{{ item.id }}'); if(el) el.innerHTML='<div style=\'font-size:0.75rem;color:#8b5cf6;font-weight:700;text-align:center;padding:4px 0;\'>⏰ Scheduled for '+d.toLocaleString('en-US',{month:\'short\',day:\'numeric\',hour:\'numeric\',minute:\'2-digit\',timeZone:\'America/New_York\'})+\' ET</div>\'; })"
+                                style="width:100%;padding:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:7px;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                            📅 Open Calendar to Schedule
                         </button>
                     </div>
                     {% endif %}
@@ -761,24 +740,68 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <div id="picker-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+        <div id="picker-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
             <div style="color:var(--text-subtle);font-size:0.85rem;text-align:center;padding:12px;">Loading accounts…</div>
         </div>
-        <!-- Smart schedule section -->
-        <div style="border-top:1px solid var(--border-subtle);padding-top:14px;margin-bottom:16px;">
-            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:8px;">📅 When to post? <span style="font-weight:400;color:var(--text-subtle);text-transform:none;">(Eastern Time)</span></div>
-            <div id="picker-quicktimes" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;"></div>
-            <input type="datetime-local" id="picker-custom-dt"
-                   style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;color-scheme:dark;"
-                   placeholder="Or pick a custom time…">
-            <div style="font-size:0.68rem;color:var(--text-subtle);margin-top:5px;">Leave blank to post right now.</div>
-        </div>
-        <div style="display:flex;gap:10px;">
-            <button onclick="closePlatformPicker()" style="flex:1;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:600;cursor:pointer;">Cancel</button>
-            <button id="picker-confirm-btn" onclick="confirmPlatformPost()"
-                    style="flex:2;padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">
-                🚀 Post to Selected
+        <div style="display:flex;flex-direction:column;gap:8px;">
+            <button id="picker-confirm-btn" onclick="confirmPlatformPost(false)"
+                    style="width:100%;padding:11px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem;">
+                🚀 Post Now
             </button>
+            <button onclick="scheduleFromPicker()"
+                    style="width:100%;padding:11px;background:none;border:2px solid #8b5cf6;border-radius:8px;color:#8b5cf6;font-weight:700;cursor:pointer;font-size:0.9rem;transition:all 0.15s;"
+                    onmouseover="this.style.background='rgba(139,92,246,0.08)'" onmouseout="this.style.background='none'">
+                📅 Schedule for Later
+            </button>
+            <button onclick="closePlatformPicker()" style="width:100%;padding:9px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-subtle);font-weight:600;cursor:pointer;font-size:0.85rem;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Unified Schedule Modal ─────────────────────────────────────── -->
+<div id="schedule-modal"
+     style="display:none;position:fixed;inset:0;z-index:1003;background:rgba(0,0,0,0.8);padding:16px;overflow-y:auto;"
+     onclick="if(event.target===this)closeScheduleModal()">
+    <div style="max-width:780px;margin:30px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.5);">
+        <!-- Header -->
+        <div style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;">
+            <div>
+                <div style="font-size:1rem;font-weight:800;color:#1a1a2e;">📅 Schedule Your Post</div>
+                <div style="font-size:0.75rem;color:#64748b;margin-top:1px;">Pick a date — see what's already booked. Click a slot to confirm.</div>
+            </div>
+            <button onclick="closeScheduleModal()" style="background:#f1f5f9;border:none;cursor:pointer;color:#64748b;border-radius:8px;width:32px;height:32px;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        <!-- Body -->
+        <div style="display:grid;grid-template-columns:1fr 230px;">
+            <!-- Left: Calendar -->
+            <div style="padding:20px;border-right:1px solid #e2e8f0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <button onclick="schedCalNav(-1)" style="padding:4px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#1a1a2e;font-weight:700;cursor:pointer;">‹</button>
+                    <span id="sched-cal-label" style="font-size:0.92rem;font-weight:800;color:#1a1a2e;"></span>
+                    <button onclick="schedCalNav(1)"  style="padding:4px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#1a1a2e;font-weight:700;cursor:pointer;">›</button>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px;">
+                    <div style="text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:2px;">S</div>
+                    <div style="text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:2px;">M</div>
+                    <div style="text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:2px;">T</div>
+                    <div style="text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:2px;">W</div>
+                    <div style="text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:2px;">T</div>
+                    <div style="text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:2px;">F</div>
+                    <div style="text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:2px;">S</div>
+                </div>
+                <div id="sched-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+                <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+                    <span style="font-size:0.6rem;color:#64748b;display:flex;align-items:center;gap:3px;"><span style="width:7px;height:7px;border-radius:50%;background:#C7A35A;display:inline-block;"></span>KPPS</span>
+                    <span style="font-size:0.6rem;color:#64748b;display:flex;align-items:center;gap:3px;"><span style="width:7px;height:7px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span>PBH</span>
+                    <span style="font-size:0.6rem;color:#64748b;display:flex;align-items:center;gap:3px;"><span style="width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Bear Hug</span>
+                </div>
+            </div>
+            <!-- Right: Time picker -->
+            <div style="padding:20px;background:#f8fafc;">
+                <div id="sched-time-panel">
+                    <div style="color:#94a3b8;font-size:0.82rem;text-align:center;padding-top:60px;line-height:1.6;">← Pick a date<br>on the calendar</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1815,11 +1838,11 @@ async function loadCalendar(year, month) {
         const postsHtml = posts.slice(0, 7).map(p => {
             const label = BRAND_LABEL[p.brand] || 'KPPS';
             const icon  = p.status === 'published' ? '✓' : '⏰';
-            return `<div style="font-size:0.58rem;font-weight:700;padding:2px 4px;border-radius:3px;background:${p.color}18;border-left:3px solid ${p.color};color:#1e293b;margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.4;"
+            return `<div style="font-size:0.58rem;font-weight:700;padding:2px 5px;border-radius:4px;background:${p.color};color:#fff;margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.5;letter-spacing:-0.01em;"
                          title="${p.preview}" onclick="calReschedule(${p.id},'${p.date}')">
                 ${icon} ${p.time} · ${label}
             </div>`;
-        }).join('') + (posts.length > 7 ? `<div style="font-size:0.55rem;color:#94a3b8;font-weight:600;text-align:center;">+${posts.length-7} more</div>` : '');
+        }).join('') + (posts.length > 7 ? `<div style="font-size:0.55rem;color:#94a3b8;font-weight:700;text-align:center;margin-top:1px;">+${posts.length-7} more</div>` : '');
 
         html += `<div style="min-height:140px;padding:6px;background:${isToday ? '#fef9ed' : '#fff'};border-radius:8px;border:${isToday ? '2px solid #C7A35A' : '1px solid #e2e8f0'};position:relative;">
             <div style="font-size:0.75rem;font-weight:${isToday?'800':'600'};color:${isToday?'#C7A35A':'#64748b'};margin-bottom:4px;">${d}${isToday ? ' •' : ''}</div>
@@ -1844,6 +1867,243 @@ function calReschedule(id, currentDate) {
             loadCalendar(_calYear, _calMonth);
         } else {
             alert('Failed to reschedule: ' + (data.error || 'unknown error'));
+        }
+    });
+}
+
+// ── Unified Schedule Modal ────────────────────────────────────────
+let _schedItemId  = null;
+let _schedAccIds  = null;   // account IDs stored from repost picker
+let _schedOnOk    = null;   // success callback
+let _schedCalYear = new Date().getFullYear();
+let _schedCalMon  = new Date().getMonth() + 1;
+let _schedData    = {};     // {dateStr: [items]} from API
+let _schedSelDate = null;   // date the user clicked
+
+const _SCHED_SMART_H = [6, 9, 12, 15, 19, 21];
+const _SCHED_MONTHS  = ['January','February','March','April','May','June',
+                         'July','August','September','October','November','December'];
+const _SCHED_BCOLOR  = {kpps:'#C7A35A', pbh:'#8b5cf6', pbh_user:'#8b5cf6', bear_hug:'#f59e0b'};
+const _SCHED_BLABEL  = {kpps:'KPPS', pbh:'PBH', pbh_user:'PBH', bear_hug:'Bear Hug'};
+
+async function openScheduleModal(itemId, accountIds, onOk) {
+    _schedItemId  = itemId;
+    _schedAccIds  = accountIds || null;
+    _schedOnOk    = onOk      || null;
+    _schedSelDate = null;
+    _schedCalYear = new Date().getFullYear();
+    _schedCalMon  = new Date().getMonth() + 1;
+
+    document.getElementById('schedule-modal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    document.getElementById('sched-time-panel').innerHTML =
+        '<div style="color:#94a3b8;font-size:0.82rem;text-align:center;padding-top:60px;line-height:1.6;">← Pick a date<br>on the calendar</div>';
+
+    await _loadSchedData(_schedCalYear, _schedCalMon);
+}
+
+function closeScheduleModal() {
+    document.getElementById('schedule-modal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+async function schedCalNav(dir) {
+    _schedCalMon += dir;
+    if (_schedCalMon > 12) { _schedCalMon = 1;  _schedCalYear++; }
+    if (_schedCalMon < 1)  { _schedCalMon = 12; _schedCalYear--; }
+    _schedSelDate = null;
+    document.getElementById('sched-time-panel').innerHTML =
+        '<div style="color:#94a3b8;font-size:0.82rem;text-align:center;padding-top:60px;line-height:1.6;">← Pick a date<br>on the calendar</div>';
+    await _loadSchedData(_schedCalYear, _schedCalMon);
+}
+
+async function _loadSchedData(year, month) {
+    document.getElementById('sched-cal-label').textContent =
+        `${_SCHED_MONTHS[month-1]} ${year}`;
+    try {
+        const r = await fetch(`/content/api/calendar?year=${year}&month=${month}`);
+        const d = await r.json();
+        _schedData = {};
+        for (const item of (d.items || [])) {
+            (_schedData[item.date] = _schedData[item.date] || []).push(item);
+        }
+    } catch(e) { _schedData = {}; }
+    _renderSchedCal();
+}
+
+function _renderSchedCal() {
+    const year = _schedCalYear, month = _schedCalMon;
+    const firstDay = new Date(year, month - 1, 1).getDay();
+    const daysIn   = new Date(year, month, 0).getDate();
+    const today    = new Date().toISOString().slice(0, 10);
+    const pad = n => String(n).padStart(2, '0');
+    let html = '';
+
+    for (let i = 0; i < firstDay; i++)
+        html += `<div style="aspect-ratio:1;border-radius:6px;background:#f1f5f9;"></div>`;
+
+    for (let d = 1; d <= daysIn; d++) {
+        const ds   = `${year}-${pad(month)}-${pad(d)}`;
+        const posts = _schedData[ds] || [];
+        const isPast = ds < today;
+        const isTdy  = ds === today;
+        const isSel  = ds === _schedSelDate;
+        const isFull = posts.length >= 5;
+
+        const dots = posts.slice(0, 5).map(p => {
+            const c = _SCHED_BCOLOR[p.brand] || '#C7A35A';
+            return `<span style="width:5px;height:5px;border-radius:50%;background:${c};display:inline-block;margin:0 1px;flex-shrink:0;"></span>`;
+        }).join('') + (posts.length > 5 ? `<span style="font-size:0.45rem;color:#94a3b8;line-height:1;">+</span>` : '');
+
+        const bg     = isSel ? '#4f46e5' : isTdy ? '#fef9ed' : isPast ? '#f8fafc' : '#fff';
+        const tc     = isSel ? '#fff'    : isTdy ? '#C7A35A' : isPast ? '#d1d5db' : '#1e293b';
+        const border = isSel ? '2px solid #4f46e5' : isTdy ? '2px solid #C7A35A' : '1px solid #e2e8f0';
+        const click  = isPast ? '' : `onclick="schedPickDate('${ds}')"`;
+        const hover  = !isPast && !isSel ? `onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='${bg}'"` : '';
+
+        html += `<div ${click} ${hover}
+            style="aspect-ratio:1;border-radius:6px;background:${bg};border:${border};cursor:${isPast?'not-allowed':'pointer'};
+                   padding:3px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;transition:background 0.12s;overflow:hidden;">
+            <span style="font-size:0.65rem;font-weight:${isTdy||isSel?'800':'600'};color:${tc};line-height:1;">${d}</span>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;">${dots}</div>
+            ${isFull ? `<span style="font-size:0.42rem;color:#ef4444;font-weight:800;line-height:1;">FULL</span>` : '<span></span>'}
+        </div>`;
+    }
+    document.getElementById('sched-cal-grid').innerHTML = html;
+}
+
+function schedPickDate(dateStr) {
+    _schedSelDate = dateStr;
+    _renderSchedCal();
+
+    const posts = _schedData[dateStr] || [];
+    const pad   = n => String(n).padStart(2, '0');
+
+    // Parse hours already booked
+    const takenH = posts.map(p => {
+        const m = p.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!m) return -1;
+        let h = parseInt(m[1]);
+        if (m[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+        if (m[3].toUpperCase() === 'AM' && h === 12) h = 0;
+        return h;
+    });
+    const availH = _SCHED_SMART_H.filter(h => !takenH.includes(h));
+    const fmt    = h => h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
+
+    const d     = new Date(dateStr + 'T12:00');
+    const dLabel = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+
+    const bookedHtml = posts.length ? `
+        <div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;">Already booked</div>
+        ${posts.slice(0, 5).map(p => {
+            const c = _SCHED_BCOLOR[p.brand] || '#C7A35A';
+            const lbl = _SCHED_BLABEL[p.brand] || 'KPPS';
+            return `<div style="font-size:0.7rem;color:#475569;display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+                <span style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0;"></span>
+                ${p.time} · ${lbl}
+            </div>`;
+        }).join('')}
+        <div style="border-top:1px solid #e2e8f0;margin:10px 0;"></div>
+    ` : '';
+
+    const slotsHtml = availH.length ? `
+        <div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Open slots</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:12px;">
+            ${availH.slice(0, 6).map(h => {
+                const val = `${dateStr}T${pad(h)}:00`;
+                return `<button onclick="setSchedSlot('${val}',this)"
+                    style="padding:6px 4px;font-size:0.72rem;font-weight:700;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#1e293b;cursor:pointer;transition:all 0.12s;"
+                    onmouseover="if(!this.dataset.sel)this.style.background='#ede9fe';this.style.borderColor='#8b5cf6'"
+                    onmouseout="if(!this.dataset.sel)this.style.background='#fff';this.style.borderColor='#e2e8f0'"
+                    >${fmt(h)}</button>`;
+            }).join('')}
+        </div>
+    ` : `<div style="font-size:0.78rem;color:#f97316;font-weight:700;margin-bottom:12px;line-height:1.5;">⚠️ Day is full!<br><span style="font-weight:400;color:#94a3b8;">Pick another date.</span></div>`;
+
+    document.getElementById('sched-time-panel').innerHTML = `
+        <div style="font-size:0.82rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;line-height:1.4;">${dLabel}</div>
+        ${bookedHtml}
+        ${slotsHtml}
+        <div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;">Custom time</div>
+        <input type="datetime-local" id="sched-final-dt"
+               style="width:100%;padding:6px 8px;border-radius:7px;border:1px solid #e2e8f0;background:#fff;color:#1e293b;font-size:0.75rem;box-sizing:border-box;margin-bottom:12px;"
+               value="${dateStr}T09:00">
+        <button onclick="confirmSchedModal()"
+                style="width:100%;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:9px;font-weight:700;font-size:0.88rem;cursor:pointer;margin-bottom:6px;">
+            ⏰ Confirm Schedule
+        </button>
+        <button onclick="closeScheduleModal()"
+                style="width:100%;padding:9px;background:none;border:1px solid #e2e8f0;border-radius:9px;color:#64748b;font-weight:600;font-size:0.8rem;cursor:pointer;">
+            Cancel
+        </button>
+    `;
+}
+
+function setSchedSlot(val, btn) {
+    const inp = document.getElementById('sched-final-dt');
+    if (inp) inp.value = val;
+    document.querySelectorAll('#sched-time-panel button[data-sel]').forEach(b => {
+        delete b.dataset.sel;
+        b.style.background = '#fff';
+        b.style.borderColor = '#e2e8f0';
+        b.style.color = '#1e293b';
+    });
+    if (btn) {
+        btn.dataset.sel = '1';
+        btn.style.background = '#ede9fe';
+        btn.style.borderColor = '#8b5cf6';
+        btn.style.color = '#6366f1';
+    }
+}
+
+async function confirmSchedModal() {
+    const dtVal = document.getElementById('sched-final-dt')?.value;
+    if (!dtVal) { alert('Please pick a time.'); return; }
+
+    const btn = document.querySelector('#sched-time-panel button[onclick="confirmSchedModal()"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Scheduling…'; }
+
+    const body = { scheduled_at: dtVal };
+    if (_schedAccIds && _schedAccIds.length) body.account_ids = _schedAccIds;
+
+    try {
+        const resp = await fetch(`/content/api/${_schedItemId}/publish-all`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (resp.ok && data.status !== 'error') {
+            closeScheduleModal();
+            if (_schedOnOk) _schedOnOk(data, dtVal);
+            showToast && showToast('Scheduled!', 'success');
+            // Refresh the calendar tab if it's open
+            if (typeof loadCalendar === 'function') loadCalendar(_calYear, _calMonth);
+        } else {
+            alert('Schedule failed: ' + (data.error || 'unknown error'));
+            if (btn) { btn.disabled = false; btn.textContent = '⏰ Confirm Schedule'; }
+        }
+    } catch(e) {
+        alert('Error: ' + e.message);
+        if (btn) { btn.disabled = false; btn.textContent = '⏰ Confirm Schedule'; }
+    }
+}
+
+// Called from platform picker "Schedule for Later"
+function scheduleFromPicker() {
+    const checkboxes = document.querySelectorAll('#picker-accounts-list input[type="checkbox"]:checked');
+    const accountIds = Array.from(checkboxes).map(cb => cb.dataset.accountId).filter(Boolean);
+    const itemId = _pickerItemId;
+    closePlatformPicker();
+    if (!itemId) return;
+    openScheduleModal(itemId, accountIds, (data, dt) => {
+        const btn = document.getElementById('post-btn-' + itemId);
+        if (btn) {
+            const d = new Date(dt);
+            const label = d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+            btn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+            btn.innerHTML = '⏰ Scheduled for ' + label + ' ET';
         }
     });
 }
