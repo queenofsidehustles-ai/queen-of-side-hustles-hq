@@ -680,16 +680,7 @@
                         <div style="font-size:0.7rem;color:#8b5cf6;margin-bottom:8px;font-weight:600;">⏰ Scheduled: {{ item.scheduled_at.strftime('%b %d at %-I:%M %p') }} ET</div>
                         {% endif %}
                         <div style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;">When? (Eastern)</div>
-                        <div id="smart-times-{{ item.id }}" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;"></div>
-                        <script>
-                        (function(){
-                            const times = smartQuickTimes ? smartQuickTimes() : [];
-                            const el = document.getElementById('smart-times-{{ item.id }}');
-                            if(el && times.length) el.innerHTML = times.map(t =>
-                                `<button onclick="quickScheduleQueueVal({{ item.id }},'${t.val}',this)" class="sched-quick sched-quick-sm">${t.label}</button>`
-                            ).join('');
-                        })();
-                        </script>
+                        <div id="smart-times-{{ item.id }}" data-item-id="{{ item.id }}" class="smart-times-container" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;"></div>
                         <input type="datetime-local" id="sched-dt-{{ item.id }}"
                                style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-primary);color:var(--text-primary);font-size:0.75rem;box-sizing:border-box;margin-bottom:8px;color-scheme:dark;"
                                {% if item.scheduled_at %}value="{{ item.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}>
@@ -720,37 +711,40 @@
 
     <!-- ── CALENDAR TAB ──────────────────────────────────────── -->
     <div x-show="tab==='calendar'" style="min-height:400px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-            <div>
-                <div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);" id="cal-month-label">Loading…</div>
-                <div style="font-size:0.8rem;color:var(--text-subtle);margin-top:2px;">Scheduled & published posts. Click any post to reschedule.</div>
+        <!-- White card wrapper — clean contrast against dark sidebar -->
+        <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 16px rgba(0,0,0,0.18);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+                <div>
+                    <div style="font-size:1.2rem;font-weight:800;color:#1a1a2e;" id="cal-month-label">Loading…</div>
+                    <div style="font-size:0.78rem;color:#64748b;margin-top:2px;">Click any post to reschedule it.</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button onclick="calNav(-1)" style="padding:6px 16px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#1a1a2e;font-weight:700;cursor:pointer;font-size:0.85rem;">‹ Prev</button>
+                    <button onclick="calNav(0)"  style="padding:6px 16px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#1a1a2e;font-weight:600;cursor:pointer;font-size:0.82rem;">Today</button>
+                    <button onclick="calNav(1)"  style="padding:6px 16px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#1a1a2e;font-weight:700;cursor:pointer;font-size:0.85rem;">Next ›</button>
+                </div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;">
-                <button onclick="calNav(-1)" style="padding:6px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:700;cursor:pointer;">‹ Prev</button>
-                <button onclick="calNav(0)"  style="padding:6px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:600;cursor:pointer;font-size:0.82rem;">Today</button>
-                <button onclick="calNav(1)"  style="padding:6px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-weight:700;cursor:pointer;">Next ›</button>
+            <!-- Legend -->
+            <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:0.72rem;font-weight:700;color:#475569;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#C7A35A;display:inline-block;"></span>Kids Party Profit</span>
+                <span style="font-size:0.72rem;font-weight:700;color:#475569;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span>Party Biz Hub</span>
+                <span style="font-size:0.72rem;font-weight:700;color:#475569;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Bear Hug Events</span>
+                <span style="font-size:0.72rem;font-weight:700;color:#475569;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:#10b981;display:inline-block;"></span>Published</span>
+                <span style="font-size:0.72rem;font-weight:700;color:#475569;display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:#6366f1;display:inline-block;"></span>Scheduled</span>
             </div>
+            <!-- Day headers -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px;">
+                <div style="text-align:center;font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;">Sun</div>
+                <div style="text-align:center;font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;">Mon</div>
+                <div style="text-align:center;font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;">Tue</div>
+                <div style="text-align:center;font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;">Wed</div>
+                <div style="text-align:center;font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;">Thu</div>
+                <div style="text-align:center;font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;">Fri</div>
+                <div style="text-align:center;font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:4px 0;">Sat</div>
+            </div>
+            <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+            <div id="cal-loading" style="text-align:center;padding:40px;color:#94a3b8;font-size:0.85rem;">Loading calendar…</div>
         </div>
-        <!-- Legend -->
-        <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
-            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#C7A35A;display:inline-block;"></span>Kids Party Profit</span>
-            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span>Party Biz Hub</span>
-            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Bear Hug Events</span>
-            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block;"></span>Published</span>
-            <span style="font-size:0.72rem;font-weight:700;color:var(--text-subtle);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#6366f1;display:inline-block;"></span>Scheduled</span>
-        </div>
-        <!-- Day headers -->
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
-            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Sun</div>
-            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Mon</div>
-            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Tue</div>
-            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Wed</div>
-            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Thu</div>
-            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Fri</div>
-            <div style="text-align:center;font-size:0.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;">Sat</div>
-        </div>
-        <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
-        <div id="cal-loading" style="text-align:center;padding:40px;color:var(--text-subtle);font-size:0.85rem;">Loading calendar…</div>
     </div><!-- /CALENDAR TAB -->
 
 </div><!-- /x-data -->
@@ -760,7 +754,7 @@
 <div id="platform-picker-modal"
      style="display:none;position:fixed;inset:0;z-index:1001;background:rgba(0,0,0,0.7);padding:20px;"
      onclick="if(event.target===this)closePlatformPicker()">
-    <div style="max-width:420px;margin:80px auto;background:var(--card-bg);border-radius:16px;padding:24px;border:1px solid var(--border);">
+    <div style="max-width:420px;margin:40px auto;background:var(--card-bg);border-radius:16px;padding:24px;border:1px solid var(--border);max-height:90vh;overflow-y:auto;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
             <h3 style="margin:0;font-size:0.95rem;font-weight:700;color:var(--text-primary);">Choose where to post</h3>
             <button onclick="closePlatformPicker()" style="background:none;border:none;cursor:pointer;color:var(--text-subtle);">
@@ -1811,24 +1805,24 @@ async function loadCalendar(year, month) {
 
     // Empty cells before first day
     for (let i = 0; i < firstDay; i++) {
-        html += `<div style="min-height:80px;background:var(--bg-secondary);border-radius:8px;opacity:0.3;"></div>`;
+        html += `<div style="min-height:140px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;"></div>`;
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const isToday = dateStr === today;
         const posts = byDate[dateStr] || [];
-        const postsHtml = posts.map(p => {
+        const postsHtml = posts.slice(0, 7).map(p => {
             const label = BRAND_LABEL[p.brand] || 'KPPS';
             const icon  = p.status === 'published' ? '✓' : '⏰';
-            return `<div style="font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:4px;background:${p.color}22;border-left:3px solid ${p.color};color:var(--text-primary);margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"
+            return `<div style="font-size:0.58rem;font-weight:700;padding:2px 4px;border-radius:3px;background:${p.color}18;border-left:3px solid ${p.color};color:#1e293b;margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.4;"
                          title="${p.preview}" onclick="calReschedule(${p.id},'${p.date}')">
-                ${icon} ${p.time} ${label}
+                ${icon} ${p.time} · ${label}
             </div>`;
-        }).join('');
+        }).join('') + (posts.length > 7 ? `<div style="font-size:0.55rem;color:#94a3b8;font-weight:600;text-align:center;">+${posts.length-7} more</div>` : '');
 
-        html += `<div style="min-height:80px;padding:6px;background:${isToday ? 'rgba(199,163,90,0.1)' : 'var(--bg-secondary)'};border-radius:8px;border:1px solid ${isToday ? 'var(--gold)' : 'var(--border-subtle)'};position:relative;">
-            <div style="font-size:0.72rem;font-weight:${isToday?'800':'600'};color:${isToday?'var(--gold)':'var(--text-muted)'};margin-bottom:4px;">${d}</div>
+        html += `<div style="min-height:140px;padding:6px;background:${isToday ? '#fef9ed' : '#fff'};border-radius:8px;border:${isToday ? '2px solid #C7A35A' : '1px solid #e2e8f0'};position:relative;">
+            <div style="font-size:0.75rem;font-weight:${isToday?'800':'600'};color:${isToday?'#C7A35A':'#64748b'};margin-bottom:4px;">${d}${isToday ? ' •' : ''}</div>
             ${postsHtml}
         </div>`;
     }
@@ -1853,6 +1847,19 @@ function calReschedule(id, currentDate) {
         }
     });
 }
+
+// ── Initialize smart times for all queue scheduler cards ─────────
+// Runs after all scripts are loaded so smartQuickTimes() is available.
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.smart-times-container').forEach(el => {
+        const id = el.dataset.itemId;
+        if (!id) return;
+        const times = smartQuickTimes();
+        el.innerHTML = times.map(t =>
+            `<button onclick="quickScheduleQueueVal(${id},'${t.val}',this)" class="sched-quick sched-quick-sm">${t.label}</button>`
+        ).join('');
+    });
+});
 
 // ── Content items ─────────────────────────────────────────────────
 async function deleteContentItem(id) {
