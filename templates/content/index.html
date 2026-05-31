@@ -903,9 +903,18 @@ function contentHub() {
             } catch(e) {}
             this.clipsLoaded = true;
 
-            // If URL has ?tab=queue, switch to queue
             const params = new URLSearchParams(window.location.search);
+
+            // If URL has ?tab=queue, switch to queue
             if (params.get('tab') === 'queue') this.tab = 'queue';
+
+            // If URL has ?clip_id=, pre-select that clip and jump straight to Step 2
+            // so "Use This Clip" in the Video Library skips the re-selection grid.
+            const preClipId = params.get('clip_id');
+            if (preClipId) {
+                const clip = this.clips.find(c => String(c.id) === String(preClipId));
+                if (clip) this.pickClip(clip);
+            }
         },
 
         async uploadNewClip(event) {

@@ -28,9 +28,13 @@ def index():
 @content_bp.route("/create")
 @login_required
 def create():
-    """Old create page — redirect to the unified content flow."""
-    from flask import redirect, url_for
-    return redirect(url_for("content.index"))
+    """Redirect to unified content flow, preserving clip_id so the clip is auto-selected."""
+    from flask import redirect, url_for, request
+    clip_id = request.args.get("clip_id")
+    target = url_for("content.index")
+    if clip_id:
+        target += f"?clip_id={clip_id}"
+    return redirect(target)
 
 
 @content_bp.route("/batch")
