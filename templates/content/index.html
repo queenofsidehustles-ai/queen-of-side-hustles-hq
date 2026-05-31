@@ -1010,9 +1010,9 @@ function contentHub() {
         switchBrand(b) {
             if (this.brand === b) return;
             this.brand = b;
-            // Reset the create flow so nothing carries over from the other brand
-            this.step = 'pick';
-            this.selectedClip = null;
+            // Keep the selected clip when switching brands — only go back to the
+            // library grid if no clip has been chosen yet.
+            this.step = this.selectedClip ? 'path' : 'pick';
             this.hook = '';
             this.log = [];
             this.result = {};
